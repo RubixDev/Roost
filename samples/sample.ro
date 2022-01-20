@@ -1,0 +1,46 @@
+// Line comment
+/| Block comment |/
+
+var name = 'roost'
+var answer = 42;
+var pi = 3.14
+var isThisLanguageGood = false
+var exclusiveRange = 3..10
+var inclusiveRange = 3..=9
+
+printl(name, "not roast")
+printl(answer, 'is always correct')
+printl('Pi is roughly ' + pi)
+if (isThisLanguageGood) {
+    print('impossible')
+} else print('This language is not good\n')
+printl(exclusiveRange, inclusiveRange, exclusiveRange == inclusiveRange)
+
+fun loops(iterations) {
+    var str = ''
+    var i = 0
+    loop {
+        if (i >= iterations) break
+        str += i + ', '
+        i += 1
+    }
+    printl(str)
+
+    str = ''
+    i = 0
+    while (i < iterations) {
+        str += i + ', '
+        i += 1
+    }
+    printl(str)
+
+    str = ''
+    for (i in 0..iterations) {
+        str += i + ', '
+    }
+    printl(str)
+
+    return 42
+}
+
+printl(loops(3))

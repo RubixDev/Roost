@@ -1,0 +1,52 @@
+letter  = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M'
+        | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T' | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z'
+        | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j' | 'k' | 'l' | 'm'
+        | 'n' | 'o' | 'p' | 'q' | 'r' | 's' | 't' | 'u' | 'v' | 'w' | 'x' | 'y' | 'z' ;
+digit   = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
+char    = ? any UTF8 character ? ;
+EOL     = ? LF ? | ';' ;
+EOF     = ? EOF ? ;
+
+bool        = 'true' | 'false' ;
+string      = '"' , { char - '"' } , '"'
+            | "'" , { char - "'" } , "'" ;
+identifier  = letter , { letter | digit | '_' } ;
+number      = digit , { digit } , [ '.' , digit , { digit } ] ;
+range       = expression , '..' , [ '=' ] , expression ;
+
+expression                  = OrExpression , [ '?' , expression , ':' , expression ] ;
+OrExpression                = AndExpression , { '|' , AndExpression } ;
+AndExpression               = EqualityExpression , { '&' , EqualityExpression } ;
+EqualityExpression          = RelationalExpression , { ( '==' | '!=' ) , RelationalExpression } ;
+RelationalExpression        = AdditiveExpression , { ( '<' | '>' | '<=' | '>=' ) , AdditiveExpression } ;
+AdditiveExpression          = MultiplicativeExpression , { ( '+' | '-' ) , MultiplicativeExpression } ;
+MultiplicativeExpression    = UnaryExpression , { ( '*' | '/' ) , UnaryExpression } ;
+UnaryExpression             = ( '+' | '-' | '!' ) , UnaryExpression
+                            | '(' , expression , ')'
+                            | atom ;
+atom                        = number | bool | string | range | identifier | CallExpression | 'null' ;
+Arguments                   = '(' , [ expression , { ',' , expression } ] , ')' ;
+CallExpression              = identifier , Arguments , { '.' , identifier , Arguments } ;
+
+statement           = DeclareStatement
+                    | AssignStatement
+                    | IfStatement
+                    | LoopStatement
+                    | WhileStatement
+                    | ForStatement
+                    | FunctionDeclaration
+                    | expression
+                    | 'break'
+                    | 'continue'
+                    | 'return' , [ expression ] ;
+DeclareStatement    = 'var' , identifier , '=' , expression ;
+AssignStatement     = identifier , ( '=' | '+=' | '-=' | '*=' | '/=' ) , expression ;
+IfStatement         = 'if' , '(' , expression , ')' , block , [ 'else' , block ] ;
+LoopStatement       = 'loop' , block ;
+WhileStatement      = 'while' , '(' , expression , ')' , block ;
+ForStatement        = 'for' , '(' , identifier , 'in' , expression , ')' , block ;
+FunctionDeclaration = 'fun' , identifier , '(' , [ identifier , { ',' , identifier } ] , ')' , block ;
+
+statements  = { EOL } , [ statement , { EOL , { EOL } , statement } ] , { EOL } ;
+block       = '{' , statements , '}' | statement ;
+program     = statements , EOF ;

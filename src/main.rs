@@ -9,7 +9,7 @@ use lexer::Lexer;
 
 fn main() {
     let mut code = String::new();
-    let mut file = std::fs::File::open("samples/sample.ro").unwrap();
+    let mut file = std::fs::File::open("samples/short.ro").unwrap();
     file.read_to_string(&mut code).unwrap();
 
     let mut lexer = Lexer::new(code);

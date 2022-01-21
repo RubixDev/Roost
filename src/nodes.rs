@@ -1,4 +1,5 @@
-use fsize::fsize;
+use bigdecimal::BigDecimal;
+use num_bigint::BigInt;
 
 #[derive(Debug)]
 pub struct Statements { pub statements: Vec<Statement> }
@@ -102,8 +103,8 @@ pub enum Atom {
 }
 #[derive(Debug)]
 pub enum Number {
-    Int(isize),
-    Float(fsize),
+    Int(BigInt),
+    Float(BigDecimal),
 }
 #[derive(Debug)]
 pub struct CallExpression { pub identifier: String, pub args: Vec<Expression>, pub following: Vec<(String, Vec<Expression>)> }

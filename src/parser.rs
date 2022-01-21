@@ -1,6 +1,7 @@
 use core::panic;
+use bigdecimal::BigDecimal;
+use num_bigint::BigInt;
 
-use fsize::fsize;
 use crate::{
     tokens::{Token, TokenType},
     nodes::{
@@ -509,9 +510,9 @@ impl Parser {
         if self.current_token.token_type == TokenType::Number {
             let value = self.current_token.value.clone();
             let number = if value.contains('.') {
-                Number::Float(value.parse::<fsize>().unwrap())
+                Number::Float(value.parse::<BigDecimal>().unwrap())
             } else {
-                Number::Int(value.parse::<isize>().unwrap())
+                Number::Int(value.parse::<BigInt>().unwrap())
             };
             self.advance();
             return Atom::Number(number);

@@ -28,8 +28,10 @@ impl Parser {
     }
 
     fn update_current_token(&mut self) {
-        if self.current_token_index >= self.tokens.len() { return; }
-        self.current_token = self.tokens[self.current_token_index].clone();
+        self.current_token = self.tokens
+            .get(self.current_token_index)
+            .unwrap_or(&Token::new(TokenType::EOF, "", self.current_token.position))
+            .clone();
     }
 
     fn advance(&mut self) {

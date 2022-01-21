@@ -14,9 +14,9 @@ string      = '"' , { char - '"' } , '"'
             | "'" , { char - "'" } , "'" ;
 identifier  = LetterOrUnderscore , { LetterOrUnderscore | digit } ;
 number      = digit , { digit } , [ '.' , digit , { digit } ] ;
-range       = expression , '..' , [ '=' ] , expression ;
 
-expression                  = OrExpression , [ '?' , expression , ':' , expression ] ;
+Expression                  = TernaryExpression , [ ( '..' | '..=' ) , TernaryExpression ] ;
+TernaryExpression           = OrExpression , [ '?' , Expression , ':' , Expression ] ;
 OrExpression                = AndExpression , { '|' , AndExpression } ;
 AndExpression               = EqualityExpression , { '&' , EqualityExpression } ;
 EqualityExpression          = RelationalExpression , { ( '==' | '!=' ) , RelationalExpression } ;
@@ -24,31 +24,34 @@ RelationalExpression        = AdditiveExpression , { ( '<' | '>' | '<=' | '>=' )
 AdditiveExpression          = MultiplicativeExpression , { ( '+' | '-' ) , MultiplicativeExpression } ;
 MultiplicativeExpression    = UnaryExpression , { ( '*' | '/' ) , UnaryExpression } ;
 UnaryExpression             = ( '+' | '-' | '!' ) , UnaryExpression
-                            | '(' , expression , ')'
-                            | atom ;
-atom                        = number | bool | string | range | identifier | CallExpression | 'null' ;
-Arguments                   = '(' , [ expression , { ',' , expression } ] , ')' ;
+                            | '(' , Expression , ')'
+                            | Atom ;
+Atom                        = number | bool | string | identifier | CallExpression | 'null' ;
+Arguments                   = '(' , [ Expression , { ',' , Expression } ] , ')' ;
 CallExpression              = identifier , Arguments , { '.' , identifier , Arguments } ;
 
-statement           = DeclareStatement
+Statement           = DeclareStatement
                     | AssignStatement
                     | IfStatement
                     | LoopStatement
                     | WhileStatement
                     | ForStatement
                     | FunctionDeclaration
-                    | expression
-                    | 'break'
-                    | 'continue'
-                    | 'return' , [ expression ] ;
-DeclareStatement    = 'var' , identifier , '=' , expression ;
-AssignStatement     = identifier , ( '=' | '+=' | '-=' | '*=' | '/=' ) , expression ;
-IfStatement         = 'if' , '(' , expression , ')' , block , [ 'else' , block ] ;
-LoopStatement       = 'loop' , block ;
-WhileStatement      = 'while' , '(' , expression , ')' , block ;
-ForStatement        = 'for' , '(' , identifier , 'in' , expression , ')' , block ;
-FunctionDeclaration = 'fun' , identifier , '(' , [ identifier , { ',' , identifier } ] , ')' , block ;
+                    | Expression
+                    | BreakStatement
+                    | ContinueStatement
+                    | ReturnStatement ;
+DeclareStatement    = 'var' , identifier , '=' , Expression ;
+AssignStatement     = identifier , ( '=' | '+=' | '-=' | '*=' | '/=' ) , Expression ;
+IfStatement         = 'if' , '(' , Expression , ')' , Block , [ 'else' , Block ] ;
+LoopStatement       = 'loop' , Block ;
+WhileStatement      = 'while' , '(' , Expression , ')' , Block ;
+ForStatement        = 'for' , '(' , identifier , 'in' , Expression , ')' , Block ;
+FunctionDeclaration = 'fun' , identifier , '(' , [ identifier , { ',' , identifier } ] , ')' , Block ;
+BreakStatement      = 'break' ;
+ContinueStatement   = 'continue' ;
+ReturnStatement     = 'return' , [ Expression ] ;
 
-statements  = { EOL } , [ statement , { EOL , { EOL } , statement } ] , { EOL } ;
-block       = '{' , statements , '}' | statement ;
-program     = statements , EOF ;
+Statements  = { EOL } , [ Statement , { EOL , { EOL } , Statement } ] , { EOL } ;
+Block       = '{' , Statements , '}' | Statement ;
+Program     = Statements , EOF ;

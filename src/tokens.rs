@@ -1,60 +1,62 @@
 use std::fmt::Debug;
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum TokenType {
-    Keyword,        // built-in keywords like 'true', 'var', or 'print'
-    Identifier,     // variable and function names
+    Keyword,            // built-in keywords like 'true', 'var', or 'print'
+    Identifier,         // variable and function names
 
-    LParen,         // '('
-    RParen,         // ')'
-    LBrace,         // '{'
-    RBrace,         // '}'
+    LParen,             // '('
+    RParen,             // ')'
+    LBrace,             // '{'
+    RBrace,             // '}'
 
-    String,         // string including quotes, token value does not include quotes
-    Number,         // int or float
-    RangeDots,      // '..' or '..='
+    String,             // string including quotes, token value does not include quotes
+    Number,             // int or float
+    RangeDots,          // '..' or '..='
 
-    QuestionMark,   // '?' for ternary operator
-    Colon,          // ':' for ternary operator
-    Or,             // '|'
-    And,            // '&'
-    EQ,             // '=='
-    NEQ,            // '!='
-    LT,             // '<'
-    GT,             // '>'
-    LTE,            // '<='
-    GTE,            // '>='
-    Plus,           // '+'
-    Minus,          // '-'
-    Multiply,       // '*'
-    Divide,         // '/'
-    Not,            // '!'
+    QuestionMark,       // '?' for ternary operator
+    Colon,              // ':' for ternary operator
+    Or,                 // '|'
+    And,                // '&'
+    Equal,              // '=='
+    NotEqual,           // '!='
+    LessThan,           // '<'
+    GreaterThan,        // '>'
+    LessThanOrEqual,    // '<='
+    GreaterThanOrEqual, // '>='
+    Plus,               // '+'
+    Minus,              // '-'
+    Multiply,           // '*'
+    Divide,             // '/'
+    Not,                // '!'
 
-    Assign,         // '='
-    PlusAssign,     // '+='
-    MinusAssign,    // '-='
-    MultiplyAssign, // '*='
-    DivideAssign,   // '/='
+    Assign,             // '='
+    PlusAssign,         // '+='
+    MinusAssign,        // '-='
+    MultiplyAssign,     // '*='
+    DivideAssign,       // '/='
 
-    Comma,          // ','
-    Dot,            // '.'
+    Comma,              // ','
+    Dot,                // '.'
 
-    EOL,            // End Of Line: \n or ';'
-    EOF,            // End Of File
+    EOL,                // End Of Line: \n or ';'
+    EOF,                // End Of File
 }
 
+#[derive(Clone)]
 pub struct Token {
     pub token_type: TokenType,
     pub value: String,
+    pub position: usize,
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, value: &str) -> Token {
-        return Token { token_type, value: String::from(value) };
+    pub fn new(token_type: TokenType, value: &str, position: usize) -> Token {
+        return Token { token_type, value: String::from(value), position };
     }
 
-    pub fn is_type(&self, token_type: TokenType) -> bool {
-        return self.token_type == token_type;
+    pub fn matches(&self, token_type: TokenType, value: &str) -> bool {
+        return self.token_type == token_type && &self.value == value;
     }
 }
 

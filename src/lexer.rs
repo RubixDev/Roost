@@ -9,8 +9,8 @@ const SPACES: [char; 2] = [' ', '\t'];
 
 const SINGLE_CHARS: [char; 11] = ['(', ')', '{', '}', '?', ':', '|', '&', ',', '\n', ';'];
 const OPTIONAL_EQ_CHARS: [char; 7] = ['=', '!', '<', '>', '+', '-', '*'];
-const KEYWORDS: [&str; 15] = ["var", "true", "false", "print", "printl", "if",
-    "else", "fun", "loop", "while", "for", "in", "return", "break", "continue"];
+const KEYWORDS: [&str; 14] = ["var", "true", "false", "if", "null", "else", "fun",
+    "loop", "while", "for", "in", "return", "break", "continue"];
 
 pub struct Lexer {
     input: String,
@@ -50,10 +50,14 @@ impl Lexer {
             } else if LETTERS_AND_UNDERSCORE.contains(&current_char) {
                 tokens.push(self.make_name());
             } else {
-                panic!("Illegal character '{}' at position {}", current_char, self.current_char_index);
+                panic!("SyntaxError at position {}: Illegal character '{}'", self.current_char_index, current_char);
             }
         }
-        tokens.push(Token::new(TokenType::EOF, ""));
+        while self.current_char == None {
+            self.current_char_index -= 1;
+            self.current_char = self.input.chars().nth(self.current_char_index);
+        }
+        tokens.push(Token::new(TokenType::EOF, "", self.current_char_index + 1));
 
         return tokens;
     }
@@ -70,6 +74,7 @@ impl Lexer {
     // ----------------------------------------
 
     fn make_single_char(&mut self) -> Token {
+        let position = self.current_char_index;
         let char = self.current_char.unwrap();
         let token_type = match char {
             '(' => TokenType::LParen,
@@ -85,10 +90,11 @@ impl Lexer {
             _ => panic!(),
         };
         self.advance();
-        return Token::new(token_type, &char.to_string());
+        return Token::new(token_type, &char.to_string(), position);
     }
 
     fn make_string(&mut self) -> Token {
+        let position = self.current_char_index;
         let start_quote = self.current_char;
         let mut string = String::new();
 
@@ -99,10 +105,11 @@ impl Lexer {
         }
         self.advance(); // end quote
 
-        return Token::new(TokenType::String, &string);
+        return Token::new(TokenType::String, &string, position);
     }
 
     fn make_number(&mut self) -> Token {
+        let position = self.current_char_index;
         let mut number = String::new();
         number.push(self.current_char.unwrap());
         self.advance();
@@ -125,30 +132,32 @@ impl Lexer {
             }
         }
 
-        return Token::new(TokenType::Number, &number);
+        return Token::new(TokenType::Number, &number, position);
     }
 
     fn make_dot(&mut self) -> Token {
+        let position = self.current_char_index;
         self.advance();
         if self.current_char != Some('.') {
-            return Token::new(TokenType::Dot, ".");
+            return Token::new(TokenType::Dot, ".", position);
         }
 
         self.advance();
         if self.current_char == Some('=') {
             self.advance();
-            return Token::new(TokenType::RangeDots, "..=");
+            return Token::new(TokenType::RangeDots, "..=", position);
         }
-        return Token::new(TokenType::RangeDots, "..");
+        return Token::new(TokenType::RangeDots, "..", position);
     }
 
     fn make_optional_equal(&mut self) -> Token {
+        let position = self.current_char_index;
         let char = self.current_char.unwrap();
         let token_types = match char {
-            '=' => (TokenType::Assign,   TokenType::EQ            ),
-            '!' => (TokenType::Not,      TokenType::NEQ           ),
-            '<' => (TokenType::LT,       TokenType::LTE           ),
-            '>' => (TokenType::GT,       TokenType::GTE           ),
+            '=' => (TokenType::Assign,   TokenType::Equal            ),
+            '!' => (TokenType::Not,      TokenType::NotEqual           ),
+            '<' => (TokenType::LessThan,       TokenType::LessThanOrEqual           ),
+            '>' => (TokenType::GreaterThan,       TokenType::GreaterThanOrEqual           ),
             '+' => (TokenType::Plus,     TokenType::PlusAssign    ),
             '-' => (TokenType::Minus,    TokenType::MinusAssign   ),
             '*' => (TokenType::Multiply, TokenType::MultiplyAssign),
@@ -157,17 +166,18 @@ impl Lexer {
         self.advance();
         if self.current_char == Some('=') {
             self.advance();
-            return Token::new(token_types.1, &(char.to_string() + "="));
+            return Token::new(token_types.1, &(char.to_string() + "="), position);
         }
-        return Token::new(token_types.0, &char.to_string());
+        return Token::new(token_types.0, &char.to_string(), position);
     }
 
     fn make_slash(&mut self) -> Option<Token> {
+        let position = self.current_char_index;
         self.advance();
         match self.current_char {
             Some('=') => {
                 self.advance();
-                return Some(Token::new(TokenType::DivideAssign, "/="));
+                return Some(Token::new(TokenType::DivideAssign, "/=", position));
             },
             Some('/') => {
                 while ![Some('\n'), None].contains(&self.current_char) {
@@ -188,12 +198,13 @@ impl Lexer {
                 return None;
             },
             _ => {
-                return Some(Token::new(TokenType::Divide, "/"));
+                return Some(Token::new(TokenType::Divide, "/", position));
             }
         }
     }
 
     fn make_name(&mut self) -> Token {
+        let position = self.current_char_index;
         let mut name = String::from(self.current_char.unwrap());
         self.advance();
 
@@ -206,8 +217,8 @@ impl Lexer {
         }
 
         if KEYWORDS.contains(&name.as_str()) {
-            return Token::new(TokenType::Keyword, &name);
+            return Token::new(TokenType::Keyword, &name, position);
         }
-        return Token::new(TokenType::Identifier, &name);
+        return Token::new(TokenType::Identifier, &name, position);
     }
 }

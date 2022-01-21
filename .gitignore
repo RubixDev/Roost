@@ -1,1 +1,4 @@
-/target
+/target/
+
+/ast.txt
+/tokens.txt

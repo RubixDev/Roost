@@ -1,7 +1,39 @@
 use core::panic;
 
 use fsize::fsize;
-use crate::{tokens::{Token, TokenType}, nodes::{Statements, Statement, DeclareStatement, AssignStatement, AssignOperator, IfStatement, LoopStatement, WhileStatement, ForStatement, FunctionDeclaration, ReturnStatement, Expression, OrExpression, AndExpression, EqualityExpression, EqualityOperator, RelationalExpression, RelationalOperator, AdditiveExpression, AdditiveOperator, MultiplicativeExpression, MultiplicativeOperator, UnaryExpression, UnaryOperator, Atom, Number, TernaryExpression, CallExpression}};
+use crate::{
+    tokens::{Token, TokenType},
+    nodes::{
+        Statements,
+        Statement,
+        DeclareStatement,
+        AssignStatement,
+        AssignOperator,
+        IfStatement,
+        LoopStatement,
+        WhileStatement,
+        ForStatement,
+        FunctionDeclaration,
+        ReturnStatement,
+        Expression,
+        OrExpression,
+        AndExpression,
+        EqualityExpression,
+        EqualityOperator,
+        RelationalExpression,
+        RelationalOperator,
+        AdditiveExpression,
+        AdditiveOperator,
+        MultiplicativeExpression,
+        MultiplicativeOperator,
+        UnaryExpression,
+        UnaryOperator,
+        Atom,
+        Number,
+        TernaryExpression,
+        CallExpression,
+    },
+};
 
 pub struct Parser {
     tokens: Vec<Token>,

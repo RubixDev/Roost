@@ -105,6 +105,9 @@ impl Lexer {
         }
         self.advance(); // end quote
 
+        string = string.replace("\\n", "\n")
+            .replace("\\t", "\t")
+            .replace("\\r", "\r");
         return Token::new(TokenType::String, &string, position);
     }
 

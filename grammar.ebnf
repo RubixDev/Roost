@@ -43,7 +43,7 @@ Statement           = DeclareStatement
                     | ReturnStatement ;
 DeclareStatement    = 'var' , identifier , '=' , Expression ;
 AssignStatement     = identifier , ( '=' | '+=' | '-=' | '*=' | '/=' ) , Expression ;
-IfStatement         = 'if' , '(' , Expression , ')' , Block , [ 'else' , Block ] ;
+IfStatement         = 'if' , '(' , Expression , ')' , Block , [ { EOL } , 'else' , Block ] ;
 LoopStatement       = 'loop' , Block ;
 WhileStatement      = 'while' , '(' , Expression , ')' , Block ;
 ForStatement        = 'for' , '(' , identifier , 'in' , Expression , ')' , Block ;
@@ -53,5 +53,5 @@ ContinueStatement   = 'continue' ;
 ReturnStatement     = 'return' , [ Expression ] ;
 
 Statements  = { EOL } , [ Statement , { EOL , { EOL } , Statement } ] , { EOL } ;
-Block       = '{' , Statements , '}' | Statement ;
+Block       = { EOL } , ( '{' , Statements , '}' | Statement ) ;
 Program     = Statements , EOF ;

@@ -119,6 +119,10 @@ impl Parser {
     }
 
     fn block(&mut self) -> Statements {
+        while self.current_token.token_type == TokenType::EOL {
+            self.advance();
+        }
+
         let statements: Vec<Statement>;
         if self.current_token.token_type == TokenType::LBrace {
             self.advance();
@@ -216,12 +220,19 @@ impl Parser {
 
         let block = self.block();
         let else_block: Statements;
+        let saved_index = self.current_token_index;
+
+        while self.current_token.token_type == TokenType::EOL {
+            self.advance();
+        }
 
         if self.current_token.matches(TokenType::Keyword, "else") {
             self.advance();
 
             else_block = self.block();
         } else {
+            self.current_token_index = saved_index;
+            self.update_current_token();
             else_block = Statements { statements: vec![] };
         }
 

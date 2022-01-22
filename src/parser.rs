@@ -386,8 +386,8 @@ impl Parser {
     fn equality_expression(&mut self) -> EqualityExpression {
         let base = self.relational_expression();
 
-        let mut following = vec![];
-        while [
+        let mut other = None;
+        if [
             TokenType::Equal,
             TokenType::NotEqual,
         ].contains(&self.current_token.token_type) {
@@ -398,17 +398,17 @@ impl Parser {
             };
             self.advance();
 
-            following.push((operator, self.relational_expression()));
+            other = Some((operator, self.relational_expression()));
         }
 
-        return EqualityExpression { base, following };
+        return EqualityExpression { base, other };
     }
 
     fn relational_expression(&mut self) -> RelationalExpression {
         let base = self.additive_expression();
 
-        let mut following = vec![];
-        while [
+        let mut other = None;
+        if [
             TokenType::LessThan,
             TokenType::GreaterThan,
             TokenType::LessThanOrEqual,
@@ -423,10 +423,10 @@ impl Parser {
             };
             self.advance();
 
-            following.push((operator, self.additive_expression()));
+            other = Some((operator, self.additive_expression()));
         }
 
-        return RelationalExpression { base, following };
+        return RelationalExpression { base, other };
     }
 
     fn additive_expression(&mut self) -> AdditiveExpression {
@@ -554,20 +554,7 @@ impl Parser {
 
         let args = self.arguments();
 
-        let mut following = vec![];
-        while self.current_token.token_type == TokenType::Dot {
-            self.advance();
-
-            self.panic_expected(TokenType::Identifier, "identifier");
-            let identifier = self.current_token.value.clone();
-            self.advance();
-
-            let args = self.arguments();
-
-            following.push((identifier, args));
-        }
-
-        return CallExpression { identifier, args, following };
+        return CallExpression { identifier, args };
     }
 
     fn arguments(&mut self) -> Vec<Expression> {

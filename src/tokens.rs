@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenType {
     Keyword,            // built-in keywords like 'true', 'var', or 'print'
     Identifier,         // variable and function names
@@ -37,7 +37,6 @@ pub enum TokenType {
     DivideAssign,       // '/='
 
     Comma,              // ','
-    Dot,                // '.'
 
     EOL,                // End Of Line: \n or ';'
     EOF,                // End Of File

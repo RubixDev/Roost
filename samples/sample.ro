@@ -2,14 +2,14 @@
 /| Block comment |/
 
 var name = 'roost'
-var answer = 42;
+var yes = 420;
 var pi = 3.14
 var isThisLanguageGood = false
 var exclusiveRange = 3..10
 var inclusiveRange = 3..=9
 
 printl(name, "not roast")
-printl(answer, 'is always correct')
+printl(answer, 'is always correct and', yes, 'is nice')
 printl('Pi is roughly ' + pi)
 if (isThisLanguageGood) {
     print('impossible')

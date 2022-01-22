@@ -138,8 +138,9 @@ impl Lexer {
     fn make_dot(&mut self) -> Token {
         let position = self.current_char_index;
         self.advance();
+
         if self.current_char != Some('.') {
-            return Token::new(TokenType::Dot, ".", position);
+            panic!("SyntaxError at position {}: Expected '.'", self.current_char_index);
         }
 
         self.advance();

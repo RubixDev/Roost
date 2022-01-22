@@ -19,8 +19,8 @@ Expression                  = TernaryExpression , [ ( '..' | '..=' ) , TernaryEx
 TernaryExpression           = OrExpression , [ '?' , Expression , ':' , Expression ] ;
 OrExpression                = AndExpression , { '|' , AndExpression } ;
 AndExpression               = EqualityExpression , { '&' , EqualityExpression } ;
-EqualityExpression          = RelationalExpression , { ( '==' | '!=' ) , RelationalExpression } ;
-RelationalExpression        = AdditiveExpression , { ( '<' | '>' | '<=' | '>=' ) , AdditiveExpression } ;
+EqualityExpression          = RelationalExpression , [ ( '==' | '!=' ) , RelationalExpression ] ;
+RelationalExpression        = AdditiveExpression , [ ( '<' | '>' | '<=' | '>=' ) , AdditiveExpression ] ;
 AdditiveExpression          = MultiplicativeExpression , { ( '+' | '-' ) , MultiplicativeExpression } ;
 MultiplicativeExpression    = UnaryExpression , { ( '*' | '/' ) , UnaryExpression } ;
 UnaryExpression             = ( '+' | '-' | '!' ) , UnaryExpression
@@ -28,7 +28,7 @@ UnaryExpression             = ( '+' | '-' | '!' ) , UnaryExpression
                             | Atom ;
 Atom                        = number | bool | string | identifier | CallExpression | 'null' ;
 Arguments                   = '(' , [ Expression , { ',' , Expression } ] , ')' ;
-CallExpression              = identifier , Arguments , { '.' , identifier , Arguments } ;
+CallExpression              = identifier , Arguments ;
 
 Statement           = DeclareStatement
                     | AssignStatement

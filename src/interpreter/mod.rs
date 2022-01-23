@@ -41,7 +41,7 @@ use crate::nodes::{
 use self::value::{
     truth::Truth,
     calculative_operations::CalculativeOperations,
-    relational_operations::RelationalOperations,
+    relational_operations::RelationalOperations, Range,
 };
 
 pub struct Interpreter {
@@ -57,7 +57,8 @@ impl Interpreter {
             scopes: vec![HashMap::from([
                 (String::from("print"), Value::BuiltIn),
                 (String::from("printl"), Value::BuiltIn),
-                (String::from("answer"), Value::Int(BigInt::from(42))),
+                (String::from("typeOf"), Value::BuiltIn),
+                (String::from("answer"), Value::Long(BigInt::from(42))),
             ])],
             current_scope_index: 0
         };
@@ -222,28 +223,41 @@ impl Interpreter {
         if result.should_return() { return result; }
         let expression = result.value.clone().unwrap();
 
-        let range = match expression {
-            Value::Range(included, start, end) => {
-                let upper = if included { end + 1u8 } else { end };
-                (start, upper)
+        match expression {
+            Value::Range(range) => match range {
+                Range::Int(included, start, end) => {
+                    let range = if included { start..end + 1 } else { start..end };
+                    for i in range {
+                        self.push_scope();
+                        self.current_scope().insert(node.identifier.clone(), Value::Int(i));
+
+                        result.register(self.visit_statements(&node.block, false));
+                        if result.should_continue { continue; }
+                        if result.should_break { break; }
+                        if result.should_return() { return result; }
+                    }
+                },
+                Range::Long(included, start, end) => {
+                    let range = (start, if included { end + 1u8 } else { end });
+                    let backwards = &range.1 - 1u8 <= range.0;
+                    let iterations = (&range.0 - range.1).abs();
+                    let mut i = BigInt::zero();
+                    while i < iterations {
+                        self.push_scope();
+                        self.current_scope().insert(node.identifier.clone(), Value::Long(
+                            if backwards { &iterations - &i } else { &i + 0 } + &range.0
+                        ));
+
+                        result.register(self.visit_statements(&node.block, false));
+                        if result.should_continue { continue; }
+                        if result.should_break { break; }
+                        if result.should_return() { return result; }
+
+                        i += 1u8;
+                    }
+                },
             },
             _ => panic!("TypeError at position {{}}: Cannot iterate through type {}", type_of(&expression)),
-        };
-        let backwards = &range.1 - 1u8 <= range.0;
-        let iterations = (&range.0 - range.1).abs();
-        let mut i = BigInt::zero();
-        while i < iterations {
-            self.push_scope();
-            self.current_scope().insert(node.identifier.clone(), Value::Int(
-                if backwards { &iterations - &i } else { &i + 0 } + &range.0
-            ));
-
-            result.register(self.visit_statements(&node.block, false));
-            if result.should_continue { continue; }
-            if result.should_break { break; }
-            if result.should_return() { return result; }
-
-            i += 1u8;
         }
 
         result.success(None);
@@ -292,10 +306,16 @@ impl Interpreter {
 
             let range = match val1 {
                 Value::Int(start) => match val2 {
-                    Value::Int(end) => Value::Range(*inclusive, start, end),
-                    _ => panic!("TypeError at position {{}}: Range bounds have to be of type int, got {}", type_of(&val2)),
+                    Value::Int(end) => Value::Range(Range::Int(*inclusive, start, end)),
+                    Value::Long(end) => Value::Range(Range::Long(*inclusive, BigInt::from(start), end)),
+                    _ => panic!("TypeError at position {{}}: Range bounds have to be of type int or long, got {}", type_of(&val2)),
                 },
-                _ => panic!("TypeError at position {{}}: Range bounds have to be of type int, got {}", type_of(&val1)),
+                Value::Long(start) => match val2 {
+                    Value::Int(end) => Value::Range(Range::Long(*inclusive, start, BigInt::from(end))),
+                    Value::Long(end) => Value::Range(Range::Long(*inclusive, start, end)),
+                    _ => panic!("TypeError at position {{}}: Range bounds have to be of type int or long, got {}", type_of(&val2)),
+                },
+                _ => panic!("TypeError at position {{}}: Range bounds have to be of type int or long, got {}", type_of(&val1)),
             };
             result.success(Some(range));
         } else {
@@ -497,7 +517,7 @@ impl Interpreter {
                 let base = result.value.clone().unwrap();
                 let out = match operator {
                     UnaryOperator::Plus  => base,
-                    UnaryOperator::Minus => Value::Int(BigInt::zero()).minus(&base),
+                    UnaryOperator::Minus => Value::Int(0).minus(&base),
                     UnaryOperator::Not   => Value::Bool(base.is_false()),
                 };
                 result.success(Some(out));
@@ -512,8 +532,10 @@ impl Interpreter {
         let mut result = RuntimeResult::new();
         let value =  match node {
             Atom::Number(value) => match value {
-                Number::Int(value)   => Value::Int(value.clone()),
+                Number::Int(value) => Value::Int(value.clone()),
+                Number::Long(value) => Value::Long(value.clone()),
                 Number::Float(value) => Value::Float(value.clone()),
+                Number::Decimal(value) => Value::Decimal(value.clone()),
             },
             Atom::Bool(value) => Value::Bool(value.clone()),
             Atom::String(value) => Value::String(value.clone()),
@@ -547,6 +569,7 @@ impl Interpreter {
                 let value = match node.identifier.as_str() {
                     "print" => built_in::print(args),
                     "printl" => built_in::printl(args),
+                    "typeOf" => built_in::type_of(args),
                     _ => panic!(),
                 };
                 result.success(Some(value));

@@ -15,10 +15,10 @@ bool        = 'true' | 'false' ;
 string      = '"' , { CHAR - '"' } , '"'
             | "'" , { CHAR - "'" } , "'" ;
 identifier  = LETTER_ , { LETTER_ | DIGIT } ;
-number      = DIGIT , { DIGIT } , [ '.' , DIGIT , { DIGIT } ] ;
+number      = DIGIT , { DIGIT } , [ '.' , DIGIT , { DIGIT } ] , [ 'i' , 'l' , 'f' , 'd' ] ;
 
 (* expression nodes *)
-Expression                  = TernaryExpression , [ ( '..' | '..=' ) , TernaryExpression ] ;
+Expression                  = TernaryExpression , [ '..' , [ '=' ] , TernaryExpression ] ;
 TernaryExpression           = OrExpression , [ '?' , Expression , ':' , Expression ] ;
 OrExpression                = AndExpression , { '|' , AndExpression } ;
 AndExpression               = EqualityExpression , { '&' , EqualityExpression } ;

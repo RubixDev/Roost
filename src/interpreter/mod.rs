@@ -467,12 +467,22 @@ impl Interpreter {
         if result.should_return() || result.value == None { return result; }
         let mut base = result.value.clone().unwrap();
 
-        for expression in &node.following {
-            result.register(self.visit_unary_expression(&expression));
+        if !node.following.is_empty() {
+            result.register(self.visit_unary_expression(node.following.last().unwrap()));
             if result.should_return() || result.value == None { return result; }
-            let other = result.value.clone().unwrap();
+            let mut exponent = result.value.clone().unwrap();
+            let mut index = (node.following.len() as isize) - 2;
 
-            base = base.power(&other);
+            while index != -1 {
+                result.register(self.visit_unary_expression(&node.following[index as usize]));
+                if result.should_return() || result.value == None { return result; }
+                let base = result.value.clone().unwrap();
+                exponent = base.power(&exponent);
+
+                index -= 1;
+            }
+
+            base = base.power(&exponent);
         }
 
         result.success(Some(base));

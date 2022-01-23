@@ -138,7 +138,7 @@ impl Interpreter {
 
     fn visit_declare_statement(&mut self, node: &DeclareStatement) -> RuntimeResult {
         let mut result = self.visit_expression(&node.expression);
-        if result.should_return() || result.value == None { return result; }
+        if result.should_return() { return result; }
 
         self.current_scope().insert(node.identifier.clone(), result.value.clone().unwrap());
         result.success(None);
@@ -147,7 +147,7 @@ impl Interpreter {
 
     fn visit_assign_statement(&mut self, node: &AssignStatement) -> RuntimeResult {
         let mut result = self.visit_expression(&node.expression);
-        if result.should_return() || result.value == None { return result; }
+        if result.should_return() { return result; }
         let new_value = result.value.clone().unwrap();
         let value_scope = self.find_var_scope(&node.identifier);
         let value = self.scopes[value_scope][&node.identifier].clone();
@@ -172,7 +172,7 @@ impl Interpreter {
 
     fn visit_if_statement(&mut self, node: &IfStatement) -> RuntimeResult {
         let mut result = self.visit_expression(&node.condition);
-        if result.should_return() || result.value == None { return result; }
+        if result.should_return() { return result; }
         let condition = result.value.clone().unwrap();
 
         if condition.is_true() {
@@ -204,7 +204,7 @@ impl Interpreter {
 
         loop {
             result.register(self.visit_expression(&node.condition));
-            if result.should_return() || result.value == None { return result; }
+            if result.should_return() { return result; }
             if !result.value.clone().unwrap().is_true() { break; }
 
             result.register(self.visit_statements(&node.block, true));
@@ -219,7 +219,7 @@ impl Interpreter {
 
     fn visit_for_statement(&mut self, node: &ForStatement) -> RuntimeResult {
         let mut result = self.visit_expression(&node.expression);
-        if result.should_return() || result.value == None { return result; }
+        if result.should_return() { return result; }
         let expression = result.value.clone().unwrap();
 
         let range = match expression {
@@ -282,12 +282,12 @@ impl Interpreter {
 
     fn visit_expression(&mut self, node: &Expression) -> RuntimeResult {
         let mut result = self.visit_ternary_expression(&*node.base);
-        if result.should_return() || result.value == None { return result; }
+        if result.should_return() { return result; }
         let val1 = result.value.clone().unwrap();
 
         if let Some((inclusive, expression)) = &*node.range {
             result.register(self.visit_ternary_expression(&expression));
-            if result.should_return() || result.value == None { return result; }
+            if result.should_return() { return result; }
             let val2 = result.value.clone().unwrap();
 
             let range = match val1 {
@@ -307,7 +307,7 @@ impl Interpreter {
 
     fn visit_ternary_expression(&mut self, node: &TernaryExpression) -> RuntimeResult {
         let mut result = self.visit_or_expression(&node.base);
-        if result.should_return() || result.value == None { return result; }
+        if result.should_return() { return result; }
         let condition = result.value.clone().unwrap();
 
         if let Some((if_expr, else_expr)) = &node.ternary {
@@ -316,7 +316,7 @@ impl Interpreter {
             } else {
                 result.register(self.visit_expression(&else_expr));
             }
-            if result.should_return() || result.value == None { return result; }
+            if result.should_return() { return result; }
             result.success(result.value.clone());
         } else {
             result.success(Some(condition));
@@ -327,7 +327,7 @@ impl Interpreter {
 
     fn visit_or_expression(&mut self, node: &OrExpression) -> RuntimeResult {
         let mut result = self.visit_and_expression(&node.base);
-        if result.should_return() || result.value == None { return result; }
+        if result.should_return() { return result; }
         let base = result.value.clone().unwrap();
 
         if !node.following.is_empty() {
@@ -337,7 +337,7 @@ impl Interpreter {
             }
             for expression in &node.following {
                 result.register(self.visit_and_expression(&expression));
-                if result.should_return() || result.value == None { return result; }
+                if result.should_return() { return result; }
                 if result.value.clone().unwrap().is_true() {
                     result.success(Some(Value::Bool(true)));
                     return result;
@@ -353,7 +353,7 @@ impl Interpreter {
 
     fn visit_and_expression(&mut self, node: &AndExpression) -> RuntimeResult {
         let mut result = self.visit_equality_expression(&node.base);
-        if result.should_return() || result.value == None { return result; }
+        if result.should_return() { return result; }
         let base = result.value.clone().unwrap();
 
         if !node.following.is_empty() {
@@ -363,7 +363,7 @@ impl Interpreter {
             }
             for expression in &node.following {
                 result.register(self.visit_equality_expression(&expression));
-                if result.should_return() || result.value == None { return result; }
+                if result.should_return() { return result; }
                 if result.value.clone().unwrap().is_false() {
                     result.success(Some(Value::Bool(false)));
                     return result;
@@ -379,12 +379,12 @@ impl Interpreter {
 
     fn visit_equality_expression(&mut self, node: &EqualityExpression) -> RuntimeResult {
         let mut result = self.visit_relational_expression(&node.base);
-        if result.should_return() || result.value == None { return result; }
+        if result.should_return() { return result; }
         let base = result.value.clone().unwrap();
 
         if let Some((operator, expression)) = &node.other {
             result.register(self.visit_relational_expression(&expression));
-            if result.should_return() || result.value == None { return result; }
+            if result.should_return() { return result; }
             let equal = base == result.value.clone().unwrap();
             let out = match operator {
                 EqualityOperator::Equal    =>  equal,
@@ -400,12 +400,12 @@ impl Interpreter {
 
     fn visit_relational_expression(&mut self, node: &RelationalExpression) -> RuntimeResult {
         let mut result = self.visit_additive_expression(&node.base);
-        if result.should_return() || result.value == None { return result; }
+        if result.should_return() { return result; }
         let base = result.value.clone().unwrap();
 
         if let Some((operator, expression)) = &node.other {
             result.register(self.visit_additive_expression(&expression));
-            if result.should_return() || result.value == None { return result; }
+            if result.should_return() { return result; }
             let other = result.value.clone().unwrap();
 
             let out = match operator {
@@ -424,12 +424,12 @@ impl Interpreter {
 
     fn visit_additive_expression(&mut self, node: &AdditiveExpression) -> RuntimeResult {
         let mut result = self.visit_multiplicative_expression(&node.base);
-        if result.should_return() || result.value == None { return result; }
+        if result.should_return() { return result; }
         let mut base = result.value.clone().unwrap();
 
         for (operator, expression) in &node.following {
             result.register(self.visit_multiplicative_expression(&expression));
-            if result.should_return() || result.value == None { return result; }
+            if result.should_return() { return result; }
             let other = result.value.clone().unwrap();
 
             base = match operator {
@@ -444,12 +444,12 @@ impl Interpreter {
 
     fn visit_multiplicative_expression(&mut self, node: &MultiplicativeExpression) -> RuntimeResult {
         let mut result = self.visit_exponential_expression(&node.base);
-        if result.should_return() || result.value == None { return result; }
+        if result.should_return() { return result; }
         let mut base = result.value.clone().unwrap();
 
         for (operator, expression) in &node.following {
             result.register(self.visit_exponential_expression(&expression));
-            if result.should_return() || result.value == None { return result; }
+            if result.should_return() { return result; }
             let other = result.value.clone().unwrap();
 
             base = match operator {
@@ -464,18 +464,18 @@ impl Interpreter {
 
     fn visit_exponential_expression(&mut self, node: &ExponentialExpression) -> RuntimeResult {
         let mut result = self.visit_unary_expression(&node.base);
-        if result.should_return() || result.value == None { return result; }
+        if result.should_return() { return result; }
         let mut base = result.value.clone().unwrap();
 
         if !node.following.is_empty() {
             result.register(self.visit_unary_expression(node.following.last().unwrap()));
-            if result.should_return() || result.value == None { return result; }
+            if result.should_return() { return result; }
             let mut exponent = result.value.clone().unwrap();
             let mut index = (node.following.len() as isize) - 2;
 
             while index != -1 {
                 result.register(self.visit_unary_expression(&node.following[index as usize]));
-                if result.should_return() || result.value == None { return result; }
+                if result.should_return() { return result; }
                 let base = result.value.clone().unwrap();
                 exponent = base.power(&exponent);
 
@@ -493,7 +493,7 @@ impl Interpreter {
         return match node {
             UnaryExpression::Operator(operator, expression) => {
                 let mut result = self.visit_unary_expression(&**expression);
-                if result.should_return() || result.value == None { return result; }
+                if result.should_return() { return result; }
                 let base = result.value.clone().unwrap();
                 let out = match operator {
                     UnaryOperator::Plus  => base,
@@ -521,7 +521,7 @@ impl Interpreter {
             Atom::Identifier(name) => self.find_var(name).clone(),
             Atom::Call(expression) => {
                 result.register(self.visit_call_expression(expression));
-                if result.should_return() || result.value == None { return result; }
+                if result.should_return() { return result; }
                 result.success(result.value.clone());
                 return result;
             },
@@ -540,7 +540,7 @@ impl Interpreter {
                 let mut args: Vec<Value> = vec![];
                 for arg in &node.args {
                     result.register(self.visit_expression(&arg));
-                    if result.should_return() || result.value == None { return result; }
+                    if result.should_return() { return result; }
                     args.push(result.value.clone().unwrap());
                 }
 
@@ -567,7 +567,7 @@ impl Interpreter {
         self.push_scope();
         for (index, arg) in args.iter().enumerate() {
             result.register(self.visit_expression(&node.args[index]));
-            if result.should_return() || result.value == None { return result; }
+            if result.should_return() { return result; }
             self.current_scope().insert(arg.clone(), result.value.clone().unwrap());
         }
         result.register(self.visit_statements(&statements, false));

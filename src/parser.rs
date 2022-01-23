@@ -33,6 +33,7 @@ use crate::{
         Number,
         TernaryExpression,
         CallExpression,
+        ExponentialExpression,
     },
 };
 
@@ -462,7 +463,7 @@ impl Parser {
     }
 
     fn multiplicative_expression(&mut self) -> MultiplicativeExpression {
-        let base = self.unary_expression();
+        let base = self.exponential_expression();
 
         let mut following = vec![];
         while [
@@ -476,10 +477,23 @@ impl Parser {
             };
             self.advance();
 
-            following.push((operator, self.unary_expression()));
+            following.push((operator, self.exponential_expression()));
         }
 
         return MultiplicativeExpression { base, following };
+    }
+
+    fn exponential_expression(&mut self) -> ExponentialExpression {
+        let base = self.unary_expression();
+
+        let mut following = vec![];
+        while self.current_token.token_type == TokenType::Power {
+            self.advance();
+
+            following.push(self.unary_expression());
+        }
+
+        return ExponentialExpression { base, following };
     }
 
     fn unary_expression(&mut self) -> UnaryExpression {

@@ -36,6 +36,7 @@ use crate::nodes::{
     Number,
     TernaryExpression,
     CallExpression,
+    ExponentialExpression,
 };
 use self::value::{
     truth::Truth,
@@ -442,12 +443,12 @@ impl Interpreter {
     }
 
     fn visit_multiplicative_expression(&mut self, node: &MultiplicativeExpression) -> RuntimeResult {
-        let mut result = self.visit_unary_expression(&node.base);
+        let mut result = self.visit_exponential_expression(&node.base);
         if result.should_return() || result.value == None { return result; }
         let mut base = result.value.clone().unwrap();
 
         for (operator, expression) in &node.following {
-            result.register(self.visit_unary_expression(&expression));
+            result.register(self.visit_exponential_expression(&expression));
             if result.should_return() || result.value == None { return result; }
             let other = result.value.clone().unwrap();
 
@@ -455,6 +456,23 @@ impl Interpreter {
                 MultiplicativeOperator::Multiply => base.multiply(&other),
                 MultiplicativeOperator::Divide   => base.divide(&other),
             };
+        }
+
+        result.success(Some(base));
+        return result;
+    }
+
+    fn visit_exponential_expression(&mut self, node: &ExponentialExpression) -> RuntimeResult {
+        let mut result = self.visit_unary_expression(&node.base);
+        if result.should_return() || result.value == None { return result; }
+        let mut base = result.value.clone().unwrap();
+
+        for expression in &node.following {
+            result.register(self.visit_unary_expression(&expression));
+            if result.should_return() || result.value == None { return result; }
+            let other = result.value.clone().unwrap();
+
+            base = base.power(&other);
         }
 
         result.success(Some(base));

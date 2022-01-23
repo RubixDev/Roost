@@ -27,6 +27,7 @@ pub enum TokenType {
     Plus,               // '+'
     Minus,              // '-'
     Multiply,           // '*'
+    Power,              // '**'
     Divide,             // '/'
     Not,                // '!'
 

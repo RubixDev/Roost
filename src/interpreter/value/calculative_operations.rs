@@ -7,6 +7,7 @@ pub trait CalculativeOperations {
     fn minus(&self, other: &Self) -> Self;
     fn multiply(&self, other: &Self) -> Self;
     fn divide(&self, other: &Self) -> Self;
+    fn power(&self, other: &Self) -> Self;
 }
 
 impl CalculativeOperations for Value {
@@ -182,6 +183,56 @@ impl CalculativeOperations for Value {
             },
             _ => panic!(
                 "TypeError at position {{}}: Cannot divide {} by {}",
+                type_of(self),
+                type_of(other),
+            ),
+        }
+    }
+
+    fn power(&self, other: &Self) -> Self {
+        match self {
+            Value::Int(val1) => {
+                match other {
+                    Value::Int(val2) => {
+                        let mut out = val1.clone();
+                        let mut i = BigInt::zero() + 1;
+                        while &i < val2 {
+                            out *= val1;
+                            i += 1;
+                        }
+                        return Value::Int(out);
+                    },
+                    // Value::Float(val2) => {
+                    //     return Value::Float(BigDecimal::from(val1.clone()) / val2);
+                    // },
+                    _ => panic!(
+                        "TypeError at position {{}}: Cannot raise int to {}",
+                        type_of(other),
+                    ),
+                }
+            },
+            Value::Float(val1) => {
+                match other {
+                    Value::Int(val2) => {
+                        let mut out = val1.clone();
+                        let mut i = BigInt::zero() + 1;
+                        while &i < val2 {
+                            out *= val1;
+                            i += 1;
+                        }
+                        return Value::Float(out);
+                    },
+                    // Value::Float(val2) => {
+                    //     return Value::Float(val1 / val2);
+                    // },
+                    _ => panic!(
+                        "TypeError at position {{}}: Cannot raise float to {}",
+                        type_of(other),
+                    ),
+                }
+            },
+            _ => panic!(
+                "TypeError at position {{}}: Cannot raise {} to {}",
                 type_of(self),
                 type_of(other),
             ),

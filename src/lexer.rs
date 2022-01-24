@@ -119,8 +119,8 @@ impl Lexer {
         number.push(self.current_char.unwrap());
         self.advance();
 
-        while self.current_char != None && DIGITS.contains(&self.current_char.unwrap()) {
-            number.push(self.current_char.unwrap());
+        while self.current_char != None && (DIGITS.contains(&self.current_char.unwrap()) || self.current_char.unwrap() == '_') {
+            if self.current_char.unwrap() != '_' { number.push(self.current_char.unwrap()); }
             self.advance();
         }
 
@@ -131,8 +131,8 @@ impl Lexer {
             number.push(next_char.unwrap());
             self.advance();
 
-            while self.current_char != None && DIGITS.contains(&self.current_char.unwrap()) {
-                number.push(self.current_char.unwrap());
+            while self.current_char != None && (DIGITS.contains(&self.current_char.unwrap()) || self.current_char.unwrap() == '_') {
+                if self.current_char.unwrap() != '_' { number.push(self.current_char.unwrap()); }
                 self.advance();
             }
         }

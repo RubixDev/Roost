@@ -2,6 +2,7 @@ pub mod types;
 pub mod calculative_operations;
 pub mod relational_operations;
 pub mod truth;
+pub mod iterator;
 
 use std::fmt::Display;
 use bigdecimal::BigDecimal;

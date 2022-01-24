@@ -3,7 +3,6 @@ mod runtime_result;
 mod built_in;
 
 use std::collections::HashMap;
-use bigdecimal::{Zero, Signed};
 use num_bigint::BigInt;
 use runtime_result::RuntimeResult;
 use value::{Value, types::type_of, types::Type};
@@ -41,7 +40,7 @@ use crate::nodes::{
 use self::value::{
     truth::Truth,
     calculative_operations::CalculativeOperations,
-    relational_operations::RelationalOperations, Range,
+    relational_operations::RelationalOperations, Range, iterator::ToIterator,
 };
 
 pub struct Interpreter {
@@ -223,41 +222,15 @@ impl Interpreter {
         if result.should_return() { return result; }
         let expression = result.value.clone().unwrap();
 
-        match expression {
-            Value::Range(range) => match range {
-                Range::Int(included, start, end) => {
-                    let range = if included { start..end + 1 } else { start..end };
-                    for i in range {
-                        self.push_scope();
-                        self.current_scope().insert(node.identifier.clone(), Value::Int(i));
+        let mut iter = expression.to_iter();
+        while let Some(i) = iter.next() {
+            self.push_scope();
+            self.current_scope().insert(node.identifier.clone(), i.clone());
 
-                        result.register(self.visit_statements(&node.block, false));
-                        if result.should_continue { continue; }
-                        if result.should_break { break; }
-                        if result.should_return() { return result; }
-                    }
-                },
-                Range::Long(included, start, end) => {
-                    let range = (start, if included { end + 1u8 } else { end });
-                    let backwards = &range.1 - 1u8 <= range.0;
-                    let iterations = (&range.0 - range.1).abs();
-                    let mut i = BigInt::zero();
-                    while i < iterations {
-                        self.push_scope();
-                        self.current_scope().insert(node.identifier.clone(), Value::Long(
-                            if backwards { &iterations - &i } else { &i + 0 } + &range.0
-                        ));
-
-                        result.register(self.visit_statements(&node.block, false));
-                        if result.should_continue { continue; }
-                        if result.should_break { break; }
-                        if result.should_return() { return result; }
-
-                        i += 1u8;
-                    }
-                },
-            },
-            _ => panic!("TypeError at position {{}}: Cannot iterate through type {}", type_of(&expression)),
+            result.register(self.visit_statements(&node.block, false));
+            if result.should_continue { continue; }
+            if result.should_break { break; }
+            if result.should_return() { return result; }
         }
 
         result.success(None);

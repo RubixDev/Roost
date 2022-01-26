@@ -14,7 +14,7 @@ impl CalculativeOperations for Value {
         match self {
             Value::Number(val1) => {
                 match other {
-                    Value::Number(val2) => { return Value::Number(val1 + val2); },
+                    Value::Number(val2) => { return Value::Number((val1 + val2).normalize()); },
                     Value::String(val2) => { return Value::String(self.to_string() + val2); },
                     _ => panic!("TypeError at position {{}}: Cannot add {} to {}", type_of(self), type_of(other)),
                 }
@@ -33,7 +33,7 @@ impl CalculativeOperations for Value {
         match self {
             Value::Number(val1) => {
                 match other {
-                    Value::Number(val2) => { return Value::Number(val1 - val2); },
+                    Value::Number(val2) => { return Value::Number((val1 - val2).normalize()); },
                     _ => panic!("TypeError at position {{}}: Cannot subtract {} from {}", type_of(other), type_of(self)),
                 }
             },
@@ -45,7 +45,7 @@ impl CalculativeOperations for Value {
         match self {
             Value::Number(val1) => {
                 match other {
-                    Value::Number(val2) => { return Value::Number(val1 * val2); },
+                    Value::Number(val2) => { return Value::Number((val1 * val2).normalize()); },
                     _ => { return other.multiply(self) },
                 }
             },
@@ -82,7 +82,7 @@ impl CalculativeOperations for Value {
                 match other {
                     Value::Number(val2) => {
                         if val2.is_zero() { panic!("DivisionByZeroError at position {{}}: Cannot divide by zero"); }
-                        return Value::Number(val1 / val2);
+                        return Value::Number((val1 / val2).normalize());
                     },
                     _ => panic!("TypeError at position {{}}: Cannot divide {} by {}", type_of(self), type_of(other)),
                 }
@@ -95,7 +95,7 @@ impl CalculativeOperations for Value {
         match self {
             Value::Number(val1) => {
                 match other {
-                    Value::Number(val2) => { return Value::Number(val1.powd(*val2)) },
+                    Value::Number(val2) => { return Value::Number(val1.powd(*val2).normalize()) },
                     _ => panic!("TypeError at position {{}}: Cannot raise {} by {}", type_of(self), type_of(other)),
                 }
             },

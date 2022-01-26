@@ -508,6 +508,7 @@ impl Parser {
                 TokenType::Not   => UnaryOperator::Not,
                 _ => panic!(),
             };
+            self.advance();
             return UnaryExpression::Operator(operator, Box::new(self.unary_expression()));
         }
 

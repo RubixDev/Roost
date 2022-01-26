@@ -6,5 +6,4 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bigdecimal = "0.3.0"
-num-bigint = "0.4.3"
+rust_decimal = { version = "1.20.0", features = ["maths"] }

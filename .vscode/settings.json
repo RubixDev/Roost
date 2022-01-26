@@ -1,9 +1,6 @@
 {
     "cSpell.words": [
-        "bigdecimal",
-        "biguint",
-        "fsize",
-        "powf",
+        "powd",
         "printl"
     ]
 }

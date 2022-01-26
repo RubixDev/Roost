@@ -137,11 +137,6 @@ impl Lexer {
             }
         }
 
-        if self.current_char != None && ['i', 'l', 'f', 'd'].contains(&self.current_char.unwrap()) {
-            number.push(self.current_char.unwrap());
-            self.advance();
-        }
-
         return Token::new(TokenType::Number, &number, position);
     }
 

@@ -3,10 +3,7 @@ use super::Value;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Type {
-    Int,
-    Long,
-    Float,
-    Decimal,
+    Number,
     Bool,
     String,
     Range,
@@ -18,10 +15,7 @@ pub enum Type {
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", match self {
-            Type::Int      => "int",
-            Type::Long     => "long",
-            Type::Float    => "float",
-            Type::Decimal  => "decimal",
+            Type::Number   => "number",
             Type::Bool     => "bool",
             Type::String   => "string",
             Type::Range    => "range",
@@ -34,13 +28,10 @@ impl Display for Type {
 
 pub fn type_of(value: &Value) -> Type {
     return match value {
-        Value::Int(_)         => Type::Int,
-        Value::Long(_)        => Type::Long,
-        Value::Float(_)       => Type::Float,
-        Value::Decimal(_)     => Type::Decimal,
+        Value::Number(_)      => Type::Number,
         Value::Bool(_)        => Type::Bool,
         Value::String(_)      => Type::String,
-        Value::Range(_)       => Type::Range,
+        Value::Range(_, _)    => Type::Range,
         Value::Function(_, _)
         | Value::BuiltIn      => Type::Function,
         Value::Null           => Type::Null,

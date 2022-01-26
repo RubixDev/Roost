@@ -1,13 +1,19 @@
 for (i in 0..10) print(i + ', ')
 printl()
 
-for (i in 0l..10l) print(i + ', ')
-printl()
-
 for (i in 10..0) print(i + ', ')
 printl()
 
-for (i in 10l..0l) print(i + ', ')
+for (i in 0..0) print(i + ', ')
+printl()
+
+for (i in 0..=10) print(i + ', ')
+printl()
+
+for (i in 10..=0) print(i + ', ')
+printl()
+
+for (i in 0..=0) print(i + ', ')
 printl()
 
 for (i in 'Hallo') print(i + ', ')

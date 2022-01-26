@@ -3,8 +3,8 @@ mod runtime_result;
 mod built_in;
 
 use std::collections::HashMap;
-use num_bigint::BigInt;
 use runtime_result::RuntimeResult;
+use rust_decimal::Decimal;
 use value::{Value, types::type_of, types::Type};
 use crate::nodes::{
     Statements,
@@ -32,7 +32,6 @@ use crate::nodes::{
     UnaryExpression,
     UnaryOperator,
     Atom,
-    Number,
     TernaryExpression,
     CallExpression,
     ExponentialExpression,
@@ -40,7 +39,7 @@ use crate::nodes::{
 use self::value::{
     truth::Truth,
     calculative_operations::CalculativeOperations,
-    relational_operations::RelationalOperations, Range, iterator::ToIterator,
+    relational_operations::RelationalOperations, iterator::ToIterator,
 };
 
 pub struct Interpreter {
@@ -57,7 +56,7 @@ impl Interpreter {
                 (String::from("print"), Value::BuiltIn),
                 (String::from("printl"), Value::BuiltIn),
                 (String::from("typeOf"), Value::BuiltIn),
-                (String::from("answer"), Value::Long(BigInt::from(42))),
+                (String::from("answer"), Value::Number(Decimal::from(42))),
             ])],
             current_scope_index: 0
         };
@@ -277,18 +276,36 @@ impl Interpreter {
             if result.should_return() { return result; }
             let val2 = result.value.clone().unwrap();
 
+            // let range = match val1 {
+            //     Value::Int(start) => match val2 {
+            //         Value::Int(end) => Value::Range(Range::Int(*inclusive, start, end)),
+            //         Value::Long(end) => Value::Range(Range::Long(*inclusive, BigInt::from(start), end)),
+            //         _ => panic!("TypeError at position {{}}: Range bounds have to be of type int or long, got {}", type_of(&val2)),
+            //     },
+            //     Value::Long(start) => match val2 {
+            //         Value::Int(end) => Value::Range(Range::Long(*inclusive, start, BigInt::from(end))),
+            //         Value::Long(end) => Value::Range(Range::Long(*inclusive, start, end)),
+            //         _ => panic!("TypeError at position {{}}: Range bounds have to be of type int or long, got {}", type_of(&val2)),
+            //     },
+            //     _ => panic!("TypeError at position {{}}: Range bounds have to be of type int or long, got {}", type_of(&val1)),
+            // };
             let range = match val1 {
-                Value::Int(start) => match val2 {
-                    Value::Int(end) => Value::Range(Range::Int(*inclusive, start, end)),
-                    Value::Long(end) => Value::Range(Range::Long(*inclusive, BigInt::from(start), end)),
-                    _ => panic!("TypeError at position {{}}: Range bounds have to be of type int or long, got {}", type_of(&val2)),
+                Value::Number(start) => match val2 {
+                    Value::Number(end) => {
+                        if !start.fract().is_zero() || !end.fract().is_zero() {
+                            panic!("ValueError at position {{}}: Range bounds have to be integers");
+                        }
+                        if !inclusive && start != end {
+                            if start > end {
+                                Value::Range(start, end + Decimal::ONE)
+                            } else {
+                                Value::Range(start, end - Decimal::ONE)
+                            }
+                        } else { Value::Range(start, end) }
+                    },
+                    _ => panic!("TypeError at position {{}}: Range bounds have to be of type number, got {}", type_of(&val1)),
                 },
-                Value::Long(start) => match val2 {
-                    Value::Int(end) => Value::Range(Range::Long(*inclusive, start, BigInt::from(end))),
-                    Value::Long(end) => Value::Range(Range::Long(*inclusive, start, end)),
-                    _ => panic!("TypeError at position {{}}: Range bounds have to be of type int or long, got {}", type_of(&val2)),
-                },
-                _ => panic!("TypeError at position {{}}: Range bounds have to be of type int or long, got {}", type_of(&val1)),
+                _ => panic!("TypeError at position {{}}: Range bounds have to be of type number, got {}", type_of(&val1)),
             };
             result.success(Some(range));
         } else {
@@ -490,7 +507,7 @@ impl Interpreter {
                 let base = result.value.clone().unwrap();
                 let out = match operator {
                     UnaryOperator::Plus  => base,
-                    UnaryOperator::Minus => Value::Int(0).minus(&base),
+                    UnaryOperator::Minus => Value::Number(Decimal::ZERO).minus(&base),
                     UnaryOperator::Not   => Value::Bool(base.is_false()),
                 };
                 result.success(Some(out));
@@ -504,12 +521,7 @@ impl Interpreter {
     fn visit_atom(&mut self, node: &Atom) -> RuntimeResult {
         let mut result = RuntimeResult::new();
         let value =  match node {
-            Atom::Number(value) => match value {
-                Number::Int(value) => Value::Int(value.clone()),
-                Number::Long(value) => Value::Long(value.clone()),
-                Number::Float(value) => Value::Float(value.clone()),
-                Number::Decimal(value) => Value::Decimal(value.clone()),
-            },
+            Atom::Number(value) => Value::Number(value.clone()),
             Atom::Bool(value) => Value::Bool(value.clone()),
             Atom::String(value) => Value::String(value.clone()),
             Atom::Null => Value::Null,

@@ -1,6 +1,5 @@
 use core::panic;
-use bigdecimal::BigDecimal;
-use num_bigint::BigInt;
+use rust_decimal::Decimal;
 
 use crate::{
     tokens::{Token, TokenType},
@@ -30,7 +29,6 @@ use crate::{
         UnaryExpression,
         UnaryOperator,
         Atom,
-        Number,
         TernaryExpression,
         CallExpression,
         ExponentialExpression,
@@ -535,26 +533,7 @@ impl Parser {
 
         if self.current_token.token_type == TokenType::Number {
             let value = self.current_token.value.clone();
-            let number = match value.chars().last() {
-                Some('i') => Number::Int    (value[..value.len() - 1].parse::<i64>().unwrap()),
-                Some('l') => Number::Long   (value[..value.len() - 1].parse::<BigInt>().unwrap()),
-                Some('f') => Number::Float  (value[..value.len() - 1].parse::<f64>().unwrap()),
-                Some('d') => Number::Decimal(value[..value.len() - 1].parse::<BigDecimal>().unwrap()),
-                _ => if value.contains('.') {
-                    if let Ok(num) = value.parse::<f64>() {
-                        Number::Float(num)
-                    } else { Number::Decimal(value.parse::<BigDecimal>().unwrap()) }
-                } else {
-                    if let Ok(num) = value.parse::<i64>() {
-                        Number::Int(num)
-                    } else { Number::Long(value.parse::<BigInt>().unwrap()) }
-                },
-            };
-            // let number = if value.contains('.') {
-            //     Number::Decimal(value.parse::<BigDecimal>().unwrap())
-            // } else {
-            //     Number::Long(value.parse::<BigInt>().unwrap())
-            // };
+            let number = value.parse::<Decimal>().unwrap();
             self.advance();
             return Atom::Number(number);
         }

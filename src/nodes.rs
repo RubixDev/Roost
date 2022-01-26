@@ -1,5 +1,4 @@
-use bigdecimal::BigDecimal;
-use num_bigint::BigInt;
+use rust_decimal::Decimal;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Statements { pub statements: Vec<Statement> }
@@ -96,19 +95,12 @@ pub enum UnaryExpression {
 }
 #[derive(Debug, PartialEq, Clone)]
 pub enum Atom {
-    Number(Number),
+    Number(Decimal),
     Bool(bool),
     String(String),
     Identifier(String),
     Call(CallExpression),
     Null,
-}
-#[derive(Debug, PartialEq, Clone)]
-pub enum Number {
-    Int(i64),
-    Long(BigInt),
-    Float(f64),
-    Decimal(BigDecimal),
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct CallExpression { pub identifier: String, pub args: Vec<Expression> }

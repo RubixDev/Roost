@@ -78,9 +78,7 @@ pub enum MultiplicativeOperator {
     Divide,   // /
 }
 #[derive(Debug, PartialEq, Clone)]
-pub struct MultiplicativeExpression { pub base: ExponentialExpression, pub following: Vec<(MultiplicativeOperator, ExponentialExpression)> }
-#[derive(Debug, PartialEq, Clone)]
-pub struct ExponentialExpression { pub base: UnaryExpression, pub following: Vec<UnaryExpression> }
+pub struct MultiplicativeExpression { pub base: UnaryExpression, pub following: Vec<(MultiplicativeOperator, UnaryExpression)> }
 #[derive(Debug, PartialEq, Clone)]
 pub enum UnaryOperator {
     Plus,  // +
@@ -90,9 +88,10 @@ pub enum UnaryOperator {
 #[derive(Debug, PartialEq, Clone)]
 pub enum UnaryExpression {
     Operator(UnaryOperator, Box<UnaryExpression>),
-    Expression(Expression),
-    Atom(Atom),
+    Power(Box<ExponentialExpression>),
 }
+#[derive(Debug, PartialEq, Clone)]
+pub struct ExponentialExpression { pub base: Atom, pub exponent: Option<UnaryExpression> }
 #[derive(Debug, PartialEq, Clone)]
 pub enum Atom {
     Number(Decimal),
@@ -101,6 +100,7 @@ pub enum Atom {
     Identifier(String),
     Call(CallExpression),
     Null,
+    Expression(Expression),
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct CallExpression { pub identifier: String, pub args: Vec<Expression> }

@@ -25,12 +25,17 @@ AndExpression               = EqualityExpression , { '&' , EqualityExpression } 
 EqualityExpression          = RelationalExpression , [ ( '==' | '!=' ) , RelationalExpression ] ;
 RelationalExpression        = AdditiveExpression , [ ( '<' | '>' | '<=' | '>=' ) , AdditiveExpression ] ;
 AdditiveExpression          = MultiplicativeExpression , { ( '+' | '-' ) , MultiplicativeExpression } ;
-MultiplicativeExpression    = ExponentialExpression , { ( '*' | '/' ) , ExponentialExpression } ;
-ExponentialExpression       = UnaryExpression , { '**' , UnaryExpression } ;
+MultiplicativeExpression    = UnaryExpression , { ( '*' | '/' ) , UnaryExpression } ;
 UnaryExpression             = ( '+' | '-' | '!' ) , UnaryExpression
-                            | '(' , Expression , ')'
-                            | Atom ;
-Atom                        = number | bool | string | identifier | CallExpression | 'null' ;
+                            | ExponentialExpression ;
+ExponentialExpression       = Atom , [ '**' , UnaryExpression ] ;
+Atom                        = number
+                            | bool
+                            | string
+                            | identifier
+                            | CallExpression
+                            | 'null'
+                            | '(' , Expression , ')' ;
 Arguments                   = '(' , [ Expression , { ',' , Expression } ] , ')' ;
 CallExpression              = identifier , Arguments ;
 

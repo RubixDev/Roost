@@ -453,12 +453,12 @@ impl Interpreter {
     }
 
     fn visit_multiplicative_expression(&mut self, node: &MultiplicativeExpression) -> RuntimeResult {
-        let mut result = self.visit_exponential_expression(&node.base);
+        let mut result = self.visit_unary_expression(&node.base);
         if result.should_return() { return result; }
         let mut base = result.value.clone().unwrap();
 
         for (operator, expression) in &node.following {
-            result.register(self.visit_exponential_expression(&expression));
+            result.register(self.visit_unary_expression(&expression));
             if result.should_return() { return result; }
             let other = result.value.clone().unwrap();
 
@@ -466,33 +466,6 @@ impl Interpreter {
                 MultiplicativeOperator::Multiply => base.multiply(&other),
                 MultiplicativeOperator::Divide   => base.divide(&other),
             };
-        }
-
-        result.success(Some(base));
-        return result;
-    }
-
-    fn visit_exponential_expression(&mut self, node: &ExponentialExpression) -> RuntimeResult {
-        let mut result = self.visit_unary_expression(&node.base);
-        if result.should_return() { return result; }
-        let mut base = result.value.clone().unwrap();
-
-        if !node.following.is_empty() {
-            result.register(self.visit_unary_expression(node.following.last().unwrap()));
-            if result.should_return() { return result; }
-            let mut exponent = result.value.clone().unwrap();
-            let mut index = (node.following.len() as isize) - 2;
-
-            while index != -1 {
-                result.register(self.visit_unary_expression(&node.following[index as usize]));
-                if result.should_return() { return result; }
-                let base = result.value.clone().unwrap();
-                exponent = base.power(&exponent);
-
-                index -= 1;
-            }
-
-            base = base.power(&exponent);
         }
 
         result.success(Some(base));
@@ -513,9 +486,25 @@ impl Interpreter {
                 result.success(Some(out));
                 return result;
             },
-            UnaryExpression::Expression(expression) => self.visit_expression(expression),
-            UnaryExpression::Atom(atom) => self.visit_atom(atom),
+            UnaryExpression::Power(expression) => self.visit_exponential_expression(expression),
         };
+    }
+
+    fn visit_exponential_expression(&mut self, node: &ExponentialExpression) -> RuntimeResult {
+        let mut result = self.visit_atom(&node.base);
+        if result.should_return() { return result; }
+        let mut base = result.value.clone().unwrap();
+
+        if let Some(exponent) = &node.exponent {
+            result.register(self.visit_unary_expression(exponent));
+            if result.should_return() { return result; }
+            let exponent = result.value.clone().unwrap();
+
+            base = base.power(&exponent);
+        }
+
+        result.success(Some(base));
+        return result;
     }
 
     fn visit_atom(&mut self, node: &Atom) -> RuntimeResult {
@@ -528,6 +517,12 @@ impl Interpreter {
             Atom::Identifier(name) => self.find_var(name).clone(),
             Atom::Call(expression) => {
                 result.register(self.visit_call_expression(expression));
+                if result.should_return() { return result; }
+                result.success(result.value.clone());
+                return result;
+            },
+            Atom::Expression(expression) => {
+                result.register(self.visit_expression(expression));
                 if result.should_return() { return result; }
                 result.success(result.value.clone());
                 return result;

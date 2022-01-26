@@ -461,7 +461,7 @@ impl Parser {
     }
 
     fn multiplicative_expression(&mut self) -> MultiplicativeExpression {
-        let base = self.exponential_expression();
+        let base = self.unary_expression();
 
         let mut following = vec![];
         while [
@@ -475,23 +475,10 @@ impl Parser {
             };
             self.advance();
 
-            following.push((operator, self.exponential_expression()));
+            following.push((operator, self.unary_expression()));
         }
 
         return MultiplicativeExpression { base, following };
-    }
-
-    fn exponential_expression(&mut self) -> ExponentialExpression {
-        let base = self.unary_expression();
-
-        let mut following = vec![];
-        while self.current_token.token_type == TokenType::Power {
-            self.advance();
-
-            following.push(self.unary_expression());
-        }
-
-        return ExponentialExpression { base, following };
     }
 
     fn unary_expression(&mut self) -> UnaryExpression {
@@ -510,18 +497,20 @@ impl Parser {
             return UnaryExpression::Operator(operator, Box::new(self.unary_expression()));
         }
 
-        if self.current_token.token_type == TokenType::LParen {
+        return UnaryExpression::Power(Box::new(self.exponential_expression()));
+    }
+
+    fn exponential_expression(&mut self) -> ExponentialExpression {
+        let base = self.atom();
+
+        let mut exponent = None;
+        if self.current_token.token_type == TokenType::Power {
             self.advance();
 
-            let expression = self.expression();
-
-            self.panic_expected(TokenType::RParen, "')'");
-            self.advance();
-
-            return UnaryExpression::Expression(expression);
+            exponent = Some(self.unary_expression())
         }
 
-        return UnaryExpression::Atom(self.atom());
+        return ExponentialExpression { base, exponent };
     }
 
     fn atom(&mut self) -> Atom {
@@ -563,6 +552,17 @@ impl Parser {
             }
 
             return Atom::Identifier(value);
+        }
+
+        if self.current_token.token_type == TokenType::LParen {
+            self.advance();
+
+            let expression = self.expression();
+
+            self.panic_expected(TokenType::RParen, "')'");
+            self.advance();
+
+            return Atom::Expression(expression);
         }
 
         panic!("SyntaxError at position {}: Expected expression, found '{}'", self.current_token.position, self.current_token.value);

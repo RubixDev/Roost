@@ -19,7 +19,7 @@ fn main() {
     let end_read = start_total.elapsed();
     let start = std::time::Instant::now();
 
-    let mut lexer = Lexer::new(code);
+    let mut lexer = Lexer::new(&code);
     let tokens = lexer.scan();
     file = std::fs::File::create("tokens.txt").unwrap();
     write!(file, "{:#?}", tokens).unwrap();
@@ -27,7 +27,7 @@ fn main() {
     let end_lex = start.elapsed();
     let start = std::time::Instant::now();
 
-    let mut parser = Parser::new(tokens);
+    let mut parser = Parser::new(&tokens);
     let ast = parser.parse();
     file = std::fs::File::create("ast.txt").unwrap();
     write!(file, "{:#?}", ast).unwrap();

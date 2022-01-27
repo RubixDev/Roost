@@ -44,3 +44,6 @@ fun loops(iterations) {
 }
 
 printl(loops(3))
+
+if (42)
+    printl('yep')

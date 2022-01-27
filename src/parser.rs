@@ -1,4 +1,5 @@
 use core::panic;
+use std::slice::Iter;
 use rust_decimal::Decimal;
 
 use crate::{
@@ -35,54 +36,47 @@ use crate::{
     },
 };
 
-pub struct Parser {
-    tokens: Vec<Token>,
+pub struct Parser<'a> {
+    tokens: Iter<'a, Token>,
     current_token: Token,
-    current_token_index: usize,
 }
 
-impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Parser {
-        let first_token = tokens[0].clone();
+impl <'a> Parser<'a> {
+    pub fn new(tokens: &'a Vec<Token>) -> Self {
         return Parser {
-            tokens,
-            current_token: first_token,
-            current_token_index: 0,
+            tokens: tokens.iter(),
+            current_token: Token::new(TokenType::EOF, "EOF"),
         };
     }
 
     pub fn parse(&mut self) -> Statements {
+        self.advance();
         let statements = self.statements();
         if self.current_token.token_type != TokenType::EOF {
-            panic!("SyntaxError at position {}: Expected EOF", self.current_token.position)
+            panic!("SyntaxError at position {{}}: Expected EOF")
         }
         return statements;
     }
 
-    fn update_current_token(&mut self) {
-        self.current_token = self.tokens
-            .get(self.current_token_index)
-            .unwrap_or(&Token::new(TokenType::EOF, "", self.current_token.position))
-            .clone();
-    }
-
     fn advance(&mut self) {
-        self.current_token_index += 1;
-        self.update_current_token();
+        self.current_token = self.tokens
+            .next()
+            .unwrap_or(&Token::new(TokenType::EOF, "EOF"))
+            .clone();
     }
 
     fn next_token(&self) -> Token {
         return self.tokens
-            .get(self.current_token_index + 1)
-            .unwrap_or(&Token::new(TokenType::EOF, "", self.current_token.position))
+            .clone()
+            .next()
+            .unwrap_or(&Token::new(TokenType::EOF, "EOF"))
             .clone();
     }
 
     fn panic_expected(&self, token_type: TokenType, name: &str) {
         if self.current_token.token_type != token_type {
             panic!(
-                "SyntaxError at position {}: Expected {}, found '{}'",
-                self.current_token.position,
+                "SyntaxError at position {{}}: Expected {}, found '{}'",
                 name,
                 self.current_token.value,
             )
@@ -101,7 +95,7 @@ impl Parser {
             statements.push(self.statement());
             loop {
                 if self.current_token.token_type != TokenType::EOL {
-                    panic!("SyntaxError at position {}: ';' or line break expected, found '{}'", self.current_token.position, self.current_token.value)
+                    panic!("SyntaxError at position {{}}: ';' or line break expected, found '{}'", self.current_token.value)
                 }
                 while self.current_token.token_type == TokenType::EOL {
                     self.advance();
@@ -219,19 +213,22 @@ impl Parser {
 
         let block = self.block();
         let else_block: Statements;
-        let saved_index = self.current_token_index;
 
-        while self.current_token.token_type == TokenType::EOL {
-            self.advance();
+        let mut tokens = self.tokens.clone();
+        let mut current_token = self.current_token.clone();
+        let mut count = 0;
+
+        while current_token.token_type == TokenType::EOL {
+            current_token = tokens.next().unwrap_or(&Token::new(TokenType::EOF, "EOF")).clone();
+            count += 1;
         }
 
         if self.current_token.matches(TokenType::Keyword, "else") {
+            for _ in 0..count { self.advance(); }
             self.advance();
 
             else_block = self.block();
         } else {
-            self.current_token_index = saved_index;
-            self.update_current_token();
             else_block = Statements { statements: vec![] };
         }
 
@@ -565,7 +562,7 @@ impl Parser {
             return Atom::Expression(expression);
         }
 
-        panic!("SyntaxError at position {}: Expected expression, found '{}'", self.current_token.position, self.current_token.value);
+        panic!("SyntaxError at position {{}}: Expected expression, found '{}'", self.current_token.value);
     }
 
     fn call_expression(&mut self) -> CallExpression {

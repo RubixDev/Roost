@@ -47,12 +47,11 @@ pub enum TokenType {
 pub struct Token {
     pub token_type: TokenType,
     pub value: String,
-    pub position: usize,
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, value: &str, position: usize) -> Token {
-        return Token { token_type, value: String::from(value), position };
+    pub fn new(token_type: TokenType, value: &str) -> Token {
+        return Token { token_type, value: String::from(value) };
     }
 
     pub fn matches(&self, token_type: TokenType, value: &str) -> bool {

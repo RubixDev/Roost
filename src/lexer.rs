@@ -1,3 +1,5 @@
+use std::str::Chars;
+
 use crate::tokens::{Token, TokenType};
 
 const DIGITS: [char; 10] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
@@ -12,23 +14,21 @@ const OPTIONAL_EQ_CHARS: [char; 6] = ['=', '!', '<', '>', '+', '-'];
 const KEYWORDS: [&str; 14] = ["var", "true", "false", "if", "null", "else", "fun",
     "loop", "while", "for", "in", "return", "break", "continue"];
 
-pub struct Lexer {
-    input: String,
+pub struct Lexer<'a> {
+    input: Chars<'a>,
     current_char: Option<char>,
-    current_char_index: usize, // TODO: Position "class" with line and column
 }
 
-impl Lexer {
-    pub fn new(input: String) -> Lexer {
-        let first_char = input.chars().nth(0);
+impl <'a> Lexer<'a> {
+    pub fn new(input: &'a String) -> Self {
         return Lexer {
-            input,
-            current_char: first_char,
-            current_char_index: 0,
+            input: input.chars(),
+            current_char: None,
         };
     }
 
     pub fn scan(&mut self) -> Vec<Token> {
+        self.advance();
         let mut tokens: Vec<Token> = vec![];
 
         while let Some(current_char) = self.current_char {
@@ -52,31 +52,25 @@ impl Lexer {
             } else if LETTERS_AND_UNDERSCORE.contains(&current_char) {
                 tokens.push(self.make_name());
             } else {
-                panic!("SyntaxError at position {}: Illegal character '{}'", self.current_char_index, current_char);
+                panic!("SyntaxError at position {{}}: Illegal character '{}'", current_char);
             }
         }
-        while self.current_char == None {
-            self.current_char_index -= 1;
-            self.current_char = self.input.chars().nth(self.current_char_index);
-        }
-        tokens.push(Token::new(TokenType::EOF, "", self.current_char_index + 1));
+        tokens.push(Token::new(TokenType::EOF, "EOF"));
 
         return tokens;
     }
 
-    fn next_char(&self) -> Option<char> {
-        return self.input.chars().nth(self.current_char_index + 1);
+    fn advance(&mut self) {
+        self.current_char = self.input.next();
     }
 
-    fn advance(&mut self) {
-        self.current_char_index += 1;
-        self.current_char = self.input.chars().nth(self.current_char_index);
+    fn next_char(&self) -> Option<char> {
+        return self.input.clone().next();
     }
 
     // ----------------------------------------
 
     fn make_single_char(&mut self) -> Token {
-        let position = self.current_char_index;
         let char = self.current_char.unwrap();
         let token_type = match char {
             '(' => TokenType::LParen,
@@ -92,11 +86,10 @@ impl Lexer {
             _ => panic!(),
         };
         self.advance();
-        return Token::new(token_type, &char.to_string(), position);
+        return Token::new(token_type, &char.to_string());
     }
 
     fn make_string(&mut self) -> Token {
-        let position = self.current_char_index;
         let start_quote = self.current_char;
         let mut string = String::new();
 
@@ -110,11 +103,10 @@ impl Lexer {
         string = string.replace("\\n", "\n")
             .replace("\\t", "\t")
             .replace("\\r", "\r");
-        return Token::new(TokenType::String, &string, position);
+        return Token::new(TokenType::String, &string);
     }
 
     fn make_number(&mut self) -> Token {
-        let position = self.current_char_index;
         let mut number = String::new();
         number.push(self.current_char.unwrap());
         self.advance();
@@ -137,27 +129,25 @@ impl Lexer {
             }
         }
 
-        return Token::new(TokenType::Number, &number, position);
+        return Token::new(TokenType::Number, &number);
     }
 
     fn make_dot(&mut self) -> Token {
-        let position = self.current_char_index;
         self.advance();
 
         if self.current_char != Some('.') {
-            panic!("SyntaxError at position {}: Expected '.'", self.current_char_index);
+            panic!("SyntaxError at position {{}}: Expected '.'");
         }
 
         self.advance();
         if self.current_char == Some('=') {
             self.advance();
-            return Token::new(TokenType::RangeDots, "..=", position);
+            return Token::new(TokenType::RangeDots, "..=");
         }
-        return Token::new(TokenType::RangeDots, "..", position);
+        return Token::new(TokenType::RangeDots, "..");
     }
 
     fn make_optional_equal(&mut self) -> Token {
-        let position = self.current_char_index;
         let char = self.current_char.unwrap();
         let token_types = match char {
             '=' => (TokenType::Assign,      TokenType::Equal             ),
@@ -171,28 +161,26 @@ impl Lexer {
         self.advance();
         if self.current_char == Some('=') {
             self.advance();
-            return Token::new(token_types.1, &(char.to_string() + "="), position);
+            return Token::new(token_types.1, &(char.to_string() + "="));
         }
-        return Token::new(token_types.0, &char.to_string(), position);
+        return Token::new(token_types.0, &char.to_string());
     }
 
     fn make_star(&mut self) -> Token {
-        let position = self.current_char_index;
         self.advance();
         if self.current_char == Some('*') {
             self.advance();
-            return Token::new(TokenType::Power, "**", position);
+            return Token::new(TokenType::Power, "**");
         }
-        return Token::new(TokenType::Multiply, "*", position);
+        return Token::new(TokenType::Multiply, "*");
     }
 
     fn make_slash(&mut self) -> Option<Token> {
-        let position = self.current_char_index;
         self.advance();
         match self.current_char {
             Some('=') => {
                 self.advance();
-                return Some(Token::new(TokenType::DivideAssign, "/=", position));
+                return Some(Token::new(TokenType::DivideAssign, "/="));
             },
             Some('/') => {
                 while ![Some('\n'), None].contains(&self.current_char) {
@@ -213,13 +201,12 @@ impl Lexer {
                 return None;
             },
             _ => {
-                return Some(Token::new(TokenType::Divide, "/", position));
+                return Some(Token::new(TokenType::Divide, "/"));
             }
         }
     }
 
     fn make_name(&mut self) -> Token {
-        let position = self.current_char_index;
         let mut name = String::from(self.current_char.unwrap());
         self.advance();
 
@@ -232,8 +219,8 @@ impl Lexer {
         }
 
         if KEYWORDS.contains(&name.as_str()) {
-            return Token::new(TokenType::Keyword, &name, position);
+            return Token::new(TokenType::Keyword, &name);
         }
-        return Token::new(TokenType::Identifier, &name, position);
+        return Token::new(TokenType::Identifier, &name);
     }
 }

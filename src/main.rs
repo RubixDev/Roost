@@ -1,5 +1,19 @@
-use std::io::{Read, Write};
+use std::{io::{Read, Write}, time::Instant, fs::File};
+use structopt::StructOpt;
 use roost::{lexer::Lexer, parser::Parser, interpreter::Interpreter};
+
+/// Command line interpreter for the roost language
+#[derive(StructOpt)]
+#[structopt(author)]
+struct Roost {
+    /// File to run
+    #[structopt()]
+    file: String,
+
+    /// Measure and display the time of execution
+    #[structopt(short, long)]
+    time: bool,
+}
 
 macro_rules! exit {
     ($error:expr, $code:expr) => {{
@@ -32,49 +46,58 @@ macro_rules! exit {
 }
 
 fn main() {
-    let start_total = std::time::Instant::now();
-    let filename = std::env::args().skip(1).next().unwrap_or(String::from("samples/sample.ro"));
+    let cli = Roost::from_args();
+
+    let start_total = Instant::now();
 
     let mut code = String::new();
-    let mut file = std::fs::File::open(&filename).unwrap();
-    file.read_to_string(&mut code).unwrap();
+    let mut file = File::open(&cli.file).unwrap_or_else(|e| {
+        eprintln!("\x1b[31mCould not read file \x1b[1m{}\x1b[22m: {}\x1b[0m", cli.file, e);
+        std::process::exit(2);
+    });
+    file.read_to_string(&mut code).unwrap_or_else(|e| {
+        eprintln!("\x1b[31mCould not read file \x1b[1m{}\x1b[22m: {}\x1b[0m", cli.file, e);
+        std::process::exit(3);
+    });
 
     let end_read = start_total.elapsed();
-    let start = std::time::Instant::now();
+    let start = Instant::now();
 
-    let mut lexer = Lexer::new(&code, filename);
+    let mut lexer = Lexer::new(&code, cli.file);
     let tokens = match lexer.scan() {
         Ok(tokens) => tokens,
         Err(e) => exit!(e, code),
     };
-    file = std::fs::File::create("tokens.txt").unwrap();
+    file = File::create("tokens.txt").unwrap();
     write!(file, "{:#?}", tokens).unwrap();
 
     let end_lex = start.elapsed();
-    let start = std::time::Instant::now();
+    let start = Instant::now();
 
     let mut parser = Parser::new(&tokens);
     let nodes = match parser.parse() {
         Ok(nodes) => nodes,
         Err(e) => exit!(e, code),
     };
-    file = std::fs::File::create("nodes.txt").unwrap();
+    file = File::create("nodes.txt").unwrap();
     write!(file, "{:#?}", nodes).unwrap();
 
     let end_parse = start.elapsed();
-    let start = std::time::Instant::now();
+    let start = Instant::now();
 
     let mut interpreter = Interpreter::new(nodes, |m| print!("{}", m));
     interpreter.run().unwrap_or_else(|e| exit!(e, code));
 
     let end_run = start.elapsed();
     let end = start_total.elapsed();
-    println!(
-        "\n\nRead File: {:?}\nScan tokens: {:?}\nParse AST: {:?}\nRun: {:?}\nTotal: {:?}",
-        end_read,
-        end_lex,
-        end_parse,
-        end_run,
-        end,
-    );
+    if cli.time {
+        println!(
+            "\n\x1b[36m-----------------------\n{: <15} {:?}\n{: <15} {:?}\n{: <15} {:?}\n{: <15} {:?}\n{: <15} {:?}\x1b[0m",
+            "Read File:",   end_read,
+            "Scan tokens:", end_lex,
+            "Parse AST:",   end_parse,
+            "Run:",         end_run,
+            "Total:",       end,
+        );
+    }
 }

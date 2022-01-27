@@ -161,7 +161,7 @@ impl Interpreter {
         let old_type = type_of(&value);
         let new_type = type_of(&new_value);
         if old_type != Type::Null && new_type != Type::Null && old_type != new_type {
-            error!(TypeError, node.location.clone(), "Expected type '{}', got '{}'", old_type, new_type);
+            error!(TypeError, node.location.clone(), "Cannot assign type '{}' to '{}'", new_type, old_type);
         }
 
         self.scopes[value_scope].insert(node.identifier.clone(), match node.operator {

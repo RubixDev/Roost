@@ -1,7 +1,6 @@
 use core::panic;
 use std::slice::Iter;
-use rust_decimal::Decimal;
-
+use rust_decimal::{Decimal, Error};
 use crate::{
     tokens::{Token, TokenType},
     error::{Result, Location},
@@ -549,7 +548,15 @@ impl <'a> Parser<'a> {
 
         if self.current_token.token_type == TokenType::Number {
             let value = self.current_token.value.clone();
-            let number = value.parse::<Decimal>().unwrap();
+            let number = match value.parse::<Decimal>() {
+                Ok(value) => value,
+                Err(e) => match e {
+                    Error::ErrorString(message) => error!(ValueError, start_location, "{}", message),
+                    Error::ExceedsMaximumPossibleValue => error!(ValueError, start_location, "Value too high"),
+                    Error::LessThanMinimumPossibleValue => error!(ValueError, start_location, "Value too low"),
+                    Error::ScaleExceedsMaximumPrecision(_) => error!(ValueError, start_location, "Value too precise"),
+                },
+            };
             self.advance();
             return Ok(Atom::Number(number));
         }

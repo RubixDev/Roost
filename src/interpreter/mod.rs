@@ -53,10 +53,11 @@ pub struct Interpreter {
     start_node: Statements,
     scopes: Vec<HashMap<String, Value>>,
     current_scope_index: usize,
+    print_callback: fn(String),
 }
 
 impl Interpreter {
-    pub fn new(start_node: Statements) -> Self {
+    pub fn new(start_node: Statements, print_callback: fn(String)) -> Self {
         return Interpreter {
             start_node,
             scopes: vec![HashMap::from([
@@ -65,7 +66,8 @@ impl Interpreter {
                 (String::from("typeOf"), Value::BuiltIn),
                 (String::from("answer"), Value::Number(Decimal::from(42))),
             ])],
-            current_scope_index: 0
+            current_scope_index: 0,
+            print_callback,
         };
     }
 
@@ -543,8 +545,8 @@ impl Interpreter {
                 }
 
                 let value = match node.identifier.as_str() {
-                    "print" => built_in::print(args),
-                    "printl" => built_in::printl(args),
+                    "print" => built_in::print(args, self.print_callback),
+                    "printl" => built_in::printl(args, self.print_callback),
                     "typeOf" => built_in::type_of(args, node.location.clone()),
                     _ => panic!(),
                 }?;

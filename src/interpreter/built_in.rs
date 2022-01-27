@@ -1,15 +1,15 @@
 use super::value::Value;
 use crate::error::{Result, Location};
 
-pub fn print(args: Vec<Value>) -> Result<Value> {
+pub fn print(args: Vec<Value>, callback: fn(String)) -> Result<Value> {
     let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
-    print!("{}", args.join(" "));
+    callback(args.join(" "));
     return Ok(Value::Void);
 }
 
-pub fn printl(args: Vec<Value>) -> Result<Value> {
+pub fn printl(args: Vec<Value>, callback: fn(String)) -> Result<Value> {
     let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
-    println!("{}", args.join(" "));
+    callback(args.join(" ") + "\n");
     return Ok(Value::Void);
 }
 

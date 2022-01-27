@@ -1,15 +1,5 @@
-#[macro_use]
-mod error;
-mod tokens;
-mod lexer;
-mod parser;
-mod nodes;
-mod interpreter;
-
 use std::io::{Read, Write};
-use interpreter::Interpreter;
-use parser::Parser;
-use lexer::Lexer;
+use roost::{lexer::Lexer, parser::Parser, interpreter::Interpreter};
 
 macro_rules! exit {
     ($error:expr, $code:expr) => {{
@@ -74,7 +64,7 @@ fn main() {
     let end_parse = start.elapsed();
     let start = std::time::Instant::now();
 
-    let mut interpreter = Interpreter::new(nodes);
+    let mut interpreter = Interpreter::new(nodes, |m| print!("{}", m));
     interpreter.run().unwrap_or_else(|e| exit!(e, code));
 
     let end_run = start.elapsed();

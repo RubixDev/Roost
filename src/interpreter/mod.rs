@@ -88,7 +88,7 @@ impl Interpreter {
                 return Ok(self.scopes[scope].get(name).unwrap());
             }
             if scope == 0 {
-                error!(ReferenceError, location, "Variable or function with name `{}` not found", name);
+                error!(ReferenceError, location, "Variable or function with name '{}' not found", name);
             }
             scope -= 1;
         }
@@ -155,7 +155,7 @@ impl Interpreter {
         let old_type = type_of(&value);
         let new_type = type_of(&new_value);
         if old_type != Type::Null && new_type != Type::Null && old_type != new_type {
-            error!(TypeError, node.location.clone(), "Expected type `{}`, got `{}`", old_type, new_type);
+            error!(TypeError, node.location.clone(), "Expected type '{}', got '{}'", old_type, new_type);
         }
 
         self.scopes[value_scope].insert(node.identifier.clone(), match node.operator {

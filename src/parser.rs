@@ -46,7 +46,7 @@ macro_rules! syntax {
 macro_rules! expected {
     ($self:ident, $token_type:ident, $name:expr) => {
         if $self.current_token.token_type != TokenType::$token_type {
-            error!(SyntaxError, $self.current_token.location.clone(), "Expected {}, found `{}`", $name, $self.current_token.value);
+            error!(SyntaxError, $self.current_token.location.clone(), "Expected {}, found '{}'", $name, $self.current_token.value);
         }
     };
 }
@@ -101,7 +101,7 @@ impl <'a> Parser<'a> {
             statements.push(self.statement()?);
             loop {
                 if self.current_token.token_type != TokenType::EOL {
-                    syntax!(self, "Expected `;` or line break, found `{}`", self.current_token.value);
+                    syntax!(self, "Expected ';' or line break, found '{}'", self.current_token.value);
                 }
                 while self.current_token.token_type == TokenType::EOL {
                     self.advance();
@@ -129,7 +129,7 @@ impl <'a> Parser<'a> {
 
             statements = self.statements()?.statements;
 
-            expected!(self, RBrace, "`}`");
+            expected!(self, RBrace, "'}'");
             self.advance();
         } else {
             statements = vec![self.statement()?];
@@ -181,7 +181,7 @@ impl <'a> Parser<'a> {
         let identifier = self.current_token.value.clone();
         self.advance();
 
-        expected!(self, Assign, "`=`");
+        expected!(self, Assign, "'='");
         self.advance();
 
         let expression = self.expression()?;
@@ -213,12 +213,12 @@ impl <'a> Parser<'a> {
         let start_location = self.current_token.location.clone();
         self.advance();
 
-        expected!(self, LParen, "`(`");
+        expected!(self, LParen, "'('");
         self.advance();
 
         let condition = self.expression()?;
 
-        expected!(self, RParen, "`)`");
+        expected!(self, RParen, "')'");
         self.advance();
 
         let block = self.block()?;
@@ -258,12 +258,12 @@ impl <'a> Parser<'a> {
         let start_location = self.current_token.location.clone();
         self.advance();
 
-        expected!(self, LParen, "`(`");
+        expected!(self, LParen, "'('");
         self.advance();
 
         let condition = self.expression()?;
 
-        expected!(self, RParen, "`)`");
+        expected!(self, RParen, "')'");
         self.advance();
 
         let block = self.block()?;
@@ -275,7 +275,7 @@ impl <'a> Parser<'a> {
         let start_location = self.current_token.location.clone();
         self.advance();
 
-        expected!(self, LParen, "`(`");
+        expected!(self, LParen, "'('");
         self.advance();
 
         expected!(self, Identifier, "identifier");
@@ -283,13 +283,13 @@ impl <'a> Parser<'a> {
         self.advance();
 
         if !self.current_token.matches(TokenType::Keyword, "in") {
-            expected!(self, EOF, "`in`");
+            expected!(self, EOF, "'in'");
         }
         self.advance();
 
         let expression = self.expression()?;
 
-        expected!(self, RParen, "`)`");
+        expected!(self, RParen, "')'");
         self.advance();
 
         let block = self.block()?;
@@ -305,7 +305,7 @@ impl <'a> Parser<'a> {
         let identifier = self.current_token.value.clone();
         self.advance();
 
-        expected!(self, LParen, "`(`");
+        expected!(self, LParen, "'('");
         self.advance();
 
         let mut params: Vec<String> = vec![];
@@ -323,7 +323,7 @@ impl <'a> Parser<'a> {
             }
         }
 
-        expected!(self, RParen, "`)`");
+        expected!(self, RParen, "')'");
         self.advance();
 
         let block = self.block()?;
@@ -371,7 +371,7 @@ impl <'a> Parser<'a> {
 
             let ternary_if = self.expression()?;
 
-            expected!(self, Colon, "`:`");
+            expected!(self, Colon, "':'");
             self.advance();
 
             let ternary_else = self.expression()?;
@@ -586,13 +586,13 @@ impl <'a> Parser<'a> {
 
             let expression = self.expression()?;
 
-            expected!(self, RParen, "`)`");
+            expected!(self, RParen, "')'");
             self.advance();
 
             return Ok(Atom::Expression(expression));
         }
 
-        syntax!(self, "Expected expression, found `{}`", self.current_token.value);
+        syntax!(self, "Expected expression, found '{}'", self.current_token.value);
     }
 
     fn call_expression(&mut self) -> Result<CallExpression> {
@@ -619,7 +619,7 @@ impl <'a> Parser<'a> {
             }
         }
 
-        expected!(self, RParen, "`)`");
+        expected!(self, RParen, "')'");
         self.advance();
 
         return Ok(args);

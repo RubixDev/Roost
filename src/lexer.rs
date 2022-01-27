@@ -54,7 +54,7 @@ impl <'a> Lexer<'a> {
             } else if LETTERS_AND_UNDERSCORE.contains(&current_char) {
                 tokens.push(self.make_name());
             } else {
-                error!(SyntaxError, self.location.clone(), "Illegal character `{}`", current_char);
+                error!(SyntaxError, self.location.clone(), "Illegal character '{}'", current_char);
             }
         }
         tokens.push(Token::new(TokenType::EOF, "EOF", self.location.clone()));
@@ -151,9 +151,9 @@ impl <'a> Lexer<'a> {
 
         if self.current_char != Some('.') {
             if let Some(current_char) = self.current_char {
-                error!(SyntaxError, self.location.clone(), "Expected `.`, got `{}`", current_char);
+                error!(SyntaxError, self.location.clone(), "Expected '.', got '{}'", current_char);
             }
-            error!(SyntaxError, self.location.clone(), "Expected `.`");
+            error!(SyntaxError, self.location.clone(), "Expected '.'");
         }
 
         self.advance();

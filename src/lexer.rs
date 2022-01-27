@@ -8,7 +8,7 @@ const LETTERS_AND_UNDERSCORE: [char; 53] = ['A', 'a', 'B', 'b', 'C', 'c', 'D',
     's', 'T', 't', 'U', 'u', 'V', 'v', 'W', 'w', 'X', 'x', 'Y', 'y', 'Z', 'z', '_'];
 const SPACES: [char; 2] = [' ', '\t'];
 
-const SINGLE_CHARS: [char; 11] = ['(', ')', '{', '}', '?', ':', '|', '&', ',', '\n', ';'];
+const SINGLE_CHARS: [char; 13] = ['(', ')', '{', '}', '?', ':', '|', '&', ',', '\n', ';', '%', '\\'];
 const OPTIONAL_EQ_CHARS: [char; 6] = ['=', '!', '<', '>', '+', '-'];
 const KEYWORDS: [&str; 14] = ["var", "true", "false", "if", "null", "else", "fun",
     "loop", "while", "for", "in", "return", "break", "continue"];
@@ -79,16 +79,18 @@ impl <'a> Lexer<'a> {
         let start_location = self.location.clone();
         let char = self.current_char.unwrap();
         let token_type = match char {
-            '(' => TokenType::LParen,
-            ')' => TokenType::RParen,
-            '{' => TokenType::LBrace,
-            '}' => TokenType::RBrace,
-            '?' => TokenType::QuestionMark,
-            ':' => TokenType::Colon,
-            '|' => TokenType::Or,
-            '&' => TokenType::And,
-            ',' => TokenType::Comma,
+            '('  => TokenType::LParen,
+            ')'  => TokenType::RParen,
+            '{'  => TokenType::LBrace,
+            '}'  => TokenType::RBrace,
+            '?'  => TokenType::QuestionMark,
+            ':'  => TokenType::Colon,
+            '|'  => TokenType::Or,
+            '&'  => TokenType::And,
+            ','  => TokenType::Comma,
             '\n' | ';' => TokenType::EOL,
+            '%'  => TokenType::Modulo,
+            '\\' => TokenType::IntDivide,
             _ => panic!(),
         };
         self.advance();

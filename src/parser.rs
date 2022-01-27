@@ -486,10 +486,14 @@ impl <'a> Parser<'a> {
         while [
             TokenType::Multiply,
             TokenType::Divide,
+            TokenType::Modulo,
+            TokenType::IntDivide,
         ].contains(&self.current_token.token_type) {
             let operator = match self.current_token.token_type {
-                TokenType::Multiply => MultiplicativeOperator::Multiply,
-                TokenType::Divide   => MultiplicativeOperator::Divide,
+                TokenType::Multiply  => MultiplicativeOperator::Multiply,
+                TokenType::Divide    => MultiplicativeOperator::Divide,
+                TokenType::Modulo    => MultiplicativeOperator::Modulo,
+                TokenType::IntDivide => MultiplicativeOperator::IntDivide,
                 _ => panic!(),
             };
             self.advance();

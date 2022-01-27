@@ -25,7 +25,7 @@ AndExpression               = EqualityExpression , { '&' , EqualityExpression } 
 EqualityExpression          = RelationalExpression , [ ( '==' | '!=' ) , RelationalExpression ] ;
 RelationalExpression        = AdditiveExpression , [ ( '<' | '>' | '<=' | '>=' ) , AdditiveExpression ] ;
 AdditiveExpression          = MultiplicativeExpression , { ( '+' | '-' ) , MultiplicativeExpression } ;
-MultiplicativeExpression    = UnaryExpression , { ( '*' | '/' ) , UnaryExpression } ;
+MultiplicativeExpression    = UnaryExpression , { ( '*' | '/' | '%' | '\' ) , UnaryExpression } ;
 UnaryExpression             = ( '+' | '-' | '!' ) , UnaryExpression
                             | ExponentialExpression ;
 ExponentialExpression       = Atom , [ '**' , UnaryExpression ] ;

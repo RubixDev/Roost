@@ -30,6 +30,8 @@ pub enum TokenType {
     Multiply,           // '*'
     Power,              // '**'
     Divide,             // '/'
+    Modulo,             // '%'
+    IntDivide,          // '\'
     Not,                // '!'
 
     Assign,             // '='

@@ -140,8 +140,10 @@ pub struct AdditiveExpression {
 }
 #[derive(Debug, PartialEq, Clone)]
 pub enum MultiplicativeOperator {
-    Multiply, // *
-    Divide,   // /
+    Multiply,  // *
+    Divide,    // /
+    Modulo,    // %
+    IntDivide, // \
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct MultiplicativeExpression {

@@ -8,6 +8,8 @@ pub trait CalculativeOperations {
     fn multiply(&self, other: &Value, location: Location) -> Result<Value>;
     fn divide(&self, other: &Value, location: Location) -> Result<Value>;
     fn power(&self, other: &Value, location: Location) -> Result<Value>;
+    fn modulo(&self, other: &Value, location: Location) -> Result<Value>;
+    fn int_divide(&self, other: &Value, location: Location) -> Result<Value>;
 }
 
 impl CalculativeOperations for Value {
@@ -116,6 +118,39 @@ impl CalculativeOperations for Value {
                 }
             },
             _ => error!(TypeError, location, "Cannot raise {} by {}", type_of(self), type_of(other)),
+        }
+    }
+
+    fn modulo(&self, other: &Self, location: Location) -> Result<Value> {
+        match self {
+            Value::Number(val1) => {
+                match other {
+                    Value::Number(val2) => {
+                        if val2.is_zero() { error!(DivisionByZeroError, location, "Cannot divide by zero"); }
+                        return Ok(Value::Number((val1 % val2).normalize()))
+                    },
+                    _ => error!(TypeError, location, "Cannot raise {} by {}", type_of(self), type_of(other)),
+                }
+            },
+            _ => error!(TypeError, location, "Cannot raise {} by {}", type_of(self), type_of(other)),
+        }
+    }
+
+    fn int_divide(&self, other: &Value, location: Location) -> Result<Value> {
+        match self {
+            Value::Number(val1) => {
+                match other {
+                    Value::Number(val2) => {
+                        if val2.is_zero() { error!(DivisionByZeroError, location, "Cannot divide by zero"); }
+                        return Ok(Value::Number((match val1.checked_div(*val2) {
+                            Some(result) => result,
+                            None => error!(OverflowError, location, "Division resulted in overflow"),
+                        }).trunc().normalize()));
+                    },
+                    _ => error!(TypeError, location, "Cannot divide {} by {}", type_of(self), type_of(other)),
+                }
+            },
+            _ => error!(TypeError, location, "Cannot divide {} by {}", type_of(self), type_of(other)),
         }
     }
 }

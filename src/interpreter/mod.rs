@@ -451,8 +451,10 @@ impl Interpreter {
             let other = result.value.clone().unwrap();
 
             base = match operator {
-                MultiplicativeOperator::Multiply => base.multiply(&other, node.location.clone()),
-                MultiplicativeOperator::Divide   => base.divide(&other, node.location.clone()),
+                MultiplicativeOperator::Multiply  => base.multiply(&other, node.location.clone()),
+                MultiplicativeOperator::Divide    => base.divide(&other, node.location.clone()),
+                MultiplicativeOperator::Modulo    => base.modulo(&other, node.location.clone()),
+                MultiplicativeOperator::IntDivide => base.int_divide(&other, node.location.clone()),
             }?;
         }
 

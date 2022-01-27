@@ -1,5 +1,5 @@
 use super::value::Value;
-use crate::error::Result;
+use crate::error::{Result, Location};
 
 pub fn print(args: Vec<Value>) -> Result<Value> {
     let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
@@ -13,10 +13,11 @@ pub fn printl(args: Vec<Value>) -> Result<Value> {
     return Ok(Value::Void);
 }
 
-pub fn type_of(args: Vec<Value>) -> Result<Value> {
+pub fn type_of(args: Vec<Value>, location: Location) -> Result<Value> {
     if args.len() != 1 {
         error!(
             TypeError,
+            location,
             "Function 'typeOf' takes 1 argument, however {} were supplied",
             args.len(),
         );

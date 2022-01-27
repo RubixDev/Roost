@@ -1,13 +1,13 @@
 use rust_decimal::{prelude::{ToPrimitive, FromPrimitive}, Decimal};
 use super::{Value, types::type_of};
-use crate::error::Result;
+use crate::error::{Result, Location};
 
 pub trait ToIterator where Self: Sized {
-    fn to_iter(&self) -> Result<Iterator>;
+    fn to_iter(&self, location: Location) -> Result<Iterator>;
 }
 
 impl ToIterator for Value {
-    fn to_iter(&self) -> Result<Iterator> {
+    fn to_iter(&self, location: Location) -> Result<Iterator> {
         match self {
             Value::String(value) => { return Ok(Iterator::from(value)); },
             Value::Range(start, end) => {
@@ -16,7 +16,7 @@ impl ToIterator for Value {
                 if start > end { vec.reverse(); }
                 return Ok(Iterator::new(vec));
             },
-            _ => error!(TypeError, "Cannot iterate over type {}", type_of(self)),
+            _ => error!(TypeError, location, "Cannot iterate over type {}", type_of(self)),
         }
     }
 }

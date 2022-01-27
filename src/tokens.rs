@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use crate::error::Location;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenType {
@@ -47,15 +48,24 @@ pub enum TokenType {
 pub struct Token {
     pub token_type: TokenType,
     pub value: String,
+    pub location: Location,
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, value: &str) -> Token {
-        return Token { token_type, value: String::from(value) };
+    pub fn new(token_type: TokenType, value: &str, location: Location) -> Self {
+        return Token { token_type, value: String::from(value), location };
     }
 
     pub fn matches(&self, token_type: TokenType, value: &str) -> bool {
         return self.token_type == token_type && &self.value == value;
+    }
+
+    pub fn dummy() -> Self {
+        return Token {
+            token_type: TokenType::EOF,
+            value: String::from("EOF"),
+            location: Location::new(String::new()),
+        };
     }
 }
 

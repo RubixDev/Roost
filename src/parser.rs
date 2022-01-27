@@ -4,7 +4,7 @@ use rust_decimal::Decimal;
 
 use crate::{
     tokens::{Token, TokenType},
-    error::Result,
+    error::{Result, Location},
     nodes::{
         Statements,
         Statement,
@@ -37,10 +37,16 @@ use crate::{
     },
 };
 
+macro_rules! syntax {
+    ($self:ident, $($arg:tt)*) => {
+        error!(SyntaxError, $self.current_token.location.clone(), $($arg)*)
+    };
+}
+
 macro_rules! expected {
     ($self:ident, $token_type:ident, $name:expr) => {
         if $self.current_token.token_type != TokenType::$token_type {
-            error!(SyntaxError, "Expected {}, found `{}`", $name, $self.current_token.value);
+            error!(SyntaxError, $self.current_token.location.clone(), "Expected {}, found `{}`", $name, $self.current_token.value);
         }
     };
 }
@@ -54,7 +60,7 @@ impl <'a> Parser<'a> {
     pub fn new(tokens: &'a Vec<Token>) -> Self {
         return Parser {
             tokens: tokens.iter(),
-            current_token: Token::new(TokenType::EOF, "EOF"),
+            current_token: Token::dummy(),
         };
     }
 
@@ -62,7 +68,7 @@ impl <'a> Parser<'a> {
         self.advance();
         let statements = self.statements()?;
         if self.current_token.token_type != TokenType::EOF {
-            error!(SyntaxError, "Expected EOF");
+            syntax!(self, "Expected EOF");
         }
         return Ok(statements);
     }
@@ -70,7 +76,7 @@ impl <'a> Parser<'a> {
     fn advance(&mut self) {
         self.current_token = self.tokens
             .next()
-            .unwrap_or(&Token::new(TokenType::EOF, "EOF"))
+            .unwrap_or(&Token::dummy())
             .clone();
     }
 
@@ -78,13 +84,14 @@ impl <'a> Parser<'a> {
         return self.tokens
             .clone()
             .next()
-            .unwrap_or(&Token::new(TokenType::EOF, "EOF"))
+            .unwrap_or(&Token::dummy())
             .clone();
     }
 
     // ---------------------------------------
 
     fn statements(&mut self) -> Result<Statements> {
+        let start_location = self.current_token.location.clone();
         while self.current_token.token_type == TokenType::EOL {
             self.advance()
         }
@@ -94,7 +101,7 @@ impl <'a> Parser<'a> {
             statements.push(self.statement()?);
             loop {
                 if self.current_token.token_type != TokenType::EOL {
-                    error!(SyntaxError, "Expected `;` or line break expected, found `{}`", self.current_token.value);
+                    syntax!(self, "Expected `;` or line break expected, found `{}`", self.current_token.value);
                 }
                 while self.current_token.token_type == TokenType::EOL {
                     self.advance();
@@ -104,13 +111,14 @@ impl <'a> Parser<'a> {
                 }
                 statements.push(self.statement()?);
             }
-            return Ok(Statements { statements });
+            return Ok(Statements { location: start_location, statements });
         }
 
-        return Ok(Statements { statements: vec![] });
+        return Ok(Statements { location: start_location, statements: vec![] });
     }
 
     fn block(&mut self) -> Result<Statements> {
+        let start_location = self.current_token.location.clone();
         while self.current_token.token_type == TokenType::EOL {
             self.advance();
         }
@@ -127,7 +135,7 @@ impl <'a> Parser<'a> {
             statements = vec![self.statement()?];
         }
 
-        return Ok(Statements { statements });
+        return Ok(Statements { location: start_location, statements });
     }
 
     fn statement(&mut self) -> Result<Statement> {
@@ -166,6 +174,7 @@ impl <'a> Parser<'a> {
     }
 
     fn declare_statement(&mut self) -> Result<DeclareStatement> {
+        let start_location = self.current_token.location.clone();
         self.advance();
 
         expected!(self, Identifier, "identifier");
@@ -177,10 +186,11 @@ impl <'a> Parser<'a> {
 
         let expression = self.expression()?;
 
-        return Ok(DeclareStatement { identifier, expression }) ;
+        return Ok(DeclareStatement { location: start_location, identifier, expression }) ;
     }
 
     fn assign_statement(&mut self) -> Result<AssignStatement> {
+        let start_location = self.current_token.location.clone();
         let identifier = self.current_token.value.clone();
         self.advance();
 
@@ -196,10 +206,11 @@ impl <'a> Parser<'a> {
 
         let expression = self.expression()?;
 
-        return Ok(AssignStatement { identifier, operator, expression });
+        return Ok(AssignStatement { location: start_location, identifier, operator, expression });
     }
 
     fn if_statement(&mut self) -> Result<IfStatement> {
+        let start_location = self.current_token.location.clone();
         self.advance();
 
         expected!(self, LParen, "`(`");
@@ -218,7 +229,7 @@ impl <'a> Parser<'a> {
         let mut count = 0;
 
         while current_token.token_type == TokenType::EOL {
-            current_token = tokens.next().unwrap_or(&Token::new(TokenType::EOF, "EOF")).clone();
+            current_token = tokens.next().unwrap_or(&Token::dummy()).clone();
             count += 1;
         }
 
@@ -228,21 +239,23 @@ impl <'a> Parser<'a> {
 
             else_block = self.block()?;
         } else {
-            else_block = Statements { statements: vec![] };
+            else_block = Statements { location: Location::new(start_location.filename.clone()), statements: vec![] };
         }
 
-        return Ok(IfStatement { condition, block, else_block });
+        return Ok(IfStatement { location: start_location, condition, block, else_block });
     }
 
     fn loop_statement(&mut self) -> Result<LoopStatement> {
+        let start_location = self.current_token.location.clone();
         self.advance();
 
         let block = self.block()?;
 
-        return Ok(LoopStatement { block });
+        return Ok(LoopStatement { location: start_location, block });
     }
 
     fn while_statement(&mut self) -> Result<WhileStatement> {
+        let start_location = self.current_token.location.clone();
         self.advance();
 
         expected!(self, LParen, "`(`");
@@ -255,10 +268,11 @@ impl <'a> Parser<'a> {
 
         let block = self.block()?;
 
-        return Ok(WhileStatement { condition, block });
+        return Ok(WhileStatement { location: start_location, condition, block });
     }
 
     fn for_statement(&mut self) -> Result<ForStatement> {
+        let start_location = self.current_token.location.clone();
         self.advance();
 
         expected!(self, LParen, "`(`");
@@ -280,10 +294,11 @@ impl <'a> Parser<'a> {
 
         let block = self.block()?;
 
-        return Ok(ForStatement { identifier, expression, block });
+        return Ok(ForStatement { location: start_location, identifier, expression, block });
     }
 
     fn function_declaration(&mut self) -> Result<FunctionDeclaration> {
+        let start_location = self.current_token.location.clone();
         self.advance();
 
         expected!(self, Identifier, "identifier");
@@ -313,10 +328,11 @@ impl <'a> Parser<'a> {
 
         let block = self.block()?;
 
-        return Ok(FunctionDeclaration { identifier, params, block });
+        return Ok(FunctionDeclaration { location: start_location, identifier, params, block });
     }
 
     fn return_statement(&mut self) -> Result<ReturnStatement> {
+        let start_location = self.current_token.location.clone();
         self.advance();
 
         let mut expression = None;
@@ -324,11 +340,12 @@ impl <'a> Parser<'a> {
             expression = Some(self.expression()?);
         }
 
-        return Ok(ReturnStatement { expression });
+        return Ok(ReturnStatement { location: start_location, expression });
     }
 
 
     fn expression(&mut self) -> Result<Expression> {
+        let start_location = self.current_token.location.clone();
         let base = self.ternary_expression()?;
 
         let mut range = None;
@@ -341,10 +358,11 @@ impl <'a> Parser<'a> {
             range = Some((inclusive, upper));
         }
 
-        return Ok(Expression { base: Box::new(base), range: Box::new(range) });
+        return Ok(Expression { location: start_location, base: Box::new(base), range: Box::new(range) });
     }
 
     fn ternary_expression(&mut self) -> Result<TernaryExpression> {
+        let start_location = self.current_token.location.clone();
         let base = self.or_expression()?;
 
         let mut ternary = None;
@@ -360,10 +378,11 @@ impl <'a> Parser<'a> {
             ternary = Some((ternary_if, ternary_else));
         }
 
-        return Ok(TernaryExpression { base, ternary });
+        return Ok(TernaryExpression { location: start_location, base, ternary });
     }
 
     fn or_expression(&mut self) -> Result<OrExpression> {
+        let start_location = self.current_token.location.clone();
         let base = self.and_expression()?;
 
         let mut following = vec![];
@@ -373,10 +392,11 @@ impl <'a> Parser<'a> {
             following.push(self.and_expression()?);
         }
 
-        return Ok(OrExpression { base, following });
+        return Ok(OrExpression { location: start_location, base, following });
     }
 
     fn and_expression(&mut self) -> Result<AndExpression> {
+        let start_location = self.current_token.location.clone();
         let base = self.equality_expression()?;
 
         let mut following = vec![];
@@ -386,10 +406,11 @@ impl <'a> Parser<'a> {
             following.push(self.equality_expression()?);
         }
 
-        return Ok(AndExpression { base, following });
+        return Ok(AndExpression { location: start_location, base, following });
     }
 
     fn equality_expression(&mut self) -> Result<EqualityExpression> {
+        let start_location = self.current_token.location.clone();
         let base = self.relational_expression()?;
 
         let mut other = None;
@@ -407,10 +428,11 @@ impl <'a> Parser<'a> {
             other = Some((operator, self.relational_expression()?));
         }
 
-        return Ok(EqualityExpression { base, other });
+        return Ok(EqualityExpression { location: start_location, base, other });
     }
 
     fn relational_expression(&mut self) -> Result<RelationalExpression> {
+        let start_location = self.current_token.location.clone();
         let base = self.additive_expression()?;
 
         let mut other = None;
@@ -432,10 +454,11 @@ impl <'a> Parser<'a> {
             other = Some((operator, self.additive_expression()?));
         }
 
-        return Ok(RelationalExpression { base, other });
+        return Ok(RelationalExpression { location: start_location, base, other });
     }
 
     fn additive_expression(&mut self) -> Result<AdditiveExpression> {
+        let start_location = self.current_token.location.clone();
         let base = self.multiplicative_expression()?;
 
         let mut following = vec![];
@@ -453,10 +476,11 @@ impl <'a> Parser<'a> {
             following.push((operator, self.multiplicative_expression()?));
         }
 
-        return Ok(AdditiveExpression { base, following });
+        return Ok(AdditiveExpression { location: start_location, base, following });
     }
 
     fn multiplicative_expression(&mut self) -> Result<MultiplicativeExpression> {
+        let start_location = self.current_token.location.clone();
         let base = self.unary_expression()?;
 
         let mut following = vec![];
@@ -474,10 +498,11 @@ impl <'a> Parser<'a> {
             following.push((operator, self.unary_expression()?));
         }
 
-        return Ok(MultiplicativeExpression { base, following });
+        return Ok(MultiplicativeExpression { location: start_location, base, following });
     }
 
     fn unary_expression(&mut self) -> Result<UnaryExpression> {
+        let start_location = self.current_token.location.clone();
         if [
             TokenType::Plus,
             TokenType::Minus,
@@ -490,13 +515,18 @@ impl <'a> Parser<'a> {
                 _ => panic!(),
             };
             self.advance();
-            return Ok(UnaryExpression::Operator(operator, Box::new(self.unary_expression()?)));
+            return Ok(UnaryExpression::Operator {
+                location: start_location,
+                operator,
+                expression: Box::new(self.unary_expression()?),
+            });
         }
 
         return Ok(UnaryExpression::Power(Box::new(self.exponential_expression()?)));
     }
 
     fn exponential_expression(&mut self) -> Result<ExponentialExpression> {
+        let start_location = self.current_token.location.clone();
         let base = self.atom()?;
 
         let mut exponent = None;
@@ -506,10 +536,11 @@ impl <'a> Parser<'a> {
             exponent = Some(self.unary_expression()?)
         }
 
-        return Ok(ExponentialExpression { base, exponent });
+        return Ok(ExponentialExpression { location: start_location, base, exponent });
     }
 
     fn atom(&mut self) -> Result<Atom> {
+        let start_location = self.current_token.location.clone();
         if self.current_token.matches(TokenType::Keyword, "null") {
             self.advance();
 
@@ -547,7 +578,7 @@ impl <'a> Parser<'a> {
                 self.advance();
             }
 
-            return Ok(Atom::Identifier(value));
+            return Ok(Atom::Identifier { location: start_location, name: value });
         }
 
         if self.current_token.token_type == TokenType::LParen {
@@ -561,16 +592,17 @@ impl <'a> Parser<'a> {
             return Ok(Atom::Expression(expression));
         }
 
-        error!(SyntaxError, "Expected expression, found `{}`", self.current_token.value);
+        syntax!(self, "Expected expression, found `{}`", self.current_token.value);
     }
 
     fn call_expression(&mut self) -> Result<CallExpression> {
+        let start_location = self.current_token.location.clone();
         let identifier = self.current_token.value.clone();
         self.advance();
 
         let args = self.arguments()?;
 
-        return Ok(CallExpression { identifier, args });
+        return Ok(CallExpression { location: start_location, identifier, args });
     }
 
     fn arguments(&mut self) -> Result<Vec<Expression>> {

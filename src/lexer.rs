@@ -1,5 +1,5 @@
 use std::str::Chars;
-use crate::{tokens::{Token, TokenType}, error::Result};
+use crate::{tokens::{Token, TokenType}, error::{Result, Location}};
 
 const DIGITS: [char; 10] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 const LETTERS_AND_UNDERSCORE: [char; 53] = ['A', 'a', 'B', 'b', 'C', 'c', 'D',
@@ -13,16 +13,19 @@ const OPTIONAL_EQ_CHARS: [char; 6] = ['=', '!', '<', '>', '+', '-'];
 const KEYWORDS: [&str; 14] = ["var", "true", "false", "if", "null", "else", "fun",
     "loop", "while", "for", "in", "return", "break", "continue"];
 
+#[derive(Debug)]
 pub struct Lexer<'a> {
     input: Chars<'a>,
     current_char: Option<char>,
+    location: Location,
 }
 
 impl <'a> Lexer<'a> {
-    pub fn new(input: &'a String) -> Self {
+    pub fn new(input: &'a String, filename: String) -> Self {
         return Lexer {
             input: input.chars(),
             current_char: None,
+            location: Location::new(filename),
         };
     }
 
@@ -51,15 +54,18 @@ impl <'a> Lexer<'a> {
             } else if LETTERS_AND_UNDERSCORE.contains(&current_char) {
                 tokens.push(self.make_name());
             } else {
-                error!(SyntaxError, "Illegal character `{}`", current_char);
+                error!(SyntaxError, self.location.clone(), "Illegal character `{}`", current_char);
             }
         }
-        tokens.push(Token::new(TokenType::EOF, "EOF"));
+        tokens.push(Token::new(TokenType::EOF, "EOF", self.location.clone()));
 
         return Ok(tokens);
     }
 
     fn advance(&mut self) {
+        if let Some(current_char) = self.current_char {
+            self.location.advance(current_char == '\n')
+        }
         self.current_char = self.input.next();
     }
 
@@ -70,6 +76,7 @@ impl <'a> Lexer<'a> {
     // ----------------------------------------
 
     fn make_single_char(&mut self) -> Token {
+        let start_location = self.location.clone();
         let char = self.current_char.unwrap();
         let token_type = match char {
             '(' => TokenType::LParen,
@@ -88,11 +95,13 @@ impl <'a> Lexer<'a> {
         let value = char.to_string();
         return Token::new(
             token_type,
-            if char == '\n' { "LF" } else { &value }
+            if char == '\n' { "LF" } else { &value },
+            start_location,
         );
     }
 
     fn make_string(&mut self) -> Token {
+        let start_location = self.location.clone();
         let start_quote = self.current_char;
         let mut string = String::new();
 
@@ -106,10 +115,11 @@ impl <'a> Lexer<'a> {
         string = string.replace("\\n", "\n")
             .replace("\\t", "\t")
             .replace("\\r", "\r");
-        return Token::new(TokenType::String, &string);
+        return Token::new(TokenType::String, &string, start_location);
     }
 
     fn make_number(&mut self) -> Token {
+        let start_location = self.location.clone();
         let mut number = String::new();
         number.push(self.current_char.unwrap());
         self.advance();
@@ -132,28 +142,30 @@ impl <'a> Lexer<'a> {
             }
         }
 
-        return Token::new(TokenType::Number, &number);
+        return Token::new(TokenType::Number, &number, start_location);
     }
 
     fn make_dot(&mut self) -> Result<Token> {
+        let start_location = self.location.clone();
         self.advance();
 
         if self.current_char != Some('.') {
             if let Some(current_char) = self.current_char {
-                error!(SyntaxError, "Expected `.`, got `{}`", current_char);
+                error!(SyntaxError, self.location.clone(), "Expected `.`, got `{}`", current_char);
             }
-            error!(SyntaxError, "Expected `.`");
+            error!(SyntaxError, self.location.clone(), "Expected `.`");
         }
 
         self.advance();
         if self.current_char == Some('=') {
             self.advance();
-            return Ok(Token::new(TokenType::RangeDots, "..="));
+            return Ok(Token::new(TokenType::RangeDots, "..=", start_location));
         }
-        return Ok(Token::new(TokenType::RangeDots, ".."));
+        return Ok(Token::new(TokenType::RangeDots, "..", start_location));
     }
 
     fn make_optional_equal(&mut self) -> Token {
+        let start_location = self.location.clone();
         let char = self.current_char.unwrap();
         let token_types = match char {
             '=' => (TokenType::Assign,      TokenType::Equal             ),
@@ -167,26 +179,28 @@ impl <'a> Lexer<'a> {
         self.advance();
         if self.current_char == Some('=') {
             self.advance();
-            return Token::new(token_types.1, &(char.to_string() + "="));
+            return Token::new(token_types.1, &(char.to_string() + "="), start_location);
         }
-        return Token::new(token_types.0, &char.to_string());
+        return Token::new(token_types.0, &char.to_string(), start_location);
     }
 
     fn make_star(&mut self) -> Token {
+        let start_location = self.location.clone();
         self.advance();
         if self.current_char == Some('*') {
             self.advance();
-            return Token::new(TokenType::Power, "**");
+            return Token::new(TokenType::Power, "**", start_location);
         }
-        return Token::new(TokenType::Multiply, "*");
+        return Token::new(TokenType::Multiply, "*", start_location);
     }
 
     fn make_slash(&mut self) -> Option<Token> {
+        let start_location = self.location.clone();
         self.advance();
         match self.current_char {
             Some('=') => {
                 self.advance();
-                return Some(Token::new(TokenType::DivideAssign, "/="));
+                return Some(Token::new(TokenType::DivideAssign, "/=", start_location));
             },
             Some('/') => {
                 while ![Some('\n'), None].contains(&self.current_char) {
@@ -207,12 +221,13 @@ impl <'a> Lexer<'a> {
                 return None;
             },
             _ => {
-                return Some(Token::new(TokenType::Divide, "/"));
+                return Some(Token::new(TokenType::Divide, "/", start_location));
             }
         }
     }
 
     fn make_name(&mut self) -> Token {
+        let start_location = self.location.clone();
         let mut name = String::from(self.current_char.unwrap());
         self.advance();
 
@@ -225,8 +240,8 @@ impl <'a> Lexer<'a> {
         }
 
         if KEYWORDS.contains(&name.as_str()) {
-            return Token::new(TokenType::Keyword, &name);
+            return Token::new(TokenType::Keyword, &name, start_location);
         }
-        return Token::new(TokenType::Identifier, &name);
+        return Token::new(TokenType::Identifier, &name, start_location);
     }
 }

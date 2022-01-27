@@ -16,17 +16,17 @@ macro_rules! exit {
         let lines: Vec<&str> = $code.split('\n').collect();
 
         let line1 = if $error.location.line > 1 {
-            format!("\n {: >3} | {}", $error.location.line - 1, lines[$error.location.line - 2])
+            format!("\n \x1b[90m{: >3} | \x1b[0m{}", $error.location.line - 1, lines[$error.location.line - 2])
         } else { String::new() };
-        let line2 = format!(" {: >3} | {}", $error.location.line, lines[$error.location.line - 1]);
+        let line2 = format!(" \x1b[90m{: >3} | \x1b[0m{}", $error.location.line, lines[$error.location.line - 1]);
         let line3 = if $error.location.line < lines.len() {
-            format!("\n {: >3} | {}", $error.location.line + 1, lines[$error.location.line])
+            format!("\n \x1b[90m{: >3} | \x1b[0m{}", $error.location.line + 1, lines[$error.location.line])
         } else { String::new() };
 
-        let marker = format!("{}^", " ".repeat($error.location.column + 6));
+        let marker = format!("{}\x1b[1;31m^\x1b[0m", " ".repeat($error.location.column + 6));
 
         eprintln!(
-            "{:?} at {}:{}:{}\n{}\n{}\n{}{}\n\n{}",
+            "\x1b[1;36m{:?}\x1b[39m at {}:{}:{}\x1b[0m\n{}\n{}\n{}{}\n\n\x1b[1m{}\x1b[0m",
             $error.kind,
             $error.location.filename,
             $error.location.line,

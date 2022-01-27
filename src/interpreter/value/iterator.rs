@@ -1,21 +1,22 @@
 use rust_decimal::{prelude::{ToPrimitive, FromPrimitive}, Decimal};
 use super::{Value, types::type_of};
+use crate::error::Result;
 
 pub trait ToIterator where Self: Sized {
-    fn to_iter(&self) -> Iterator;
+    fn to_iter(&self) -> Result<Iterator>;
 }
 
 impl ToIterator for Value {
-    fn to_iter(&self) -> Iterator {
+    fn to_iter(&self) -> Result<Iterator> {
         match self {
-            Value::String(value) => { return Iterator::from(value); },
+            Value::String(value) => { return Ok(Iterator::from(value)); },
             Value::Range(start, end) => {
                 let range = start.min(end).to_i128().unwrap()..=start.max(end).to_i128().unwrap();
                 let mut vec: Vec<_> = range.map(|it| Value::Number(Decimal::from_i128(it).unwrap())).collect();
                 if start > end { vec.reverse(); }
-                return Iterator::new(vec);
+                return Ok(Iterator::new(vec));
             },
-            _ => panic!("TypeError at position {{}}: Cannot iterate over type {}", type_of(self)),
+            _ => error!(TypeError, "Cannot iterate over type {}", type_of(self)),
         }
     }
 }

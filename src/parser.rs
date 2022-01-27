@@ -4,6 +4,7 @@ use rust_decimal::Decimal;
 
 use crate::{
     tokens::{Token, TokenType},
+    error::Result,
     nodes::{
         Statements,
         Statement,
@@ -36,6 +37,14 @@ use crate::{
     },
 };
 
+macro_rules! expected {
+    ($self:ident, $token_type:ident, $name:expr) => {
+        if $self.current_token.token_type != TokenType::$token_type {
+            error!(SyntaxError, "Expected {}, found `{}`", $name, $self.current_token.value);
+        }
+    };
+}
+
 pub struct Parser<'a> {
     tokens: Iter<'a, Token>,
     current_token: Token,
@@ -49,13 +58,13 @@ impl <'a> Parser<'a> {
         };
     }
 
-    pub fn parse(&mut self) -> Statements {
+    pub fn parse(&mut self) -> Result<Statements> {
         self.advance();
-        let statements = self.statements();
+        let statements = self.statements()?;
         if self.current_token.token_type != TokenType::EOF {
-            panic!("SyntaxError at position {{}}: Expected EOF")
+            error!(SyntaxError, "Expected EOF");
         }
-        return statements;
+        return Ok(statements);
     }
 
     fn advance(&mut self) {
@@ -73,29 +82,19 @@ impl <'a> Parser<'a> {
             .clone();
     }
 
-    fn panic_expected(&self, token_type: TokenType, name: &str) {
-        if self.current_token.token_type != token_type {
-            panic!(
-                "SyntaxError at position {{}}: Expected {}, found '{}'",
-                name,
-                self.current_token.value,
-            )
-        }
-    }
-
     // ---------------------------------------
 
-    fn statements(&mut self) -> Statements {
+    fn statements(&mut self) -> Result<Statements> {
         while self.current_token.token_type == TokenType::EOL {
             self.advance()
         }
 
         if ![TokenType::EOF, TokenType::RBrace].contains(&self.current_token.token_type) {
             let mut statements: Vec<Statement> = vec![];
-            statements.push(self.statement());
+            statements.push(self.statement()?);
             loop {
                 if self.current_token.token_type != TokenType::EOL {
-                    panic!("SyntaxError at position {{}}: ';' or line break expected, found '{}'", self.current_token.value)
+                    error!(SyntaxError, "Expected `;` or line break expected, found `{}`", self.current_token.value);
                 }
                 while self.current_token.token_type == TokenType::EOL {
                     self.advance();
@@ -103,15 +102,15 @@ impl <'a> Parser<'a> {
                 if [TokenType::EOF, TokenType::RBrace].contains(&self.current_token.token_type) {
                     break;
                 }
-                statements.push(self.statement());
+                statements.push(self.statement()?);
             }
-            return Statements { statements };
+            return Ok(Statements { statements });
         }
 
-        return Statements { statements: vec![] };
+        return Ok(Statements { statements: vec![] });
     }
 
-    fn block(&mut self) -> Statements {
+    fn block(&mut self) -> Result<Statements> {
         while self.current_token.token_type == TokenType::EOL {
             self.advance();
         }
@@ -120,38 +119,38 @@ impl <'a> Parser<'a> {
         if self.current_token.token_type == TokenType::LBrace {
             self.advance();
 
-            statements = self.statements().statements;
+            statements = self.statements()?.statements;
 
-            self.panic_expected(TokenType::RBrace, "'}'");
+            expected!(self, RBrace, "`}`");
             self.advance();
         } else {
-            statements = vec![self.statement()];
+            statements = vec![self.statement()?];
         }
 
-        return Statements { statements };
+        return Ok(Statements { statements });
     }
 
-    fn statement(&mut self) -> Statement {
+    fn statement(&mut self) -> Result<Statement> {
         if self.current_token.matches(TokenType::Keyword, "var") {
-            return Statement::Declare(self.declare_statement());
+            return Ok(Statement::Declare(self.declare_statement()?));
         } else if self.current_token.matches(TokenType::Keyword, "if") {
-            return Statement::If(self.if_statement());
+            return Ok(Statement::If(self.if_statement()?));
         } else if self.current_token.matches(TokenType::Keyword, "loop") {
-            return Statement::Loop(self.loop_statement());
+            return Ok(Statement::Loop(self.loop_statement()?));
         } else if self.current_token.matches(TokenType::Keyword, "while") {
-            return Statement::While(self.while_statement());
+            return Ok(Statement::While(self.while_statement()?));
         } else if self.current_token.matches(TokenType::Keyword, "for") {
-            return Statement::For(self.for_statement());
+            return Ok(Statement::For(self.for_statement()?));
         } else if self.current_token.matches(TokenType::Keyword, "fun") {
-            return Statement::Function(self.function_declaration());
+            return Ok(Statement::Function(self.function_declaration()?));
         } else if self.current_token.matches(TokenType::Keyword, "break") {
             self.advance();
-            return Statement::Break;
+            return Ok(Statement::Break);
         } else if self.current_token.matches(TokenType::Keyword, "continue") {
             self.advance();
-            return Statement::Continue;
+            return Ok(Statement::Continue);
         } else if self.current_token.matches(TokenType::Keyword, "return") {
-            return Statement::Return(self.return_statement());
+            return Ok(Statement::Return(self.return_statement()?));
         } else if self.current_token.token_type == TokenType::Identifier
             && [
                 TokenType::Assign,
@@ -160,28 +159,28 @@ impl <'a> Parser<'a> {
                 TokenType::MultiplyAssign,
                 TokenType::DivideAssign,
             ].contains(&self.next_token().token_type) {
-            return Statement::Assign(self.assign_statement());
+            return Ok(Statement::Assign(self.assign_statement()?));
         } else {
-            return Statement::Expression(self.expression());
+            return Ok(Statement::Expression(self.expression()?));
         }
     }
 
-    fn declare_statement(&mut self) -> DeclareStatement {
+    fn declare_statement(&mut self) -> Result<DeclareStatement> {
         self.advance();
 
-        self.panic_expected(TokenType::Identifier, "identifier");
+        expected!(self, Identifier, "identifier");
         let identifier = self.current_token.value.clone();
         self.advance();
 
-        self.panic_expected(TokenType::Assign, "'='");
+        expected!(self, Assign, "`=`");
         self.advance();
 
-        let expression = self.expression();
+        let expression = self.expression()?;
 
-        return DeclareStatement { identifier, expression } ;
+        return Ok(DeclareStatement { identifier, expression }) ;
     }
 
-    fn assign_statement(&mut self) -> AssignStatement {
+    fn assign_statement(&mut self) -> Result<AssignStatement> {
         let identifier = self.current_token.value.clone();
         self.advance();
 
@@ -195,23 +194,23 @@ impl <'a> Parser<'a> {
         };
         self.advance();
 
-        let expression = self.expression();
+        let expression = self.expression()?;
 
-        return AssignStatement { identifier, operator, expression } ;
+        return Ok(AssignStatement { identifier, operator, expression });
     }
 
-    fn if_statement(&mut self) -> IfStatement {
+    fn if_statement(&mut self) -> Result<IfStatement> {
         self.advance();
 
-        self.panic_expected(TokenType::LParen, "'('");
+        expected!(self, LParen, "`(`");
         self.advance();
 
-        let condition = self.expression();
+        let condition = self.expression()?;
 
-        self.panic_expected(TokenType::RParen, "')'");
+        expected!(self, RParen, "`)`");
         self.advance();
 
-        let block = self.block();
+        let block = self.block()?;
         let else_block: Statements;
 
         let mut tokens = self.tokens.clone();
@@ -227,171 +226,171 @@ impl <'a> Parser<'a> {
             for _ in 0..count { self.advance(); }
             self.advance();
 
-            else_block = self.block();
+            else_block = self.block()?;
         } else {
             else_block = Statements { statements: vec![] };
         }
 
-        return IfStatement { condition, block, else_block } ;
+        return Ok(IfStatement { condition, block, else_block });
     }
 
-    fn loop_statement(&mut self) -> LoopStatement {
+    fn loop_statement(&mut self) -> Result<LoopStatement> {
         self.advance();
 
-        let block = self.block();
+        let block = self.block()?;
 
-        return LoopStatement { block } ;
+        return Ok(LoopStatement { block });
     }
 
-    fn while_statement(&mut self) -> WhileStatement {
+    fn while_statement(&mut self) -> Result<WhileStatement> {
         self.advance();
 
-        self.panic_expected(TokenType::LParen, "'('");
+        expected!(self, LParen, "`(`");
         self.advance();
 
-        let condition = self.expression();
+        let condition = self.expression()?;
 
-        self.panic_expected(TokenType::RParen, "')'");
+        expected!(self, RParen, "`)`");
         self.advance();
 
-        let block = self.block();
+        let block = self.block()?;
 
-        return WhileStatement { condition, block } ;
+        return Ok(WhileStatement { condition, block });
     }
 
-    fn for_statement(&mut self) -> ForStatement {
+    fn for_statement(&mut self) -> Result<ForStatement> {
         self.advance();
 
-        self.panic_expected(TokenType::LParen, "'('");
+        expected!(self, LParen, "`(`");
         self.advance();
 
-        self.panic_expected(TokenType::Identifier, "identifier");
+        expected!(self, Identifier, "identifier");
         let identifier = self.current_token.value.clone();
         self.advance();
 
         if !self.current_token.matches(TokenType::Keyword, "in") {
-            self.panic_expected(TokenType::EOF, "'in'");
+            expected!(self, EOF, "`in`");
         }
         self.advance();
 
-        let expression = self.expression();
+        let expression = self.expression()?;
 
-        self.panic_expected(TokenType::RParen, "')'");
+        expected!(self, RParen, "`)`");
         self.advance();
 
-        let block = self.block();
+        let block = self.block()?;
 
-        return ForStatement { identifier, expression, block } ;
+        return Ok(ForStatement { identifier, expression, block });
     }
 
-    fn function_declaration(&mut self) -> FunctionDeclaration {
+    fn function_declaration(&mut self) -> Result<FunctionDeclaration> {
         self.advance();
 
-        self.panic_expected(TokenType::Identifier, "identifier");
+        expected!(self, Identifier, "identifier");
         let identifier = self.current_token.value.clone();
         self.advance();
 
-        self.panic_expected(TokenType::LParen, "'('");
+        expected!(self, LParen, "`(`");
         self.advance();
 
         let mut params: Vec<String> = vec![];
         if self.current_token.token_type != TokenType::RParen {
-            self.panic_expected(TokenType::Identifier, "identifier");
+            expected!(self, Identifier, "identifier");
             params.push(self.current_token.value.clone());
             self.advance();
 
             while self.current_token.token_type == TokenType::Comma {
                 self.advance();
 
-                self.panic_expected(TokenType::Identifier, "identifier");
+                expected!(self, Identifier, "identifier");
                 params.push(self.current_token.value.clone());
                 self.advance();
             }
         }
 
-        self.panic_expected(TokenType::RParen, "')'");
+        expected!(self, RParen, "`)`");
         self.advance();
 
-        let block = self.block();
+        let block = self.block()?;
 
-        return FunctionDeclaration { identifier, params, block } ;
+        return Ok(FunctionDeclaration { identifier, params, block });
     }
 
-    fn return_statement(&mut self) -> ReturnStatement {
+    fn return_statement(&mut self) -> Result<ReturnStatement> {
         self.advance();
 
         let mut expression = None;
         if ![TokenType::EOL, TokenType::EOF].contains(&self.current_token.token_type) {
-            expression = Some(self.expression());
+            expression = Some(self.expression()?);
         }
 
-        return ReturnStatement { expression } ;
+        return Ok(ReturnStatement { expression });
     }
 
 
-    fn expression(&mut self) -> Expression {
-        let base = self.ternary_expression();
+    fn expression(&mut self) -> Result<Expression> {
+        let base = self.ternary_expression()?;
 
         let mut range = None;
         if self.current_token.token_type == TokenType::RangeDots {
             let inclusive = self.current_token.value == "..=";
             self.advance();
 
-            let upper = self.ternary_expression();
+            let upper = self.ternary_expression()?;
 
             range = Some((inclusive, upper));
         }
 
-        return Expression { base: Box::new(base), range: Box::new(range) };
+        return Ok(Expression { base: Box::new(base), range: Box::new(range) });
     }
 
-    fn ternary_expression(&mut self) -> TernaryExpression {
-        let base = self.or_expression();
+    fn ternary_expression(&mut self) -> Result<TernaryExpression> {
+        let base = self.or_expression()?;
 
         let mut ternary = None;
         if self.current_token.token_type == TokenType::QuestionMark {
             self.advance();
 
-            let ternary_if = self.expression();
+            let ternary_if = self.expression()?;
 
-            self.panic_expected(TokenType::Colon, "':'");
+            expected!(self, Colon, "`:`");
             self.advance();
 
-            let ternary_else = self.expression();
+            let ternary_else = self.expression()?;
             ternary = Some((ternary_if, ternary_else));
         }
 
-        return TernaryExpression { base, ternary };
+        return Ok(TernaryExpression { base, ternary });
     }
 
-    fn or_expression(&mut self) -> OrExpression {
-        let base = self.and_expression();
+    fn or_expression(&mut self) -> Result<OrExpression> {
+        let base = self.and_expression()?;
 
         let mut following = vec![];
         while self.current_token.token_type == TokenType::Or {
             self.advance();
 
-            following.push(self.and_expression());
+            following.push(self.and_expression()?);
         }
 
-        return OrExpression { base, following };
+        return Ok(OrExpression { base, following });
     }
 
-    fn and_expression(&mut self) -> AndExpression {
-        let base = self.equality_expression();
+    fn and_expression(&mut self) -> Result<AndExpression> {
+        let base = self.equality_expression()?;
 
         let mut following = vec![];
         while self.current_token.token_type == TokenType::And {
             self.advance();
 
-            following.push(self.equality_expression());
+            following.push(self.equality_expression()?);
         }
 
-        return AndExpression { base, following };
+        return Ok(AndExpression { base, following });
     }
 
-    fn equality_expression(&mut self) -> EqualityExpression {
-        let base = self.relational_expression();
+    fn equality_expression(&mut self) -> Result<EqualityExpression> {
+        let base = self.relational_expression()?;
 
         let mut other = None;
         if [
@@ -405,14 +404,14 @@ impl <'a> Parser<'a> {
             };
             self.advance();
 
-            other = Some((operator, self.relational_expression()));
+            other = Some((operator, self.relational_expression()?));
         }
 
-        return EqualityExpression { base, other };
+        return Ok(EqualityExpression { base, other });
     }
 
-    fn relational_expression(&mut self) -> RelationalExpression {
-        let base = self.additive_expression();
+    fn relational_expression(&mut self) -> Result<RelationalExpression> {
+        let base = self.additive_expression()?;
 
         let mut other = None;
         if [
@@ -430,14 +429,14 @@ impl <'a> Parser<'a> {
             };
             self.advance();
 
-            other = Some((operator, self.additive_expression()));
+            other = Some((operator, self.additive_expression()?));
         }
 
-        return RelationalExpression { base, other };
+        return Ok(RelationalExpression { base, other });
     }
 
-    fn additive_expression(&mut self) -> AdditiveExpression {
-        let base = self.multiplicative_expression();
+    fn additive_expression(&mut self) -> Result<AdditiveExpression> {
+        let base = self.multiplicative_expression()?;
 
         let mut following = vec![];
         while [
@@ -451,14 +450,14 @@ impl <'a> Parser<'a> {
             };
             self.advance();
 
-            following.push((operator, self.multiplicative_expression()));
+            following.push((operator, self.multiplicative_expression()?));
         }
 
-        return AdditiveExpression { base, following };
+        return Ok(AdditiveExpression { base, following });
     }
 
-    fn multiplicative_expression(&mut self) -> MultiplicativeExpression {
-        let base = self.unary_expression();
+    fn multiplicative_expression(&mut self) -> Result<MultiplicativeExpression> {
+        let base = self.unary_expression()?;
 
         let mut following = vec![];
         while [
@@ -472,13 +471,13 @@ impl <'a> Parser<'a> {
             };
             self.advance();
 
-            following.push((operator, self.unary_expression()));
+            following.push((operator, self.unary_expression()?));
         }
 
-        return MultiplicativeExpression { base, following };
+        return Ok(MultiplicativeExpression { base, following });
     }
 
-    fn unary_expression(&mut self) -> UnaryExpression {
+    fn unary_expression(&mut self) -> Result<UnaryExpression> {
         if [
             TokenType::Plus,
             TokenType::Minus,
@@ -491,37 +490,37 @@ impl <'a> Parser<'a> {
                 _ => panic!(),
             };
             self.advance();
-            return UnaryExpression::Operator(operator, Box::new(self.unary_expression()));
+            return Ok(UnaryExpression::Operator(operator, Box::new(self.unary_expression()?)));
         }
 
-        return UnaryExpression::Power(Box::new(self.exponential_expression()));
+        return Ok(UnaryExpression::Power(Box::new(self.exponential_expression()?)));
     }
 
-    fn exponential_expression(&mut self) -> ExponentialExpression {
-        let base = self.atom();
+    fn exponential_expression(&mut self) -> Result<ExponentialExpression> {
+        let base = self.atom()?;
 
         let mut exponent = None;
         if self.current_token.token_type == TokenType::Power {
             self.advance();
 
-            exponent = Some(self.unary_expression())
+            exponent = Some(self.unary_expression()?)
         }
 
-        return ExponentialExpression { base, exponent };
+        return Ok(ExponentialExpression { base, exponent });
     }
 
-    fn atom(&mut self) -> Atom {
+    fn atom(&mut self) -> Result<Atom> {
         if self.current_token.matches(TokenType::Keyword, "null") {
             self.advance();
 
-            return Atom::Null;
+            return Ok(Atom::Null);
         }
 
         if self.current_token.token_type == TokenType::Number {
             let value = self.current_token.value.clone();
             let number = value.parse::<Decimal>().unwrap();
             self.advance();
-            return Atom::Number(number);
+            return Ok(Atom::Number(number));
         }
 
         if self.current_token.matches(TokenType::Keyword, "true")
@@ -529,68 +528,68 @@ impl <'a> Parser<'a> {
             let value = self.current_token.value == "true";
             self.advance();
 
-            return Atom::Bool(value);
+            return Ok(Atom::Bool(value));
         }
 
         if self.current_token.token_type == TokenType::String {
             let value = self.current_token.value.clone();
             self.advance();
 
-            return Atom::String(value);
+            return Ok(Atom::String(value));
         }
 
         if self.current_token.token_type == TokenType::Identifier {
             let value = self.current_token.value.clone();
 
             if self.next_token().token_type == TokenType::LParen {
-                return Atom::Call(self.call_expression());
+                return Ok(Atom::Call(self.call_expression()?));
             } else {
                 self.advance();
             }
 
-            return Atom::Identifier(value);
+            return Ok(Atom::Identifier(value));
         }
 
         if self.current_token.token_type == TokenType::LParen {
             self.advance();
 
-            let expression = self.expression();
+            let expression = self.expression()?;
 
-            self.panic_expected(TokenType::RParen, "')'");
+            expected!(self, RParen, "`)`");
             self.advance();
 
-            return Atom::Expression(expression);
+            return Ok(Atom::Expression(expression));
         }
 
-        panic!("SyntaxError at position {{}}: Expected expression, found '{}'", self.current_token.value);
+        error!(SyntaxError, "Expected expression, found `{}`", self.current_token.value);
     }
 
-    fn call_expression(&mut self) -> CallExpression {
+    fn call_expression(&mut self) -> Result<CallExpression> {
         let identifier = self.current_token.value.clone();
         self.advance();
 
-        let args = self.arguments();
+        let args = self.arguments()?;
 
-        return CallExpression { identifier, args };
+        return Ok(CallExpression { identifier, args });
     }
 
-    fn arguments(&mut self) -> Vec<Expression> {
+    fn arguments(&mut self) -> Result<Vec<Expression>> {
         self.advance();
 
         let mut args = vec![];
         if self.current_token.token_type != TokenType::RParen {
-            args.push(self.expression());
+            args.push(self.expression()?);
 
             while self.current_token.token_type == TokenType::Comma {
                 self.advance();
 
-                args.push(self.expression());
+                args.push(self.expression()?);
             }
         }
 
-        self.panic_expected(TokenType::RParen, "')'");
+        expected!(self, RParen, "`)`");
         self.advance();
 
-        return args;
+        return Ok(args);
     }
 }

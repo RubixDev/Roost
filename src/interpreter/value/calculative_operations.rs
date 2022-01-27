@@ -1,51 +1,52 @@
 use rust_decimal::{MathematicalOps, Decimal, prelude::ToPrimitive};
 use super::{Value, types::type_of};
+use crate::error::Result;
 
 pub trait CalculativeOperations {
-    fn plus(&self, other: &Self) -> Self;
-    fn minus(&self, other: &Self) -> Self;
-    fn multiply(&self, other: &Self) -> Self;
-    fn divide(&self, other: &Self) -> Self;
-    fn power(&self, other: &Self) -> Self;
+    fn plus(&self, other: &Value) -> Result<Value>;
+    fn minus(&self, other: &Value) -> Result<Value>;
+    fn multiply(&self, other: &Value) -> Result<Value>;
+    fn divide(&self, other: &Value) -> Result<Value>;
+    fn power(&self, other: &Value) -> Result<Value>;
 }
 
 impl CalculativeOperations for Value {
-    fn plus(&self, other: &Value) -> Value {
+    fn plus(&self, other: &Value) -> Result<Value> {
         match self {
             Value::Number(val1) => {
                 match other {
-                    Value::Number(val2) => { return Value::Number((val1 + val2).normalize()); },
-                    Value::String(val2) => { return Value::String(self.to_string() + val2); },
-                    _ => panic!("TypeError at position {{}}: Cannot add {} to {}", type_of(self), type_of(other)),
+                    Value::Number(val2) => { return Ok(Value::Number((val1 + val2).normalize())); },
+                    Value::String(val2) => { return Ok(Value::String(self.to_string() + val2)); },
+                    _ => error!(TypeError, "Cannot add {} to {}", type_of(self), type_of(other)),
                 }
             },
             Value::String(val1) => {
-                return Value::String(val1.to_owned() + &other.to_string());
+                return Ok(Value::String(val1.to_owned() + &other.to_string()));
             },
             _ => {
-                if let Value::String(val2) = other { return Value::String(self.to_string() + val2); }
-                panic!("TypeError at position {{}}: Cannot add {} to {}", type_of(self), type_of(other));
+                if let Value::String(val2) = other { return Ok(Value::String(self.to_string() + val2)); }
+                error!(TypeError, "Cannot add {} to {}", type_of(self), type_of(other));
             },
         }
     }
 
-    fn minus(&self, other: &Value) -> Value {
+    fn minus(&self, other: &Value) -> Result<Value> {
         match self {
             Value::Number(val1) => {
                 match other {
-                    Value::Number(val2) => { return Value::Number((val1 - val2).normalize()); },
-                    _ => panic!("TypeError at position {{}}: Cannot subtract {} from {}", type_of(other), type_of(self)),
+                    Value::Number(val2) => { return Ok(Value::Number((val1 - val2).normalize())); },
+                    _ => error!(TypeError, "Cannot subtract {} from {}", type_of(other), type_of(self)),
                 }
             },
-            _ => panic!("TypeError at position {{}}: Cannot subtract {} from {}", type_of(other), type_of(self)),
+            _ => error!(TypeError, "Cannot subtract {} from {}", type_of(other), type_of(self)),
         }
     }
 
-    fn multiply(&self, other: &Value) -> Value {
+    fn multiply(&self, other: &Value) -> Result<Value> {
         match self {
             Value::Number(val1) => {
                 match other {
-                    Value::Number(val2) => { return Value::Number((val1 * val2).normalize()); },
+                    Value::Number(val2) => { return Ok(Value::Number((val1 * val2).normalize())); },
                     _ => { return other.multiply(self) },
                 }
             },
@@ -53,10 +54,10 @@ impl CalculativeOperations for Value {
                 match other {
                     Value::Number(val2) => {
                         if !val2.fract().is_zero() {
-                            panic!("ValueError at position {{}}: Cannot multiply string with fractional number");
+                            error!(ValueError, "Cannot multiply string with fractional number");
                         }
                         if val2 < &Decimal::ZERO {
-                            panic!("ValueError at position {{}}: Cannot multiply string with negative number");
+                            error!(ValueError, "Cannot multiply string with negative number");
                         }
                         let mut str = String::new();
                         let mut i = val2.to_i128().unwrap();
@@ -64,42 +65,42 @@ impl CalculativeOperations for Value {
                             str += val1;
                             i -= 1;
                         }
-                        return Value::String(str);
+                        return Ok(Value::String(str));
                     },
-                    _ => panic!("TypeError at position {{}}: Cannot multiply {} with {}", type_of(self), type_of(other)),
+                    _ => error!(TypeError, "Cannot multiply {} with {}", type_of(self), type_of(other)),
                 }
             },
             _ => {
                 if let Value::String(_) = other { return other.multiply(self); }
-                panic!("TypeError at position {{}}: Cannot multiply {} with {}", type_of(self), type_of(other));
+                error!(TypeError, "Cannot multiply {} with {}", type_of(self), type_of(other));
             },
         }
     }
 
-    fn divide(&self, other: &Value) -> Value {
+    fn divide(&self, other: &Value) -> Result<Value> {
         match self {
             Value::Number(val1) => {
                 match other {
                     Value::Number(val2) => {
-                        if val2.is_zero() { panic!("DivisionByZeroError at position {{}}: Cannot divide by zero"); }
-                        return Value::Number((val1 / val2).normalize());
+                        if val2.is_zero() { error!(DivisionByZeroError, "Cannot divide by zero"); }
+                        return Ok(Value::Number((val1 / val2).normalize()));
                     },
-                    _ => panic!("TypeError at position {{}}: Cannot divide {} by {}", type_of(self), type_of(other)),
+                    _ => error!(TypeError, "Cannot divide {} by {}", type_of(self), type_of(other)),
                 }
             },
-            _ => panic!("TypeError at position {{}}: Cannot divide {} by {}", type_of(self), type_of(other)),
+            _ => error!(TypeError, "Cannot divide {} by {}", type_of(self), type_of(other)),
         }
     }
 
-    fn power(&self, other: &Self) -> Self {
+    fn power(&self, other: &Self) -> Result<Value> {
         match self {
             Value::Number(val1) => {
                 match other {
-                    Value::Number(val2) => { return Value::Number(val1.powd(*val2).normalize()) },
-                    _ => panic!("TypeError at position {{}}: Cannot raise {} by {}", type_of(self), type_of(other)),
+                    Value::Number(val2) => { return Ok(Value::Number(val1.powd(*val2).normalize())) },
+                    _ => error!(TypeError, "Cannot raise {} by {}", type_of(self), type_of(other)),
                 }
             },
-            _ => panic!("TypeError at position {{}}: Cannot raise {} by {}", type_of(self), type_of(other)),
+            _ => error!(TypeError, "Cannot raise {} by {}", type_of(self), type_of(other)),
         }
     }
 }

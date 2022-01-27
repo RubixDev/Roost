@@ -1,3 +1,5 @@
+#[macro_use]
+mod error;
 mod tokens;
 mod lexer;
 mod parser;
@@ -20,7 +22,13 @@ fn main() {
     let start = std::time::Instant::now();
 
     let mut lexer = Lexer::new(&code);
-    let tokens = lexer.scan();
+    let tokens = match lexer.scan() {
+        Ok(tokens) => tokens,
+        Err(e) => {
+            eprintln!("{}", e);
+            std::process::exit(1);
+        },
+    };
     file = std::fs::File::create("tokens.txt").unwrap();
     write!(file, "{:#?}", tokens).unwrap();
 
@@ -28,15 +36,24 @@ fn main() {
     let start = std::time::Instant::now();
 
     let mut parser = Parser::new(&tokens);
-    let ast = parser.parse();
-    file = std::fs::File::create("ast.txt").unwrap();
-    write!(file, "{:#?}", ast).unwrap();
+    let nodes = match parser.parse() {
+        Ok(nodes) => nodes,
+        Err(e) => {
+            eprintln!("{}", e);
+            std::process::exit(1);
+        },
+    };
+    file = std::fs::File::create("nodes.txt").unwrap();
+    write!(file, "{:#?}", nodes).unwrap();
 
     let end_parse = start.elapsed();
     let start = std::time::Instant::now();
 
-    let mut interpreter = Interpreter::new(ast);
-    interpreter.run();
+    let mut interpreter = Interpreter::new(nodes);
+    interpreter.run().unwrap_or_else(|e| {
+        eprintln!("{}", e);
+        std::process::exit(1);
+    });
 
     let end_run = start.elapsed();
     let end = start_total.elapsed();

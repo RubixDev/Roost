@@ -1,6 +1,5 @@
 use std::str::Chars;
-
-use crate::tokens::{Token, TokenType};
+use crate::{tokens::{Token, TokenType}, error::Result};
 
 const DIGITS: [char; 10] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 const LETTERS_AND_UNDERSCORE: [char; 53] = ['A', 'a', 'B', 'b', 'C', 'c', 'D',
@@ -27,7 +26,7 @@ impl <'a> Lexer<'a> {
         };
     }
 
-    pub fn scan(&mut self) -> Vec<Token> {
+    pub fn scan(&mut self) -> Result<Vec<Token>> {
         self.advance();
         let mut tokens: Vec<Token> = vec![];
 
@@ -41,7 +40,7 @@ impl <'a> Lexer<'a> {
             } else if DIGITS.contains(&current_char) {
                 tokens.push(self.make_number());
             } else if current_char == '.' {
-                tokens.push(self.make_dot());
+                tokens.push(self.make_dot()?);
             } else if OPTIONAL_EQ_CHARS.contains(&current_char) {
                 tokens.push(self.make_optional_equal());
             } else if current_char == '/' {
@@ -52,12 +51,12 @@ impl <'a> Lexer<'a> {
             } else if LETTERS_AND_UNDERSCORE.contains(&current_char) {
                 tokens.push(self.make_name());
             } else {
-                panic!("SyntaxError at position {{}}: Illegal character '{}'", current_char);
+                error!(SyntaxError, "Illegal character `{}`", current_char);
             }
         }
         tokens.push(Token::new(TokenType::EOF, "EOF"));
 
-        return tokens;
+        return Ok(tokens);
     }
 
     fn advance(&mut self) {
@@ -132,19 +131,22 @@ impl <'a> Lexer<'a> {
         return Token::new(TokenType::Number, &number);
     }
 
-    fn make_dot(&mut self) -> Token {
+    fn make_dot(&mut self) -> Result<Token> {
         self.advance();
 
         if self.current_char != Some('.') {
-            panic!("SyntaxError at position {{}}: Expected '.'");
+            if let Some(current_char) = self.current_char {
+                error!(SyntaxError, "Expected `.`, got `{}`", current_char);
+            }
+            error!(SyntaxError, "Expected `.`");
         }
 
         self.advance();
         if self.current_char == Some('=') {
             self.advance();
-            return Token::new(TokenType::RangeDots, "..=");
+            return Ok(Token::new(TokenType::RangeDots, "..="));
         }
-        return Token::new(TokenType::RangeDots, "..");
+        return Ok(Token::new(TokenType::RangeDots, ".."));
     }
 
     fn make_optional_equal(&mut self) -> Token {

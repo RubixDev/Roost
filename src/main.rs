@@ -85,7 +85,7 @@ fn main() {
     let end_parse = start.elapsed();
     let start = Instant::now();
 
-    let mut interpreter = Interpreter::new(nodes, |m| print!("{}", m));
+    let mut interpreter = Interpreter::new(nodes, |m| print!("{}", m), || false);
     interpreter.run().unwrap_or_else(|e| exit!(e, code));
 
     let end_run = start.elapsed();

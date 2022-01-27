@@ -15,7 +15,10 @@ impl CalculativeOperations for Value {
         match self {
             Value::Number(val1) => {
                 match other {
-                    Value::Number(val2) => { return Ok(Value::Number((val1 + val2).normalize())); },
+                    Value::Number(val2) => { return Ok(Value::Number((match val1.checked_add(*val2) {
+                        Some(result) => result,
+                        None => error!(OverflowError, location, "Addition resulted in overflow"),
+                    }).normalize())); },
                     Value::String(val2) => { return Ok(Value::String(self.to_string() + val2)); },
                     _ => error!(TypeError, location, "Cannot add {} to {}", type_of(self), type_of(other)),
                 }
@@ -34,7 +37,10 @@ impl CalculativeOperations for Value {
         match self {
             Value::Number(val1) => {
                 match other {
-                    Value::Number(val2) => { return Ok(Value::Number((val1 - val2).normalize())); },
+                    Value::Number(val2) => { return Ok(Value::Number((match val1.checked_sub(*val2) {
+                        Some(result) => result,
+                        None => error!(OverflowError, location, "Subtraction resulted in overflow"),
+                    }).normalize())); },
                     _ => error!(TypeError, location, "Cannot subtract {} from {}", type_of(other), type_of(self)),
                 }
             },
@@ -46,7 +52,10 @@ impl CalculativeOperations for Value {
         match self {
             Value::Number(val1) => {
                 match other {
-                    Value::Number(val2) => { return Ok(Value::Number((val1 * val2).normalize())); },
+                    Value::Number(val2) => { return Ok(Value::Number((match val1.checked_mul(*val2) {
+                        Some(result) => result,
+                        None => error!(OverflowError, location, "Multiplication resulted in overflow"),
+                    }).normalize())); },
                     _ => { return other.multiply(self, location) },
                 }
             },
@@ -83,7 +92,10 @@ impl CalculativeOperations for Value {
                 match other {
                     Value::Number(val2) => {
                         if val2.is_zero() { error!(DivisionByZeroError, location, "Cannot divide by zero"); }
-                        return Ok(Value::Number((val1 / val2).normalize()));
+                        return Ok(Value::Number((match val1.checked_div(*val2) {
+                            Some(result) => result,
+                            None => error!(OverflowError, location, "Division resulted in overflow"),
+                        }).normalize()));
                     },
                     _ => error!(TypeError, location, "Cannot divide {} by {}", type_of(self), type_of(other)),
                 }
@@ -96,7 +108,10 @@ impl CalculativeOperations for Value {
         match self {
             Value::Number(val1) => {
                 match other {
-                    Value::Number(val2) => { return Ok(Value::Number(val1.powd(*val2).normalize())) },
+                    Value::Number(val2) => { return Ok(Value::Number(match val1.checked_powd(*val2) {
+                        Some(result) => result,
+                        None => error!(OverflowError, location, "Power resulted in overflow"),
+                    }.normalize())) },
                     _ => error!(TypeError, location, "Cannot raise {} by {}", type_of(self), type_of(other)),
                 }
             },

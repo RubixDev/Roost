@@ -76,4 +76,5 @@ pub enum ErrorKind {
     ReferenceError,
     ValueError,
     DivisionByZeroError,
+    OverflowError,
 }

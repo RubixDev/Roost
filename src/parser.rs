@@ -101,7 +101,7 @@ impl <'a> Parser<'a> {
             statements.push(self.statement()?);
             loop {
                 if self.current_token.token_type != TokenType::EOL {
-                    syntax!(self, "Expected `;` or line break expected, found `{}`", self.current_token.value);
+                    syntax!(self, "Expected `;` or line break, found `{}`", self.current_token.value);
                 }
                 while self.current_token.token_type == TokenType::EOL {
                     self.advance();

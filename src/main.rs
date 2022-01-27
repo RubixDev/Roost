@@ -55,10 +55,7 @@ fn main() {
     let mut lexer = Lexer::new(&code, filename);
     let tokens = match lexer.scan() {
         Ok(tokens) => tokens,
-        Err(e) => {
-            eprintln!("{}", e);
-            std::process::exit(1);
-        },
+        Err(e) => exit!(e, code),
     };
     file = std::fs::File::create("tokens.txt").unwrap();
     write!(file, "{:#?}", tokens).unwrap();

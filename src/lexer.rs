@@ -85,7 +85,11 @@ impl <'a> Lexer<'a> {
             _ => panic!(),
         };
         self.advance();
-        return Token::new(token_type, &char.to_string());
+        let value = char.to_string();
+        return Token::new(
+            token_type,
+            if char == '\n' { "LF" } else { &value }
+        );
     }
 
     fn make_string(&mut self) -> Token {

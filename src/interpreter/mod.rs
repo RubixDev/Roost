@@ -54,11 +54,10 @@ pub struct Interpreter {
     scopes: Vec<HashMap<String, Value>>,
     current_scope_index: usize,
     print_callback: fn(String),
-    should_terminate: fn() -> bool,
 }
 
 impl Interpreter {
-    pub fn new(start_node: Statements, print_callback: fn(String), should_terminate: fn() -> bool) -> Self {
+    pub fn new(start_node: Statements, print_callback: fn(String)) -> Self {
         return Interpreter {
             start_node,
             scopes: vec![HashMap::from([
@@ -69,7 +68,6 @@ impl Interpreter {
             ])],
             current_scope_index: 0,
             print_callback,
-            should_terminate,
         };
     }
 
@@ -124,7 +122,7 @@ impl Interpreter {
         if new_scope { self.push_scope(); }
         for statement in &node.statements {
             result.register(self.visit_statement(&statement)?);
-            if result.should_return() || (self.should_terminate)() { break; }
+            if result.should_return() { break; }
         }
         self.pop_scope();
         return Ok(result);

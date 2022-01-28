@@ -99,15 +99,14 @@ impl <'a> Parser<'a> {
             let mut statements: Vec<Statement> = vec![];
             statements.push(self.statement()?);
             loop {
+                if [TokenType::EOF, TokenType::RBrace].contains(&self.current_token.token_type) { break; }
                 if self.current_token.token_type != TokenType::EOL {
                     syntax!(self, "Expected ';' or line break, found '{}'", self.current_token.value);
                 }
                 while self.current_token.token_type == TokenType::EOL {
                     self.advance();
                 }
-                if [TokenType::EOF, TokenType::RBrace].contains(&self.current_token.token_type) {
-                    break;
-                }
+                if [TokenType::EOF, TokenType::RBrace].contains(&self.current_token.token_type) { break; }
                 statements.push(self.statement()?);
             }
             return Ok(Statements { location: start_location, statements });

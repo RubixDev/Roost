@@ -231,7 +231,7 @@ impl <'a> Parser<'a> {
             count += 1;
         }
 
-        if self.current_token.matches(TokenType::Keyword, "else") {
+        if current_token.matches(TokenType::Keyword, "else") {
             for _ in 0..count { self.advance(); }
             self.advance();
 

@@ -4,6 +4,7 @@ description = "Command line interpreter for the roost language"
 version = "1.0.0"
 edition = "2021"
 authors = ["RubixDev"]
+license = "GPL-2.0-only"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -3,26 +3,26 @@ use super::{Value, types::type_of};
 use crate::error::{Result, Location};
 
 pub trait CalculativeOperations {
-    fn plus(&self, other: &Value, location: Location) -> Result<Value>;
-    fn minus(&self, other: &Value, location: Location) -> Result<Value>;
-    fn multiply(&self, other: &Value, location: Location) -> Result<Value>;
-    fn divide(&self, other: &Value, location: Location) -> Result<Value>;
-    fn power(&self, other: &Value, location: Location) -> Result<Value>;
-    fn modulo(&self, other: &Value, location: Location) -> Result<Value>;
-    fn int_divide(&self, other: &Value, location: Location) -> Result<Value>;
+    fn plus(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value>;
+    fn minus(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value>;
+    fn multiply(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value>;
+    fn divide(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value>;
+    fn power(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value>;
+    fn modulo(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value>;
+    fn int_divide(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value>;
 }
 
 impl CalculativeOperations for Value {
-    fn plus(&self, other: &Value, location: Location) -> Result<Value> {
+    fn plus(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value> {
         match self {
             Value::Number(val1) => {
                 match other {
                     Value::Number(val2) => { return Ok(Value::Number((match val1.checked_add(*val2) {
                         Some(result) => result,
-                        None => error!(OverflowError, location, "Addition resulted in overflow"),
+                        None => error!(OverflowError, start_loc, end_loc, "Addition resulted in overflow"),
                     }).normalize())); },
                     Value::String(val2) => { return Ok(Value::String(self.to_string() + val2)); },
-                    _ => error!(TypeError, location, "Cannot add {} to {}", type_of(self), type_of(other)),
+                    _ => error!(TypeError, start_loc, end_loc, "Cannot add {} to {}", type_of(self), type_of(other)),
                 }
             },
             Value::String(val1) => {
@@ -30,45 +30,45 @@ impl CalculativeOperations for Value {
             },
             _ => {
                 if let Value::String(val2) = other { return Ok(Value::String(self.to_string() + val2)); }
-                error!(TypeError, location, "Cannot add {} to {}", type_of(self), type_of(other));
+                error!(TypeError, start_loc, end_loc, "Cannot add {} to {}", type_of(self), type_of(other));
             },
         }
     }
 
-    fn minus(&self, other: &Value, location: Location) -> Result<Value> {
+    fn minus(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value> {
         match self {
             Value::Number(val1) => {
                 match other {
                     Value::Number(val2) => { return Ok(Value::Number((match val1.checked_sub(*val2) {
                         Some(result) => result,
-                        None => error!(OverflowError, location, "Subtraction resulted in overflow"),
+                        None => error!(OverflowError, start_loc, end_loc, "Subtraction resulted in overflow"),
                     }).normalize())); },
-                    _ => error!(TypeError, location, "Cannot subtract {} from {}", type_of(other), type_of(self)),
+                    _ => error!(TypeError, start_loc, end_loc, "Cannot subtract {} from {}", type_of(other), type_of(self)),
                 }
             },
-            _ => error!(TypeError, location, "Cannot subtract {} from {}", type_of(other), type_of(self)),
+            _ => error!(TypeError, start_loc, end_loc, "Cannot subtract {} from {}", type_of(other), type_of(self)),
         }
     }
 
-    fn multiply(&self, other: &Value, location: Location) -> Result<Value> {
+    fn multiply(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value> {
         match self {
             Value::Number(val1) => {
                 match other {
                     Value::Number(val2) => { return Ok(Value::Number((match val1.checked_mul(*val2) {
                         Some(result) => result,
-                        None => error!(OverflowError, location, "Multiplication resulted in overflow"),
+                        None => error!(OverflowError, start_loc, end_loc, "Multiplication resulted in overflow"),
                     }).normalize())); },
-                    _ => { return other.multiply(self, location) },
+                    _ => { return other.multiply(self, start_loc, end_loc) },
                 }
             },
             Value::String(val1) => {
                 match other {
                     Value::Number(val2) => {
                         if !val2.fract().is_zero() {
-                            error!(ValueError, location, "Cannot multiply string with fractional number");
+                            error!(ValueError, start_loc, end_loc, "Cannot multiply string with fractional number");
                         }
                         if val2 < &Decimal::ZERO {
-                            error!(ValueError, location, "Cannot multiply string with negative number");
+                            error!(ValueError, start_loc, end_loc, "Cannot multiply string with negative number");
                         }
                         let mut str = String::new();
                         let mut i = val2.to_i128().unwrap();
@@ -78,79 +78,79 @@ impl CalculativeOperations for Value {
                         }
                         return Ok(Value::String(str));
                     },
-                    _ => error!(TypeError, location, "Cannot multiply {} with {}", type_of(self), type_of(other)),
+                    _ => error!(TypeError, start_loc, end_loc, "Cannot multiply {} with {}", type_of(self), type_of(other)),
                 }
             },
             _ => {
-                if let Value::String(_) = other { return other.multiply(self, location); }
-                error!(TypeError, location, "Cannot multiply {} with {}", type_of(self), type_of(other));
+                if let Value::String(_) = other { return other.multiply(self, start_loc, end_loc); }
+                error!(TypeError, start_loc, end_loc, "Cannot multiply {} with {}", type_of(self), type_of(other));
             },
         }
     }
 
-    fn divide(&self, other: &Value, location: Location) -> Result<Value> {
+    fn divide(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value> {
         match self {
             Value::Number(val1) => {
                 match other {
                     Value::Number(val2) => {
-                        if val2.is_zero() { error!(DivisionByZeroError, location, "Cannot divide by zero"); }
+                        if val2.is_zero() { error!(DivisionByZeroError, start_loc, end_loc, "Cannot divide by zero"); }
                         return Ok(Value::Number((match val1.checked_div(*val2) {
                             Some(result) => result,
-                            None => error!(OverflowError, location, "Division resulted in overflow"),
+                            None => error!(OverflowError, start_loc, end_loc, "Division resulted in overflow"),
                         }).normalize()));
                     },
-                    _ => error!(TypeError, location, "Cannot divide {} by {}", type_of(self), type_of(other)),
+                    _ => error!(TypeError, start_loc, end_loc, "Cannot divide {} by {}", type_of(self), type_of(other)),
                 }
             },
-            _ => error!(TypeError, location, "Cannot divide {} by {}", type_of(self), type_of(other)),
+            _ => error!(TypeError, start_loc, end_loc, "Cannot divide {} by {}", type_of(self), type_of(other)),
         }
     }
 
-    fn power(&self, other: &Self, location: Location) -> Result<Value> {
+    fn power(&self, other: &Self, start_loc: Location, end_loc: Location) -> Result<Value> {
         match self {
             Value::Number(val1) => {
                 match other {
                     Value::Number(val2) => { return Ok(Value::Number(match val1.checked_powd(*val2) {
                         Some(result) => result,
-                        None => error!(OverflowError, location, "Power resulted in overflow"),
+                        None => error!(OverflowError, start_loc, end_loc, "Power resulted in overflow"),
                     }.normalize())) },
-                    _ => error!(TypeError, location, "Cannot raise {} by {}", type_of(self), type_of(other)),
+                    _ => error!(TypeError, start_loc, end_loc, "Cannot raise {} by {}", type_of(self), type_of(other)),
                 }
             },
-            _ => error!(TypeError, location, "Cannot raise {} by {}", type_of(self), type_of(other)),
+            _ => error!(TypeError, start_loc, end_loc, "Cannot raise {} by {}", type_of(self), type_of(other)),
         }
     }
 
-    fn modulo(&self, other: &Self, location: Location) -> Result<Value> {
+    fn modulo(&self, other: &Self, start_loc: Location, end_loc: Location) -> Result<Value> {
         match self {
             Value::Number(val1) => {
                 match other {
                     Value::Number(val2) => {
-                        if val2.is_zero() { error!(DivisionByZeroError, location, "Cannot divide by zero"); }
+                        if val2.is_zero() { error!(DivisionByZeroError, start_loc, end_loc, "Cannot divide by zero"); }
                         return Ok(Value::Number((val1 % val2).normalize()))
                     },
-                    _ => error!(TypeError, location, "Cannot raise {} by {}", type_of(self), type_of(other)),
+                    _ => error!(TypeError, start_loc, end_loc, "Cannot raise {} by {}", type_of(self), type_of(other)),
                 }
             },
-            _ => error!(TypeError, location, "Cannot raise {} by {}", type_of(self), type_of(other)),
+            _ => error!(TypeError, start_loc, end_loc, "Cannot raise {} by {}", type_of(self), type_of(other)),
         }
     }
 
-    fn int_divide(&self, other: &Value, location: Location) -> Result<Value> {
+    fn int_divide(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value> {
         match self {
             Value::Number(val1) => {
                 match other {
                     Value::Number(val2) => {
-                        if val2.is_zero() { error!(DivisionByZeroError, location, "Cannot divide by zero"); }
+                        if val2.is_zero() { error!(DivisionByZeroError, start_loc, end_loc, "Cannot divide by zero"); }
                         return Ok(Value::Number((match val1.checked_div(*val2) {
                             Some(result) => result,
-                            None => error!(OverflowError, location, "Division resulted in overflow"),
+                            None => error!(OverflowError, start_loc, end_loc, "Division resulted in overflow"),
                         }).trunc().normalize()));
                     },
-                    _ => error!(TypeError, location, "Cannot divide {} by {}", type_of(self), type_of(other)),
+                    _ => error!(TypeError, start_loc, end_loc, "Cannot divide {} by {}", type_of(self), type_of(other)),
                 }
             },
-            _ => error!(TypeError, location, "Cannot divide {} by {}", type_of(self), type_of(other)),
+            _ => error!(TypeError, start_loc, end_loc, "Cannot divide {} by {}", type_of(self), type_of(other)),
         }
     }
 }

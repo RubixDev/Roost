@@ -3,7 +3,8 @@ use crate::error::Location;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Statements {
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
     pub statements: Vec<Statement>,
 }
 #[derive(Debug, PartialEq, Clone)]
@@ -22,13 +23,15 @@ pub enum Statement {
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct DeclareStatement {
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
     pub identifier: String,
     pub expression: Expression,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct AssignStatement {
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
     pub identifier: String,
     pub operator: AssignOperator,
     pub expression: Expression,
@@ -46,63 +49,73 @@ pub enum AssignOperator {
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct IfStatement {
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
     pub condition: Expression,
     pub block: Statements,
-    pub else_block: Statements,
+    pub else_block: Option<Statements>,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct LoopStatement {
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
     pub block: Statements,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct WhileStatement {
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
     pub condition: Expression,
     pub block: Statements,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct ForStatement {
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
     pub identifier: String,
     pub expression: Expression,
     pub block: Statements,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct FunctionDeclaration {
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
     pub identifier: String,
     pub params: Vec<String>,
     pub block: Statements,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct ReturnStatement {
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
     pub expression: Option<Expression>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Expression {
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
     pub base: Box<TernaryExpression>,
     pub range: Box<Option<(bool, TernaryExpression)>>,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct TernaryExpression {
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
     pub base: OrExpression,
     pub ternary: Option<(Expression, Expression)>,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct OrExpression {
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
     pub base: AndExpression,
     pub following: Vec<AndExpression>,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct AndExpression {
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
     pub base: EqualityExpression,
     pub following: Vec<EqualityExpression>,
 }
@@ -113,7 +126,8 @@ pub enum EqualityOperator {
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct EqualityExpression {
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
     pub base: RelationalExpression,
     pub other: Option<(EqualityOperator, RelationalExpression)>,
 }
@@ -126,7 +140,8 @@ pub enum RelationalOperator {
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct RelationalExpression {
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
     pub base: AdditiveExpression,
     pub other: Option<(RelationalOperator, AdditiveExpression)>,
 }
@@ -137,7 +152,8 @@ pub enum AdditiveOperator {
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct AdditiveExpression {
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
     pub base: MultiplicativeExpression,
     pub following: Vec<(AdditiveOperator, MultiplicativeExpression)>,
 }
@@ -150,7 +166,8 @@ pub enum MultiplicativeOperator {
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct MultiplicativeExpression {
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
     pub base: UnaryExpression,
     pub following: Vec<(MultiplicativeOperator, UnaryExpression)>,
 }
@@ -163,7 +180,8 @@ pub enum UnaryOperator {
 #[derive(Debug, PartialEq, Clone)]
 pub enum UnaryExpression {
     Operator {
-        location: Location,
+        start: Location,
+        end: Location,
         operator: UnaryOperator,
         expression: Box<UnaryExpression>,
     },
@@ -171,7 +189,8 @@ pub enum UnaryExpression {
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct ExponentialExpression {
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
     pub base: Atom,
     pub exponent: Option<UnaryExpression>,
 }
@@ -180,14 +199,15 @@ pub enum Atom {
     Number(Decimal),
     Bool(bool),
     String(String),
-    Identifier { location: Location, name: String },
+    Identifier { start: Location, end: Location, name: String },
     Call(CallExpression),
     Null,
     Expression(Expression),
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct CallExpression {
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
     pub identifier: String,
     pub args: Vec<Expression>,
 }

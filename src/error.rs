@@ -3,12 +3,13 @@ use std::fmt::Display;
 pub type Result<T> = std::result::Result<T, Error>;
 
 macro_rules! error {
-    ($kind:ident, $pos:expr, $($arg:tt)*) => {
+    ($kind:ident, $start:expr, $end:expr, $($arg:tt)*) => {
         return Err(
             crate::error::Error::new(
                 crate::error::ErrorKind::$kind,
                 format!($($arg)*),
-                $pos,
+                $start,
+                $end,
             )
         )
     };
@@ -19,7 +20,7 @@ pub struct Location {
     pub filename: String,
     pub line: usize,
     pub column: usize,
-    index: usize,
+    pub index: usize,
 }
 
 impl Location {
@@ -43,15 +44,17 @@ impl Location {
     }
 }
 
+#[derive(Debug)]
 pub struct Error {
     pub kind: ErrorKind,
     pub message: String,
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
 }
 
 impl Error {
-    pub fn new(kind: ErrorKind, message: String, location: Location) -> Self {
-        return Error { kind, message, location };
+    pub fn new(kind: ErrorKind, message: String, start: Location, end: Location) -> Self {
+        return Error { kind, message, start, end };
     }
 }
 
@@ -61,9 +64,9 @@ impl Display for Error {
             f,
             "{:?} at {}:{}:{}  {}",
             self.kind,
-            self.location.filename,
-            self.location.line,
-            self.location.column,
+            self.start.filename,
+            self.start.line,
+            self.start.column,
             self.message,
         )
     }

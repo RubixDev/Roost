@@ -1,4 +1,4 @@
-use std::{io::Read, time::Instant, fs::File};
+use std::{io::{Read, Write}, time::Instant, fs::File};
 use structopt::StructOpt;
 use roost::{lexer::Lexer, parser::Parser, interpreter::Interpreter};
 
@@ -19,22 +19,23 @@ macro_rules! exit {
     ($error:expr, $code:expr) => {{
         let lines: Vec<&str> = $code.split('\n').collect();
 
-        let line1 = if $error.location.line > 1 {
-            format!("\n \x1b[90m{: >3} | \x1b[0m{}", $error.location.line - 1, lines[$error.location.line - 2])
+        let line1 = if $error.start.line > 1 {
+            format!("\n \x1b[90m{: >3} | \x1b[0m{}", $error.start.line - 1, lines[$error.start.line - 2])
         } else { String::new() };
-        let line2 = format!(" \x1b[90m{: >3} | \x1b[0m{}", $error.location.line, lines[$error.location.line - 1]);
-        let line3 = if $error.location.line < lines.len() {
-            format!("\n \x1b[90m{: >3} | \x1b[0m{}", $error.location.line + 1, lines[$error.location.line])
+        let line2 = format!(" \x1b[90m{: >3} | \x1b[0m{}", $error.start.line, lines[$error.start.line - 1]);
+        let line3 = if $error.start.line < lines.len() {
+            format!("\n \x1b[90m{: >3} | \x1b[0m{}", $error.start.line + 1, lines[$error.start.line])
         } else { String::new() };
 
-        let marker = format!("{}\x1b[1;31m^\x1b[0m", " ".repeat($error.location.column + 6));
+        println!("{:?}", $error);
+        let marker = format!("{}\x1b[1;31m{}\x1b[0m", " ".repeat($error.start.column + 6), "^".repeat($error.end.index - $error.start.index));
 
         eprintln!(
             "\x1b[1;36m{:?}\x1b[39m at {}:{}:{}\x1b[0m\n{}\n{}\n{}{}\n\n\x1b[1m{}\x1b[0m",
             $error.kind,
-            $error.location.filename,
-            $error.location.line,
-            $error.location.column,
+            $error.start.filename,
+            $error.start.line,
+            $error.start.column,
             line1,
             line2,
             marker,
@@ -68,8 +69,8 @@ fn main() {
         Ok(tokens) => tokens,
         Err(e) => exit!(e, code),
     };
-    // file = File::create("tokens.txt").unwrap();
-    // write!(file, "{:#?}", tokens).unwrap();
+    file = File::create("tokens.txt").unwrap();
+    write!(file, "{:#?}", tokens).unwrap();
 
     let end_lex = start.elapsed();
     let start = Instant::now();

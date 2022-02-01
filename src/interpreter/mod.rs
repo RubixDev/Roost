@@ -89,24 +89,24 @@ impl Interpreter {
         return &mut self.scopes[self.current_scope_index];
     }
 
-    fn find_var(&self, name: &String, location: Location) -> Result<&Value> {
+    fn find_var(&self, name: &String, start_loc: Location, end_loc: Location) -> Result<&Value> {
         let mut scope = self.current_scope_index;
         loop {
             if self.scopes[scope].contains_key(name) {
                 return Ok(self.scopes[scope].get(name).unwrap());
             }
             if scope == 0 {
-                error!(ReferenceError, location, "Variable or function with name '{}' not found", name);
+                error!(ReferenceError, start_loc, end_loc, "Variable or function with name '{}' not found", name);
             }
             scope -= 1;
         }
     }
 
-    fn find_var_scope(&self, name: &String, location: Location) -> Result<usize> {
+    fn find_var_scope(&self, name: &String, start_loc: Location, end_loc: Location) -> Result<usize> {
         let mut scope = self.current_scope_index;
         loop {
             if scope == 0 {
-                error!(ReferenceError, location, "Variable or function with name '{}' not found", name);
+                error!(ReferenceError, start_loc, end_loc, "Variable or function with name '{}' not found", name);
             }
             if self.scopes[scope].contains_key(name) {
                 return Ok(scope);
@@ -157,24 +157,24 @@ impl Interpreter {
         let mut result = self.visit_expression(&node.expression)?;
         should_return!(result);
         let new_value = result.value.clone().unwrap();
-        let value_scope = self.find_var_scope(&node.identifier, node.location.clone())?;
+        let value_scope = self.find_var_scope(&node.identifier, node.start.clone(), node.end.clone())?;
         let value = self.scopes[value_scope][&node.identifier].clone();
 
         let old_type = type_of(&value);
         let new_type = type_of(&new_value);
         if old_type != Type::Null && new_type != Type::Null && old_type != new_type {
-            error!(TypeError, node.location.clone(), "Cannot assign type '{}' to '{}'", new_type, old_type);
+            error!(TypeError, node.start.clone(), node.end.clone(), "Cannot assign type '{}' to '{}'", new_type, old_type);
         }
 
         self.scopes[value_scope].insert(node.identifier.clone(), match node.operator {
             AssignOperator::Normal    => Ok(new_value.clone()),
-            AssignOperator::Plus      => value.plus(&new_value, node.location.clone()),
-            AssignOperator::Minus     => value.minus(&new_value, node.location.clone()),
-            AssignOperator::Multiply  => value.multiply(&new_value, node.location.clone()),
-            AssignOperator::Divide    => value.divide(&new_value, node.location.clone()),
-            AssignOperator::Modulo    => value.modulo(&new_value, node.location.clone()),
-            AssignOperator::IntDivide => value.int_divide(&new_value, node.location.clone()),
-            AssignOperator::Power     => value.power(&new_value, node.location.clone()),
+            AssignOperator::Plus      => value.plus(&new_value, node.start.clone(), node.end.clone()),
+            AssignOperator::Minus     => value.minus(&new_value, node.start.clone(), node.end.clone()),
+            AssignOperator::Multiply  => value.multiply(&new_value, node.start.clone(), node.end.clone()),
+            AssignOperator::Divide    => value.divide(&new_value, node.start.clone(), node.end.clone()),
+            AssignOperator::Modulo    => value.modulo(&new_value, node.start.clone(), node.end.clone()),
+            AssignOperator::IntDivide => value.int_divide(&new_value, node.start.clone(), node.end.clone()),
+            AssignOperator::Power     => value.power(&new_value, node.start.clone(), node.end.clone()),
         }?);
 
         result.success(None);
@@ -189,7 +189,9 @@ impl Interpreter {
         if condition.is_true() {
             result.register(self.visit_statements(&node.block, true)?)
         } else {
-            result.register(self.visit_statements(&node.else_block, true)?)
+            if let Some(block) = &node.else_block {
+                result.register(self.visit_statements(block, true)?)
+            }
         }
 
         if !result.should_return() { result.success(None); }
@@ -233,7 +235,7 @@ impl Interpreter {
         should_return!(result);
         let expression = result.value.clone().unwrap();
 
-        let mut iter = expression.to_iter(node.location.clone())?;
+        let mut iter = expression.to_iter(node.start.clone(), node.end.clone())?;
         while let Some(i) = iter.next() {
             self.push_scope();
             self.current_scope().insert(node.identifier.clone(), i.clone());
@@ -292,7 +294,7 @@ impl Interpreter {
                 Value::Number(start) => match val2 {
                     Value::Number(end) => {
                         if !start.fract().is_zero() || !end.fract().is_zero() {
-                            error!(ValueError, node.location.clone(), "Range bounds have to be integers");
+                            error!(ValueError, node.start.clone(), node.end.clone(), "Range bounds have to be integers");
                         }
                         if !inclusive && start != end {
                             if start > end {
@@ -302,9 +304,9 @@ impl Interpreter {
                             }
                         } else { Value::Range(start, end) }
                     },
-                    _ => error!(TypeError, node.location.clone(), "Range bounds have to be of type number, got {}", type_of(&val1)),
+                    _ => error!(TypeError, node.start.clone(), node.end.clone(), "Range bounds have to be of type number, got {}", type_of(&val1)),
                 },
-                _ => error!(TypeError, node.location.clone(), "Range bounds have to be of type number, got {}", type_of(&val1)),
+                _ => error!(TypeError, node.start.clone(), node.end.clone(), "Range bounds have to be of type number, got {}", type_of(&val1)),
             };
             result.success(Some(range));
         } else {
@@ -418,10 +420,10 @@ impl Interpreter {
             let other = result.value.clone().unwrap();
 
             let out = match operator {
-                RelationalOperator::LessThan           => base.less_than(&other, node.location.clone()),
-                RelationalOperator::GreaterThan        => base.greater_than(&other, node.location.clone()),
-                RelationalOperator::LessThanOrEqual    => base.less_than_or_equal(&other, node.location.clone()),
-                RelationalOperator::GreaterThanOrEqual => base.greater_than_or_equal(&other, node.location.clone()),
+                RelationalOperator::LessThan           => base.less_than(&other, node.start.clone(), node.end.clone()),
+                RelationalOperator::GreaterThan        => base.greater_than(&other, node.start.clone(), node.end.clone()),
+                RelationalOperator::LessThanOrEqual    => base.less_than_or_equal(&other, node.start.clone(), node.end.clone()),
+                RelationalOperator::GreaterThanOrEqual => base.greater_than_or_equal(&other, node.start.clone(), node.end.clone()),
             }?;
             result.success(Some(out));
         } else {
@@ -442,8 +444,8 @@ impl Interpreter {
             let other = result.value.clone().unwrap();
 
             base = match operator {
-                AdditiveOperator::Plus  => base.plus(&other, node.location.clone()),
-                AdditiveOperator::Minus => base.minus(&other, node.location.clone()),
+                AdditiveOperator::Plus  => base.plus(&other, node.start.clone(), node.end.clone()),
+                AdditiveOperator::Minus => base.minus(&other, node.start.clone(), node.end.clone()),
             }?;
         }
 
@@ -462,10 +464,10 @@ impl Interpreter {
             let other = result.value.clone().unwrap();
 
             base = match operator {
-                MultiplicativeOperator::Multiply  => base.multiply(&other, node.location.clone()),
-                MultiplicativeOperator::Divide    => base.divide(&other, node.location.clone()),
-                MultiplicativeOperator::Modulo    => base.modulo(&other, node.location.clone()),
-                MultiplicativeOperator::IntDivide => base.int_divide(&other, node.location.clone()),
+                MultiplicativeOperator::Multiply  => base.multiply(&other, node.start.clone(), node.end.clone()),
+                MultiplicativeOperator::Divide    => base.divide(&other, node.start.clone(), node.end.clone()),
+                MultiplicativeOperator::Modulo    => base.modulo(&other, node.start.clone(), node.end.clone()),
+                MultiplicativeOperator::IntDivide => base.int_divide(&other, node.start.clone(), node.end.clone()),
             }?;
         }
 
@@ -475,13 +477,13 @@ impl Interpreter {
 
     fn visit_unary_expression(&mut self, node: &UnaryExpression) -> Result<RuntimeResult> {
         return match node {
-            UnaryExpression::Operator { location, operator, expression } => {
+            UnaryExpression::Operator { start, end, operator, expression } => {
                 let mut result = self.visit_unary_expression(&**expression)?;
                 should_return!(result);
                 let base = result.value.clone().unwrap();
                 let out = match operator {
                     UnaryOperator::Plus  => base,
-                    UnaryOperator::Minus => Value::Number(Decimal::ZERO).minus(&base, location.clone())?,
+                    UnaryOperator::Minus => Value::Number(Decimal::ZERO).minus(&base, start.clone(), end.clone())?,
                     UnaryOperator::Not   => Value::Bool(base.is_false()),
                 };
                 result.success(Some(out));
@@ -501,7 +503,7 @@ impl Interpreter {
             should_return!(result);
             let exponent = result.value.clone().unwrap();
 
-            base = base.power(&exponent, node.location.clone())?;
+            base = base.power(&exponent, node.start.clone(), node.end.clone())?;
         }
 
         result.success(Some(base));
@@ -515,7 +517,7 @@ impl Interpreter {
             Atom::Bool(value) => Value::Bool(value.clone()),
             Atom::String(value) => Value::String(value.clone()),
             Atom::Null => Value::Null,
-            Atom::Identifier { location, name } => self.find_var(name, location.clone())?.clone(),
+            Atom::Identifier { start, end, name } => self.find_var(name, start.clone(), end.clone())?.clone(),
             Atom::Call(expression) => {
                 result.register(self.visit_call_expression(expression)?);
                 should_return!(result);
@@ -536,7 +538,7 @@ impl Interpreter {
     fn visit_call_expression(&mut self, node: &CallExpression) -> Result<RuntimeResult> {
         let mut result = RuntimeResult::new();
 
-        let value = self.find_var(&node.identifier, node.location.clone())?.clone();
+        let value = self.find_var(&node.identifier, node.start.clone(), node.end.clone())?.clone();
         let (args, statements) = match value {
             Value::Function(args, statements) => (args, statements),
             Value::BuiltIn => {
@@ -550,19 +552,20 @@ impl Interpreter {
                 let value = match node.identifier.as_str() {
                     "print" => built_in::print(args, self.print_callback),
                     "printl" => built_in::printl(args, self.print_callback),
-                    "typeOf" => built_in::type_of(args, node.location.clone()),
+                    "typeOf" => built_in::type_of(args, node.start.clone(), node.end.clone()),
                     _ => panic!(),
                 }?;
                 result.success(Some(value));
                 return Ok(result);
             },
-            _ => error!(TypeError, node.location.clone(), "Type {} is not callable", type_of(&value)),
+            _ => error!(TypeError, node.start.clone(), node.end.clone(), "Type {} is not callable", type_of(&value)),
         };
 
         if args.len() != node.args.len() {
             error!(
                 TypeError,
-                node.location.clone(),
+                node.start.clone(),
+                node.end.clone(),
                 "Function '{}' takes {} argument, however {} were supplied",
                 node.identifier,
                 args.len(),

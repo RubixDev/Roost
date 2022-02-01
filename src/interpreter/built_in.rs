@@ -13,11 +13,12 @@ pub fn printl(args: Vec<Value>, callback: fn(String)) -> Result<Value> {
     return Ok(Value::Void);
 }
 
-pub fn type_of(args: Vec<Value>, location: Location) -> Result<Value> {
+pub fn type_of(args: Vec<Value>, start_loc: Location, end_loc: Location) -> Result<Value> {
     if args.len() != 1 {
         error!(
             TypeError,
-            location,
+            start_loc,
+            end_loc,
             "Function 'typeOf' takes 1 argument, however {} were supplied",
             args.len(),
         );

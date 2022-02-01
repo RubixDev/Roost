@@ -53,12 +53,13 @@ pub enum TokenType {
 pub struct Token {
     pub token_type: TokenType,
     pub value: String,
-    pub location: Location,
+    pub start: Location,
+    pub end: Location,
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, value: &str, location: Location) -> Self {
-        return Token { token_type, value: String::from(value), location };
+    pub fn new(token_type: TokenType, value: &str, start: Location, end: Location) -> Self {
+        return Token { token_type, value: String::from(value), start, end };
     }
 
     pub fn matches(&self, token_type: TokenType, value: &str) -> bool {
@@ -69,13 +70,14 @@ impl Token {
         return Token {
             token_type: TokenType::EOF,
             value: String::from("EOF"),
-            location: Location::new(String::new()),
+            start: Location::new(String::new()),
+            end: Location::new(String::new()),
         };
     }
 }
 
 impl Debug for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "( {:?} | {:?} )", self.token_type, self.value)
+        write!(f, "( {:?} | {:?} | {}:{}..{}:{} )", self.token_type, self.value, self.start.line, self.start.column, self.end.line, self.end.column)
     }
 }

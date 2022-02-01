@@ -64,6 +64,7 @@ impl Interpreter {
                 (String::from("print"), Value::BuiltIn),
                 (String::from("printl"), Value::BuiltIn),
                 (String::from("typeOf"), Value::BuiltIn),
+                (String::from("exit"), Value::BuiltIn),
                 (String::from("answer"), Value::Number(Decimal::from(42))),
             ])],
             current_scope_index: 0,
@@ -553,6 +554,7 @@ impl Interpreter {
                     "print" => built_in::print(args, self.print_callback),
                     "printl" => built_in::printl(args, self.print_callback),
                     "typeOf" => built_in::type_of(args, node.start.clone(), node.end.clone()),
+                    "exit" => built_in::exit(args, node.start.clone(), node.end.clone()),
                     _ => panic!(),
                 }?;
                 result.success(Some(value));

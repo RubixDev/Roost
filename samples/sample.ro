@@ -47,3 +47,6 @@ printl(loops(3))
 
 if (42)
     printl('yep')
+
+exit(4.2)
+print(a)

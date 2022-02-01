@@ -11,8 +11,8 @@ const LETTERS_AND_UNDERSCORE: [char; 53] = ['A', 'a', 'B', 'b', 'C', 'c', 'D',
     's', 'T', 't', 'U', 'u', 'V', 'v', 'W', 'w', 'X', 'x', 'Y', 'y', 'Z', 'z', '_'];
 const SPACES: [char; 3] = [' ', '\t', '\r'];
 
-const SINGLE_CHARS: [char; 13] = ['(', ')', '{', '}', '?', ':', '|', '&', ',', '\n', ';', '%', '\\'];
-const OPTIONAL_EQ_CHARS: [char; 6] = ['=', '!', '<', '>', '+', '-'];
+const SINGLE_CHARS: [char; 11] = ['(', ')', '{', '}', '?', ':', '|', '&', ',', '\n', ';'];
+const OPTIONAL_EQ_CHARS: [char; 8] = ['=', '!', '<', '>', '+', '-', '%', '\\'];
 const KEYWORDS: [&str; 14] = ["var", "true", "false", "if", "null", "else", "fun",
     "loop", "while", "for", "in", "return", "break", "continue"];
 const ESCAPE_CHAR: [char; 10] = ['\\', '\'', '"', 'a', 'b', 'f', 'n', 'r', 't', 'v'];
@@ -93,8 +93,6 @@ impl <'a> Lexer<'a> {
             '&'  => TokenType::And,
             ','  => TokenType::Comma,
             '\n' | ';' => TokenType::EOL,
-            '%'  => TokenType::Modulo,
-            '\\' => TokenType::IntDivide,
             _ => panic!(),
         };
         self.advance();
@@ -249,12 +247,14 @@ impl <'a> Lexer<'a> {
         let start_location = self.location.clone();
         let char = self.current_char.unwrap();
         let token_types = match char {
-            '=' => (TokenType::Assign,      TokenType::Equal             ),
-            '!' => (TokenType::Not,         TokenType::NotEqual          ),
-            '<' => (TokenType::LessThan,    TokenType::LessThanOrEqual   ),
-            '>' => (TokenType::GreaterThan, TokenType::GreaterThanOrEqual),
-            '+' => (TokenType::Plus,        TokenType::PlusAssign        ),
-            '-' => (TokenType::Minus,       TokenType::MinusAssign       ),
+            '='  => (TokenType::Assign,      TokenType::Equal             ),
+            '!'  => (TokenType::Not,         TokenType::NotEqual          ),
+            '<'  => (TokenType::LessThan,    TokenType::LessThanOrEqual   ),
+            '>'  => (TokenType::GreaterThan, TokenType::GreaterThanOrEqual),
+            '+'  => (TokenType::Plus,        TokenType::PlusAssign        ),
+            '-'  => (TokenType::Minus,       TokenType::MinusAssign       ),
+            '%'  => (TokenType::Modulo,      TokenType::ModuloAssign      ),
+            '\\' => (TokenType::IntDivide,   TokenType::IntDivideAssign   ),
             _ => panic!()
         };
         self.advance();
@@ -271,6 +271,9 @@ impl <'a> Lexer<'a> {
         if self.current_char == Some('*') {
             self.advance();
             return Token::new(TokenType::Power, "**", start_location);
+        } else if self.current_char == Some('=') {
+            self.advance();
+            return Token::new(TokenType::MultiplyAssign, "*=", start_location);
         }
         return Token::new(TokenType::Multiply, "*", start_location);
     }

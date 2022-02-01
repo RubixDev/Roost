@@ -164,6 +164,8 @@ impl <'a> Parser<'a> {
                 TokenType::MinusAssign,
                 TokenType::MultiplyAssign,
                 TokenType::DivideAssign,
+                TokenType::ModuloAssign,
+                TokenType::IntDivideAssign,
             ].contains(&self.next_token().token_type) {
             return Ok(Statement::Assign(self.assign_statement()?));
         } else {
@@ -193,11 +195,13 @@ impl <'a> Parser<'a> {
         self.advance();
 
         let operator = match self.current_token.token_type {
-            TokenType::Assign         => AssignOperator::Normal,
-            TokenType::PlusAssign     => AssignOperator::Plus,
-            TokenType::MinusAssign    => AssignOperator::Minus,
-            TokenType::MultiplyAssign => AssignOperator::Multiply,
-            TokenType::DivideAssign   => AssignOperator::Divide,
+            TokenType::Assign          => AssignOperator::Normal,
+            TokenType::PlusAssign      => AssignOperator::Plus,
+            TokenType::MinusAssign     => AssignOperator::Minus,
+            TokenType::MultiplyAssign  => AssignOperator::Multiply,
+            TokenType::DivideAssign    => AssignOperator::Divide,
+            TokenType::ModuloAssign    => AssignOperator::Modulo,
+            TokenType::IntDivideAssign => AssignOperator::IntDivide,
             _ => panic!(),
         };
         self.advance();

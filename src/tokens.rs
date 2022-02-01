@@ -39,6 +39,8 @@ pub enum TokenType {
     MinusAssign,        // '-='
     MultiplyAssign,     // '*='
     DivideAssign,       // '/='
+    ModuloAssign,       // '%='
+    IntDivideAssign,    // '\='
 
     Comma,              // ','
 

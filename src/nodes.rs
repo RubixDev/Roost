@@ -35,11 +35,13 @@ pub struct AssignStatement {
 }
 #[derive(Debug, PartialEq, Clone)]
 pub enum AssignOperator {
-    Normal,   // =
-    Plus,     // +=
-    Minus,    // -=
-    Multiply, // *=
-    Divide,   // /=
+    Normal,    // =
+    Plus,      // +=
+    Minus,     // -=
+    Multiply,  // *=
+    Divide,    // /=
+    Modulo,    // %=
+    IntDivide, // \=
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct IfStatement {

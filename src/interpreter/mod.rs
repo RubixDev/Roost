@@ -167,11 +167,13 @@ impl Interpreter {
         }
 
         self.scopes[value_scope].insert(node.identifier.clone(), match node.operator {
-            AssignOperator::Normal   => Ok(new_value.clone()),
-            AssignOperator::Plus     => value.plus(&new_value, node.location.clone()),
-            AssignOperator::Minus    => value.minus(&new_value, node.location.clone()),
-            AssignOperator::Multiply => value.multiply(&new_value, node.location.clone()),
-            AssignOperator::Divide   => value.divide(&new_value, node.location.clone()),
+            AssignOperator::Normal    => Ok(new_value.clone()),
+            AssignOperator::Plus      => value.plus(&new_value, node.location.clone()),
+            AssignOperator::Minus     => value.minus(&new_value, node.location.clone()),
+            AssignOperator::Multiply  => value.multiply(&new_value, node.location.clone()),
+            AssignOperator::Divide    => value.divide(&new_value, node.location.clone()),
+            AssignOperator::Modulo    => value.modulo(&new_value, node.location.clone()),
+            AssignOperator::IntDivide => value.int_divide(&new_value, node.location.clone()),
         }?);
 
         result.success(None);

@@ -68,8 +68,8 @@ fn main() {
         Ok(tokens) => tokens,
         Err(e) => exit!(e, code),
     };
-    file = File::create("tokens.txt").unwrap();
-    write!(file, "{:#?}", tokens).unwrap();
+    // file = File::create("tokens.txt").unwrap();
+    // write!(file, "{:#?}", tokens).unwrap();
 
     let end_lex = start.elapsed();
     let start = Instant::now();
@@ -79,8 +79,8 @@ fn main() {
         Ok(nodes) => nodes,
         Err(e) => exit!(e, code),
     };
-    file = File::create("nodes.txt").unwrap();
-    write!(file, "{:#?}", nodes).unwrap();
+    // file = File::create("nodes.txt").unwrap();
+    // write!(file, "{:#?}", nodes).unwrap();
 
     let end_parse = start.elapsed();
     let start = Instant::now();

@@ -1,19 +1,29 @@
 (* predefined "lists"  *)
-LETTER_ = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J'
-        | 'K' | 'L' | 'M' | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T'
-        | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z' | 'a' | 'b' | 'c' | 'd'
-        | 'e' | 'f' | 'g' | 'h' | 'i' | 'j' | 'k' | 'l' | 'm' | 'n'
-        | 'o' | 'p' | 'q' | 'r' | 's' | 't' | 'u' | 'v' | 'w' | 'x'
-        | 'y' | 'z' | '_' ;
-DIGIT   = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
-CHAR    = ? any UTF8 character ? ;
+LETTER_     = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J'
+            | 'K' | 'L' | 'M' | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T'
+            | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z' | 'a' | 'b' | 'c' | 'd'
+            | 'e' | 'f' | 'g' | 'h' | 'i' | 'j' | 'k' | 'l' | 'm' | 'n'
+            | 'o' | 'p' | 'q' | 'r' | 's' | 't' | 'u' | 'v' | 'w' | 'x'
+            | 'y' | 'z' | '_' ;
+DIGIT       = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
+OCTAL       = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' ;
+HEX         = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+            | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'a' | 'b' | 'c' | 'd'
+            | 'e' | 'f' ;
+CHAR        = ? any UTF8 character ? ;
+ESCAPE_CHAR = '\' | "'" | '"' | 'a' | 'b' | 'f' | 'n' | 'r' | 't' | 'v' ;
 
 (* tokens *)
 eol         = ? line break ? | ';' ;
 eof         = ? end of file ? ;
 bool        = 'true' | 'false' ;
-string      = '"' , { CHAR - '"' } , '"'
-            | "'" , { CHAR - "'" } , "'" ;
+string      = '"' , [ { CHAR - '"' - '\' } , { escape_seq , { CHAR - '"' - '\' } } ] , '"'
+            | "'" , [ { CHAR - "'" - '\' } , { escape_seq , { CHAR - "'" - '\' } } ] , "'" ;
+escape_seq  = '\' , ( ESCAPE_CHAR
+                    | OCTAL , OCTAL , OCTAL
+                    | 'x' , HEX , HEX
+                    | 'u' , HEX , HEX , HEX , HEX
+                    | 'U' , HEX , HEX , HEX , HEX , HEX , HEX , HEX , HEX ) ;
 identifier  = LETTER_ , { LETTER_ | DIGIT } ;
 number      = DIGIT , { DIGIT | '_' } , [ '.' , DIGIT , { DIGIT | '_' } ] ;
 

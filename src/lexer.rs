@@ -270,6 +270,10 @@ impl <'a> Lexer<'a> {
         self.advance();
         if self.current_char == Some('*') {
             self.advance();
+            if self.current_char == Some('=') {
+                self.advance();
+                return Token::new(TokenType::PowerAssign, "**=", start_location);
+            }
             return Token::new(TokenType::Power, "**", start_location);
         } else if self.current_char == Some('=') {
             self.advance();

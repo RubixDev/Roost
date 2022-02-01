@@ -62,7 +62,7 @@ Statement           = DeclareStatement
                     | ContinueStatement
                     | ReturnStatement ;
 DeclareStatement    = 'var' , identifier , '=' , Expression ;
-AssignStatement     = identifier , ( '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '\=' ) , Expression ;
+AssignStatement     = identifier , ( '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '\=' | '**=' ) , Expression ;
 IfStatement         = 'if' , '(' , Expression , ')' , Block , [ { eol } , 'else' , Block ] ;
 LoopStatement       = 'loop' , Block ;
 WhileStatement      = 'while' , '(' , Expression , ')' , Block ;

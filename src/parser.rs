@@ -166,6 +166,7 @@ impl <'a> Parser<'a> {
                 TokenType::DivideAssign,
                 TokenType::ModuloAssign,
                 TokenType::IntDivideAssign,
+                TokenType::PowerAssign,
             ].contains(&self.next_token().token_type) {
             return Ok(Statement::Assign(self.assign_statement()?));
         } else {
@@ -202,6 +203,7 @@ impl <'a> Parser<'a> {
             TokenType::DivideAssign    => AssignOperator::Divide,
             TokenType::ModuloAssign    => AssignOperator::Modulo,
             TokenType::IntDivideAssign => AssignOperator::IntDivide,
+            TokenType::PowerAssign     => AssignOperator::Power,
             _ => panic!(),
         };
         self.advance();

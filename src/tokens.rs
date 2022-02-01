@@ -41,6 +41,7 @@ pub enum TokenType {
     DivideAssign,       // '/='
     ModuloAssign,       // '%='
     IntDivideAssign,    // '\='
+    PowerAssign,        // '**='
 
     Comma,              // ','
 

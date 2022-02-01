@@ -174,6 +174,7 @@ impl Interpreter {
             AssignOperator::Divide    => value.divide(&new_value, node.location.clone()),
             AssignOperator::Modulo    => value.modulo(&new_value, node.location.clone()),
             AssignOperator::IntDivide => value.int_divide(&new_value, node.location.clone()),
+            AssignOperator::Power     => value.power(&new_value, node.location.clone()),
         }?);
 
         result.success(None);

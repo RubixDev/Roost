@@ -42,6 +42,7 @@ pub enum AssignOperator {
     Divide,    // /=
     Modulo,    // %=
     IntDivide, // \=
+    Power,     // **=
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct IfStatement {

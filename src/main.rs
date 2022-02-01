@@ -1,4 +1,4 @@
-use std::{io::{Read, Write}, time::Instant, fs::File};
+use std::{io::Read, time::Instant, fs::File};
 use structopt::StructOpt;
 use roost::{lexer::Lexer, parser::Parser, interpreter::Interpreter};
 

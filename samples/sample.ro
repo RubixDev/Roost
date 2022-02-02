@@ -48,5 +48,5 @@ printl(loops(3))
 if (42)
     printl('yep')
 
-exit(4.2)
+exit(4)
 print(a)

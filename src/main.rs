@@ -1,4 +1,4 @@
-use std::{io::{Read, Write}, time::Instant, fs::File};
+use std::{io::{Read, /* Write */}, time::Instant, fs::File};
 use structopt::StructOpt;
 use roost::{lexer::Lexer, parser::Parser, interpreter::Interpreter};
 
@@ -27,7 +27,6 @@ macro_rules! exit {
             format!("\n \x1b[90m{: >3} | \x1b[0m{}", $error.start.line + 1, lines[$error.start.line])
         } else { String::new() };
 
-        println!("{:?}", $error);
         let marker = format!("{}\x1b[1;31m{}\x1b[0m", " ".repeat($error.start.column + 6), "^".repeat($error.end.index - $error.start.index));
 
         eprintln!(
@@ -69,8 +68,8 @@ fn main() {
         Ok(tokens) => tokens,
         Err(e) => exit!(e, code),
     };
-    file = File::create("tokens.txt").unwrap();
-    write!(file, "{:#?}", tokens).unwrap();
+    // file = File::create("tokens.txt").unwrap();
+    // write!(file, "{:#?}", tokens).unwrap();
 
     let end_lex = start.elapsed();
     let start = Instant::now();
@@ -86,7 +85,11 @@ fn main() {
     let end_parse = start.elapsed();
     let start = Instant::now();
 
-    let mut interpreter = Interpreter::new(nodes, |m| print!("{}", m));
+    let mut interpreter = Interpreter::new(
+        nodes,
+        |m| print!("{}", m),
+        |code| std::process::exit(code),
+    );
     interpreter.run().unwrap_or_else(|e| exit!(e, code));
 
     let end_run = start.elapsed();

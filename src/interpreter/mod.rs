@@ -54,10 +54,11 @@ pub struct Interpreter {
     scopes: Vec<HashMap<String, Value>>,
     current_scope_index: usize,
     print_callback: fn(String),
+    exit_callback: fn(i32),
 }
 
 impl Interpreter {
-    pub fn new(start_node: Statements, print_callback: fn(String)) -> Self {
+    pub fn new(start_node: Statements, print_callback: fn(String), exit_callback: fn(i32)) -> Self {
         return Interpreter {
             start_node,
             scopes: vec![HashMap::from([
@@ -69,6 +70,7 @@ impl Interpreter {
             ])],
             current_scope_index: 0,
             print_callback,
+            exit_callback,
         };
     }
 
@@ -554,7 +556,7 @@ impl Interpreter {
                     "print" => built_in::print(args, self.print_callback),
                     "printl" => built_in::printl(args, self.print_callback),
                     "typeOf" => built_in::type_of(args, node.start.clone(), node.end.clone()),
-                    "exit" => built_in::exit(args, node.start.clone(), node.end.clone()),
+                    "exit" => built_in::exit(args, self.exit_callback, node.start.clone(), node.end.clone()),
                     _ => panic!(),
                 }?;
                 result.success(Some(value));

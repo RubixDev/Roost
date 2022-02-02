@@ -29,7 +29,7 @@ pub fn type_of(args: Vec<Value>, start_loc: Location, end_loc: Location) -> Resu
     return Ok(Value::String(super::value::types::type_of(&args[0]).to_string()));
 }
 
-pub fn exit(args: Vec<Value>, start_loc: Location, end_loc: Location) -> Result<Value> {
+pub fn exit(args: Vec<Value>, callback: fn(i32), start_loc: Location, end_loc: Location) -> Result<Value> {
     if args.len() != 1 {
         error!(
             TypeError,
@@ -50,7 +50,7 @@ pub fn exit(args: Vec<Value>, start_loc: Location, end_loc: Location) -> Result<
                 )
             }
             match num.to_i32() {
-                Some(num) => std::process::exit(num),
+                Some(num) => callback(num),
                 _ => error!(
                     ValueError,
                     start_loc,
@@ -66,4 +66,5 @@ pub fn exit(args: Vec<Value>, start_loc: Location, end_loc: Location) -> Result<
             "First argument of function 'exit' has to be of type number",
         ),
     }
+    return Ok(Value::Void);
 }

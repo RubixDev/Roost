@@ -24,7 +24,7 @@ use crate::{
         UnaryExpression,
         Atom,
         CallExpression,
-        ExponentialExpression,
+        ExponentialExpression, FunExpression,
     },
 };
 
@@ -279,9 +279,7 @@ impl <'a> Parser<'a> {
         let identifier = self.current_token.value.clone();
         self.advance();
 
-        if self.current_token.token_type != TokenType::In {
-            expected!(self, EOF, "'in'");
-        }
+        expected!(self, In, "'in'");
         self.advance();
 
         let expression = self.expression()?;
@@ -302,26 +300,7 @@ impl <'a> Parser<'a> {
         let identifier = self.current_token.value.clone();
         self.advance();
 
-        expected!(self, LParen, "'('");
-        self.advance();
-
-        let mut params: Vec<String> = vec![];
-        if self.current_token.token_type != TokenType::RParen {
-            expected!(self, Identifier, "identifier");
-            params.push(self.current_token.value.clone());
-            self.advance();
-
-            while self.current_token.token_type == TokenType::Comma {
-                self.advance();
-
-                expected!(self, Identifier, "identifier");
-                params.push(self.current_token.value.clone());
-                self.advance();
-            }
-        }
-
-        expected!(self, RParen, "')'");
-        self.advance();
+        let params = self.argument_names()?;
 
         let block = self.block()?;
 
@@ -502,8 +481,14 @@ impl <'a> Parser<'a> {
             self.advance();
 
             return Ok(Atom::Null);
-        } else if self.current_token.token_type == TokenType::If {
+        }
+
+        if self.current_token.token_type == TokenType::If {
             return Ok(Atom::If(self.if_expression()?));
+        }
+
+        if self.current_token.token_type == TokenType::Fun {
+            return Ok(Atom::Fun(self.fun_expression()?));
         }
 
         if self.current_token.token_type == TokenType::Number {
@@ -572,7 +557,19 @@ impl <'a> Parser<'a> {
         return Ok(CallExpression { start: start_location, end: loc!(self), identifier, args });
     }
 
+    fn fun_expression(&mut self) -> Result<FunExpression> {
+        let start_location = loc!(self);
+        self.advance();
+
+        let params = self.argument_names()?;
+
+        let block = self.block()?;
+
+        return Ok(FunExpression { start: start_location, end: loc!(self), params, block });
+    }
+
     fn arguments(&mut self) -> Result<Vec<Expression>> {
+        expected!(self, LParen, "'('");
         self.advance();
 
         let mut args = vec![];
@@ -583,6 +580,31 @@ impl <'a> Parser<'a> {
                 self.advance();
 
                 args.push(self.expression()?);
+            }
+        }
+
+        expected!(self, RParen, "')'");
+        self.advance();
+
+        return Ok(args);
+    }
+
+    fn argument_names(&mut self) -> Result<Vec<String>> {
+        expected!(self, LParen, "'('");
+        self.advance();
+
+        let mut args = vec![];
+        if self.current_token.token_type != TokenType::RParen {
+            expected!(self, Identifier, "identifier");
+            args.push(self.current_token.value.clone());
+            self.advance();
+
+            while self.current_token.token_type == TokenType::Comma {
+                self.advance();
+
+                expected!(self, Identifier, "identifier");
+                args.push(self.current_token.value.clone());
+                self.advance();
             }
         }
 

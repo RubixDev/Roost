@@ -28,7 +28,7 @@ use crate::nodes::{
     UnaryExpression,
     Atom,
     CallExpression,
-    ExponentialExpression,
+    ExponentialExpression, FunExpression,
 };
 use crate::tokens::TokenType;
 use self::value::{
@@ -512,6 +512,7 @@ impl Interpreter {
             Atom::Identifier { start, end, name } => self.find_var(name, start.clone(), end.clone())?.clone(),
             Atom::Call(expression) => { expr_val!(result, self.visit_call_expression(expression)); },
             Atom::If(expression) => { expr_val!(result, self.visit_if_expression(expression)); },
+            Atom::Fun(expression) => { expr_val!(result, self.visit_fun_expression(expression)); },
             Atom::Expression(expression) => { expr_val!(result, self.visit_expression(expression)); },
         };
         result.success(Some(value));
@@ -570,6 +571,12 @@ impl Interpreter {
         } else {
             result.success(result.return_value.clone());
         }
+        return Ok(result);
+    }
+
+    fn visit_fun_expression(&mut self, node: &FunExpression) -> Result<RuntimeResult> {
+        let mut result = RuntimeResult::new();
+        result.success(Some(Value::Function(node.params.clone(), node.block.clone())));
         return Ok(result);
     }
 }

@@ -1,0 +1,5 @@
+fun a(b) {
+    b('dsa')
+}
+
+a(fun (asd) { printl('asd', asd) })

@@ -145,6 +145,7 @@ pub enum Atom {
     Identifier { start: Location, end: Location, name: String },
     Call(CallExpression),
     If(IfExpression),
+    Fun(FunExpression),
     Null,
     Expression(Expression),
 }
@@ -162,4 +163,11 @@ pub struct IfExpression {
     pub condition: Expression,
     pub block: Statements,
     pub else_block: Option<Statements>,
+}
+#[derive(Debug, PartialEq, Clone)]
+pub struct FunExpression {
+    pub start: Location,
+    pub end: Location,
+    pub params: Vec<String>,
+    pub block: Statements,
 }

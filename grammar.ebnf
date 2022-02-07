@@ -28,6 +28,9 @@ identifier  = LETTER_ , { LETTER_ | DIGIT } ;
 number      = DIGIT , { DIGIT | '_' } , [ '.' , DIGIT , { DIGIT | '_' } ]
             | '.' , DIGIT , { DIGIT , | '_' } ;
 
+Arguments                   = '(' , [ Expression , { ',' , Expression } ] , ')' ;
+ArgumentNames               = '(' , [ identifier , { ',' , identifier } ] , ')' ;
+
 (* expression nodes *)
 Expression                  = OrExpression , [ '..' , [ '=' ] , OrExpression ] ;
 OrExpression                = AndExpression , { '|' , AndExpression } ;
@@ -46,10 +49,11 @@ Atom                        = number
                             | CallExpression
                             | IfExpression
                             | 'null'
-                            | '(' , Expression , ')' ;
-Arguments                   = '(' , [ Expression , { ',' , Expression } ] , ')' ;
+                            | '(' , Expression , ')'
+                            | FunExpression ;
 CallExpression              = identifier , Arguments ;
 IfExpression                = 'if' , '(' , Expression , ')' , Block , [ { eol } , 'else' , Block ] ;
+FunExpression               = 'fun' , ArgumentNames , Block ;
 
 (* statement nodes *)
 Statement           = DeclareStatement
@@ -67,7 +71,7 @@ AssignStatement     = identifier , ( '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '\
 LoopStatement       = 'loop' , Block ;
 WhileStatement      = 'while' , '(' , Expression , ')' , Block ;
 ForStatement        = 'for' , '(' , identifier , 'in' , Expression , ')' , Block ;
-FunctionDeclaration = 'fun' , identifier , '(' , [ identifier , { ',' , identifier } ] , ')' , Block ;
+FunctionDeclaration = 'fun' , identifier , ArgumentNames , Block ;
 BreakStatement      = 'break' ;
 ContinueStatement   = 'continue' ;
 ReturnStatement     = 'return' , [ Expression ] ;

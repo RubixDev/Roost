@@ -1,6 +1,8 @@
 {
     "cSpell.words": [
         "powd",
-        "printl"
+        "printl",
+        "readline",
+        "rustyline"
     ]
 }

@@ -1,14 +1,15 @@
-use std::{io::{Read, /* Write */}, time::Instant, fs::File};
+use std::{io::{Read, /* Write */}, time::Instant, fs::File, collections::HashMap};
+use rustyline::{Editor, error::ReadlineError};
 use structopt::StructOpt;
-use roost::{lexer::Lexer, parser::Parser, interpreter::Interpreter};
+use roost::{lexer::Lexer, parser::Parser, interpreter::{Interpreter, value::Value}};
 
 /// Command line interpreter for the roost language
-#[derive(StructOpt)]
+#[derive(StructOpt, Clone)]
 #[structopt(author)]
 struct Roost {
     /// File to run
     #[structopt()]
-    file: String,
+    file: Option<String>,
 
     /// Measure and display the time of execution
     #[structopt(short, long)]
@@ -53,26 +54,29 @@ macro_rules! exit {
 
 fn main() {
     let cli = Roost::from_args();
+    match cli.file.clone() {
+        Some(file) => run_file(cli, file),
+        None => run_repl(),
+    }
+}
 
+fn run_file(cli: Roost, filename: String) {
     let start_total = Instant::now();
 
     let mut code = String::new();
-    let mut file = File::open(&cli.file).unwrap_or_else(|e| {
-        eprintln!("\x1b[31mCould not read file \x1b[1m{}\x1b[22m: {}\x1b[0m", cli.file, e);
+    let mut file = File::open(&filename).unwrap_or_else(|e| {
+        eprintln!("\x1b[31mCould not read file \x1b[1m{}\x1b[22m: {}\x1b[0m", filename, e);
         std::process::exit(2);
     });
     file.read_to_string(&mut code).unwrap_or_else(|e| {
-        eprintln!("\x1b[31mCould not read file \x1b[1m{}\x1b[22m: {}\x1b[0m", cli.file, e);
+        eprintln!("\x1b[31mCould not read file \x1b[1m{}\x1b[22m: {}\x1b[0m", filename, e);
         std::process::exit(3);
     });
 
     let end_read = start_total.elapsed();
     let start = Instant::now();
 
-    let end_lex = start.elapsed();
-    let start = Instant::now();
-
-    let nodes = match Parser::new_parse(Lexer::new(&code, cli.file)) {
+    let nodes = match Parser::new_parse(Lexer::new(&code, filename)) {
         Ok(nodes) => nodes,
         Err(errors) => {
             for error in errors {
@@ -97,12 +101,55 @@ fn main() {
     let end = start_total.elapsed();
     if cli.time {
         println!(
-            "\n\x1b[36m-----------------------\n{: <15} {:?}\n{: <15} {:?}\n{: <15} {:?}\n{: <15} {:?}\n{: <15} {:?}\x1b[0m",
+            "\n\x1b[36m-----------------------\n{: <15} {:?}\n{: <15} {:?}\n{: <15} {:?}\n{: <15} {:?}\x1b[0m",
             "Read File:",   end_read,
-            "Scan tokens:", end_lex,
             "Parse AST:",   end_parse,
             "Run:",         end_run,
             "Total:",       end,
         );
+    }
+}
+
+fn run_repl() {
+    let mut global_scope: HashMap<String, Value> = HashMap::new();
+    let mut rl = Editor::<()>::new();
+    loop {
+        let line = rl.readline(">> ");
+        match line {
+            Ok(line) => {
+                rl.add_history_entry(&line);
+                if line.chars().all(|char| [' ', '\t', '\r'].contains(&char)) { continue; }
+
+                let nodes = match Parser::new_parse(Lexer::new(&line, String::from("<stdin>"))) {
+                    Ok(nodes) => nodes,
+                    Err(errors) => {
+                        for error in errors {
+                            print_error!(error, line);
+                        }
+                        continue;
+                    },
+                };
+
+                let mut interpreter = Interpreter::new(
+                    nodes,
+                    |m| print!("{}", m),
+                    |code| std::process::exit(code),
+                );
+                interpreter.scopes.push(global_scope.clone());
+                interpreter.current_scope_index += 1;
+                match interpreter.run(false) {
+                    Ok(result) => {
+                        println!("\x1b[90m{}\x1b[0m", result.value.unwrap_or(Value::Null))
+                    },
+                    Err(error) => {
+                        print_error!(error, line);
+                        continue;
+                    },
+                }
+                global_scope = interpreter.scopes[1].clone();
+            },
+            Err(ReadlineError::Eof) => break,
+            Err(_) => std::process::exit(1),
+        }
     }
 }

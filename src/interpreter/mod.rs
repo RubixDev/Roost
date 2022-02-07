@@ -1,4 +1,4 @@
-mod value;
+pub mod value;
 mod runtime_result;
 mod built_in;
 
@@ -54,8 +54,8 @@ macro_rules! expr_val {
 
 pub struct Interpreter {
     start_node: Statements,
-    scopes: Vec<HashMap<String, Value>>,
-    current_scope_index: usize,
+    pub scopes: Vec<HashMap<String, Value>>,
+    pub current_scope_index: usize,
     print_callback: fn(String),
     exit_callback: fn(i32),
 }
@@ -79,11 +79,11 @@ impl Interpreter {
 
     pub fn new_run(start_node: Statements, print_callback: fn(String), exit_callback: fn(i32)) -> Result<RuntimeResult> {
         let mut interpreter = Self::new(start_node, print_callback, exit_callback);
-        return interpreter.run();
+        return interpreter.run(true);
     }
 
-    pub fn run(&mut self) -> Result<RuntimeResult> {
-        return self.visit_statements(&self.start_node.clone(), true);
+    pub fn run(&mut self, new_scope: bool) -> Result<RuntimeResult> {
+        return self.visit_statements(&self.start_node.clone(), new_scope);
     }
 
     fn push_scope(&mut self) {
@@ -135,7 +135,7 @@ impl Interpreter {
             result.register(self.visit_statement(&statement)?);
             if result.should_return() { break; }
         }
-        self.pop_scope();
+        if new_scope { self.pop_scope(); }
         return Ok(result);
     }
 
@@ -253,6 +253,7 @@ impl Interpreter {
             self.current_scope().insert(node.identifier.clone(), i.clone());
 
             result.register(self.visit_statements(&node.block, false)?);
+            self.pop_scope();
             if result.should_continue { continue; }
             if result.should_break { break; }
             should_return!(result);
@@ -570,6 +571,7 @@ impl Interpreter {
             self.current_scope().insert(arg.clone(), result.value.clone().unwrap());
         }
         result.register(self.visit_statements(&statements, false)?);
+        self.pop_scope();
 
         if result.return_value == None {
             result.success(Some(Value::Null));

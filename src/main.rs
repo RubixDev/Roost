@@ -30,7 +30,7 @@ macro_rules! print_error {
         let marker = format!("{}\x1b[1;31m{}\x1b[0m", " ".repeat($error.start.column + 6), "^".repeat($error.end.index - $error.start.index));
 
         eprintln!(
-            "\x1b[1;36m{:?}\x1b[39m at {}:{}:{}\x1b[0m\n{}\n{}\n{}{}\n\n\x1b[1m{}\x1b[0m\n",
+            "\x1b[1;36m{:?}\x1b[39m at {}:{}:{}\x1b[0m\n{}\n{}\n{}{}\n\n\x1b[1;31m{}\x1b[0m\n",
             $error.kind,
             $error.start.filename,
             $error.start.line,

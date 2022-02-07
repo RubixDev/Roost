@@ -51,8 +51,6 @@ impl <'a> Lexer<'a> {
                 ')' => tokens.push(self.make_single_char(TokenType::RParen,       ")")),
                 '{' => tokens.push(self.make_single_char(TokenType::LBrace,       "{")),
                 '}' => tokens.push(self.make_single_char(TokenType::RBrace,       "}")),
-                '?' => tokens.push(self.make_single_char(TokenType::QuestionMark, "?")),
-                ':' => tokens.push(self.make_single_char(TokenType::Colon,        ":")),
                 '|' => tokens.push(self.make_single_char(TokenType::Or,           "|")),
                 '&' => tokens.push(self.make_single_char(TokenType::And,          "&")),
                 ',' => tokens.push(self.make_single_char(TokenType::Comma,        ",")),

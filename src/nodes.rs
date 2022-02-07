@@ -75,15 +75,8 @@ pub struct ReturnStatement {
 pub struct Expression {
     pub start: Location,
     pub end: Location,
-    pub base: Box<TernaryExpression>,
-    pub range: Box<Option<(bool, TernaryExpression)>>,
-}
-#[derive(Debug, PartialEq, Clone)]
-pub struct TernaryExpression {
-    pub start: Location,
-    pub end: Location,
-    pub base: OrExpression,
-    pub ternary: Option<(Expression, Expression)>,
+    pub base: Box<OrExpression>,
+    pub range: Box<Option<(bool, OrExpression)>>,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct OrExpression {

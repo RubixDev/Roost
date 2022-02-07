@@ -15,8 +15,6 @@ pub enum TokenType {
     Number,             // int or float
     RangeDots,          // '..' or '..='
 
-    QuestionMark,       // '?' for ternary operator
-    Colon,              // ':' for ternary operator
     Or,                 // '|'
     And,                // '&'
     Equal,              // '=='

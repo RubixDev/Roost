@@ -29,8 +29,7 @@ number      = DIGIT , { DIGIT | '_' } , [ '.' , DIGIT , { DIGIT | '_' } ]
             | '.' , DIGIT , { DIGIT , | '_' } ;
 
 (* expression nodes *)
-Expression                  = TernaryExpression , [ '..' , [ '=' ] , TernaryExpression ] ;
-TernaryExpression           = OrExpression , [ '?' , Expression , ':' , Expression ] ;
+Expression                  = OrExpression , [ '..' , [ '=' ] , OrExpression ] ;
 OrExpression                = AndExpression , { '|' , AndExpression } ;
 AndExpression               = EqualityExpression , { '&' , EqualityExpression } ;
 EqualityExpression          = RelationalExpression , [ ( '==' | '!=' ) , RelationalExpression ] ;

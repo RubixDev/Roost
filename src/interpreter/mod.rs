@@ -27,7 +27,6 @@ use crate::nodes::{
     MultiplicativeExpression,
     UnaryExpression,
     Atom,
-    TernaryExpression,
     CallExpression,
     ExponentialExpression,
 };
@@ -289,12 +288,12 @@ impl Interpreter {
 
 
     fn visit_expression(&mut self, node: &Expression) -> Result<RuntimeResult> {
-        let mut result = self.visit_ternary_expression(&*node.base)?;
+        let mut result = self.visit_or_expression(&*node.base)?;
         should_return!(result);
         let val1 = result.value.clone().unwrap();
 
         if let Some((inclusive, expression)) = &*node.range {
-            result.register(self.visit_ternary_expression(&expression)?);
+            result.register(self.visit_or_expression(&expression)?);
             should_return!(result);
             let val2 = result.value.clone().unwrap();
 
@@ -319,26 +318,6 @@ impl Interpreter {
             result.success(Some(range));
         } else {
             result.success(Some(val1));
-        }
-
-        return Ok(result);
-    }
-
-    fn visit_ternary_expression(&mut self, node: &TernaryExpression) -> Result<RuntimeResult> {
-        let mut result = self.visit_or_expression(&node.base)?;
-        should_return!(result);
-        let condition = result.value.clone().unwrap();
-
-        if let Some((if_expr, else_expr)) = &node.ternary {
-            if condition.is_true() {
-                result.register(self.visit_expression(&if_expr)?);
-            } else {
-                result.register(self.visit_expression(&else_expr)?);
-            }
-            should_return!(result);
-            result.success(result.value.clone());
-        } else {
-            result.success(Some(condition));
         }
 
         return Ok(result);

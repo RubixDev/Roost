@@ -23,7 +23,6 @@ use crate::{
         MultiplicativeExpression,
         UnaryExpression,
         Atom,
-        TernaryExpression,
         CallExpression,
         ExponentialExpression,
     },
@@ -344,39 +343,19 @@ impl <'a> Parser<'a> {
 
     fn expression(&mut self) -> Result<Expression> {
         let start_location = loc!(self);
-        let base = self.ternary_expression()?;
+        let base = self.or_expression()?;
 
         let mut range = None;
         if self.current_token.token_type == TokenType::RangeDots {
             let inclusive = self.current_token.value == "..=";
             self.advance();
 
-            let upper = self.ternary_expression()?;
+            let upper = self.or_expression()?;
 
             range = Some((inclusive, upper));
         }
 
         return Ok(Expression { start: start_location, end: loc!(self), base: Box::new(base), range: Box::new(range) });
-    }
-
-    fn ternary_expression(&mut self) -> Result<TernaryExpression> {
-        let start_location = loc!(self);
-        let base = self.or_expression()?;
-
-        let mut ternary = None;
-        if self.current_token.token_type == TokenType::QuestionMark {
-            self.advance();
-
-            let ternary_if = self.expression()?;
-
-            expected!(self, Colon, "':'");
-            self.advance();
-
-            let ternary_else = self.expression()?;
-            ternary = Some((ternary_if, ternary_else));
-        }
-
-        return Ok(TernaryExpression { start: start_location, end: loc!(self), base, ternary });
     }
 
     fn or_expression(&mut self) -> Result<OrExpression> {

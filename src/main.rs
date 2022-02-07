@@ -72,8 +72,7 @@ fn main() {
     let end_lex = start.elapsed();
     let start = Instant::now();
 
-    let mut parser = Parser::new(Lexer::new(&code, cli.file));
-    let nodes = match parser.parse() {
+    let nodes = match Parser::new_parse(Lexer::new(&code, cli.file)) {
         Ok(nodes) => nodes,
         Err(errors) => {
             for error in errors {
@@ -88,12 +87,11 @@ fn main() {
     let end_parse = start.elapsed();
     let start = Instant::now();
 
-    let mut interpreter = Interpreter::new(
+    Interpreter::new_run(
         nodes,
         |m| print!("{}", m),
         |code| std::process::exit(code),
-    );
-    interpreter.run().unwrap_or_else(|e| exit!(e, code));
+    ).unwrap_or_else(|e| exit!(e, code));
 
     let end_run = start.elapsed();
     let end = start_total.elapsed();

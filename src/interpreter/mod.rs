@@ -77,6 +77,11 @@ impl Interpreter {
         };
     }
 
+    pub fn new_run(start_node: Statements, print_callback: fn(String), exit_callback: fn(i32)) -> Result<RuntimeResult> {
+        let mut interpreter = Self::new(start_node, print_callback, exit_callback);
+        return interpreter.run();
+    }
+
     pub fn run(&mut self) -> Result<RuntimeResult> {
         return self.visit_statements(&self.start_node.clone(), true);
     }

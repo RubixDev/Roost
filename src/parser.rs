@@ -69,6 +69,11 @@ impl <'a> Parser<'a> {
         };
     }
 
+    pub fn new_parse(lexer: Lexer<'a>) -> std::result::Result<Statements, Vec<Error>> {
+        let mut parser = Self::new(lexer);
+        return parser.parse();
+    }
+
     pub fn parse(&mut self) -> std::result::Result<Statements, Vec<Error>> {
         self.advance();
         let statements = match self.statements() {

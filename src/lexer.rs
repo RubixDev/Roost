@@ -9,10 +9,7 @@ const LETTERS_AND_UNDERSCORE: [char; 53] = ['A', 'a', 'B', 'b', 'C', 'c', 'D',
     'd', 'E', 'e', 'F', 'f', 'G', 'g', 'H', 'h', 'I', 'i', 'J', 'j', 'K', 'k',
     'L', 'l', 'M', 'm', 'N', 'n', 'O', 'o', 'P', 'p', 'Q', 'q', 'R', 'r', 'S',
     's', 'T', 't', 'U', 'u', 'V', 'v', 'W', 'w', 'X', 'x', 'Y', 'y', 'Z', 'z', '_'];
-const SPACES: [char; 3] = [' ', '\t', '\r'];
 
-const SINGLE_CHARS: [char; 11] = ['(', ')', '{', '}', '?', ':', '|', '&', ',', '\n', ';'];
-const OPTIONAL_EQ_CHARS: [char; 8] = ['=', '!', '<', '>', '+', '-', '%', '\\'];
 const KEYWORDS: [&str; 14] = ["var", "true", "false", "if", "null", "else", "fun",
     "loop", "while", "for", "in", "return", "break", "continue"];
 const ESCAPE_CHAR: [char; 10] = ['\\', '\'', '"', 'a', 'b', 'f', 'n', 'r', 't', 'v'];
@@ -44,29 +41,42 @@ impl <'a> Lexer<'a> {
         let mut tokens: Vec<Token> = vec![];
 
         while let Some(current_char) = self.current_char {
-            if SPACES.contains(&current_char) {
-                self.advance();
-            } else if SINGLE_CHARS.contains(&current_char) {
-                tokens.push(self.make_single_char());
-            } else if ['"', '\''].contains(&current_char) {
-                tokens.push(self.make_string()?);
-            } else if DIGITS.contains(&current_char) {
-                tokens.push(self.make_number());
-            } else if current_char == '.' {
-                tokens.push(self.make_dot()?);
-            } else if OPTIONAL_EQ_CHARS.contains(&current_char) {
-                tokens.push(self.make_optional_equal());
-            } else if current_char == '/' {
-                let token = self.make_slash();
-                if let Some(token) = token { tokens.push(token) }
-            } else if current_char == '*' {
-                tokens.push(self.make_star());
-            } else if LETTERS_AND_UNDERSCORE.contains(&current_char) {
-                tokens.push(self.make_name());
-            } else {
-                let start_pos = loc!(self);
-                self.advance();
-                error!(SyntaxError, start_pos, loc!(self), "Illegal character '{}'", current_char);
+            match current_char {
+                ' ' | '\t' | '\r' => self.advance(),
+                '"' | '\'' => tokens.push(self.make_string()?),
+                '.' => tokens.push(self.make_dot()?),
+                '/' => { let token = self.make_slash(); if let Some(token) = token { tokens.push(token) } },
+                '*' => tokens.push(self.make_star()),
+                '(' => tokens.push(self.make_single_char(TokenType::LParen,       "(")),
+                ')' => tokens.push(self.make_single_char(TokenType::RParen,       ")")),
+                '{' => tokens.push(self.make_single_char(TokenType::LBrace,       "{")),
+                '}' => tokens.push(self.make_single_char(TokenType::RBrace,       "}")),
+                '?' => tokens.push(self.make_single_char(TokenType::QuestionMark, "?")),
+                ':' => tokens.push(self.make_single_char(TokenType::Colon,        ":")),
+                '|' => tokens.push(self.make_single_char(TokenType::Or,           "|")),
+                '&' => tokens.push(self.make_single_char(TokenType::And,          "&")),
+                ',' => tokens.push(self.make_single_char(TokenType::Comma,        ",")),
+                ';' => tokens.push(self.make_single_char(TokenType::EOL,          ";")),
+                '\n' => tokens.push(self.make_single_char(TokenType::EOL,         "LF")),
+                '=' => tokens.push(self.make_optional_equal(TokenType::Assign,      TokenType::Equal,              "=")),
+                '!' => tokens.push(self.make_optional_equal(TokenType::Not,         TokenType::NotEqual,           "!")),
+                '<' => tokens.push(self.make_optional_equal(TokenType::LessThan,    TokenType::LessThanOrEqual,    "<")),
+                '>' => tokens.push(self.make_optional_equal(TokenType::GreaterThan, TokenType::GreaterThanOrEqual, ">")),
+                '+' => tokens.push(self.make_optional_equal(TokenType::Plus,        TokenType::PlusAssign,         "+")),
+                '-' => tokens.push(self.make_optional_equal(TokenType::Minus,       TokenType::MinusAssign,        "-")),
+                '%' => tokens.push(self.make_optional_equal(TokenType::Modulo,      TokenType::ModuloAssign,       "%")),
+                '\\' => tokens.push(self.make_optional_equal(TokenType::IntDivide,  TokenType::IntDivideAssign,    "\\")),
+                _ => {
+                    if DIGITS.contains(&current_char) {
+                        tokens.push(self.make_number());
+                    } else if LETTERS_AND_UNDERSCORE.contains(&current_char) {
+                        tokens.push(self.make_name());
+                    } else {
+                        let start_pos = loc!(self);
+                        self.advance();
+                        error!(SyntaxError, start_pos, loc!(self), "Illegal character '{}'", current_char);
+                    }
+                },
             }
         }
         let start_pos = loc!(self);
@@ -89,27 +99,12 @@ impl <'a> Lexer<'a> {
 
     // ----------------------------------------
 
-    fn make_single_char(&mut self) -> Token {
+    fn make_single_char(&mut self, token_type: TokenType, value: &str) -> Token {
         let start_location = loc!(self);
-        let char = self.current_char.unwrap();
-        let token_type = match char {
-            '('  => TokenType::LParen,
-            ')'  => TokenType::RParen,
-            '{'  => TokenType::LBrace,
-            '}'  => TokenType::RBrace,
-            '?'  => TokenType::QuestionMark,
-            ':'  => TokenType::Colon,
-            '|'  => TokenType::Or,
-            '&'  => TokenType::And,
-            ','  => TokenType::Comma,
-            '\n' | ';' => TokenType::EOL,
-            _ => panic!(),
-        };
         self.advance();
-        let value = char.to_string();
         return Token::new(
             token_type,
-            if char == '\n' { "LF" } else { &value },
+            value,
             start_location,
             loc!(self),
         );
@@ -269,26 +264,14 @@ impl <'a> Lexer<'a> {
         return Ok(Token::new(TokenType::RangeDots, "..", start_location, loc!(self)));
     }
 
-    fn make_optional_equal(&mut self) -> Token {
+    fn make_optional_equal(&mut self, type_single: TokenType, type_with_eq: TokenType, base_value: &str) -> Token {
         let start_location = loc!(self);
-        let char = self.current_char.unwrap();
-        let token_types = match char {
-            '='  => (TokenType::Assign,      TokenType::Equal             ),
-            '!'  => (TokenType::Not,         TokenType::NotEqual          ),
-            '<'  => (TokenType::LessThan,    TokenType::LessThanOrEqual   ),
-            '>'  => (TokenType::GreaterThan, TokenType::GreaterThanOrEqual),
-            '+'  => (TokenType::Plus,         TokenType::PlusAssign        ),
-            '-'  => (TokenType::Minus,       TokenType::MinusAssign       ),
-            '%'  => (TokenType::Modulo,      TokenType::ModuloAssign      ),
-            '\\' => (TokenType::IntDivide,   TokenType::IntDivideAssign   ),
-            _ => panic!()
-        };
         self.advance();
         if self.current_char == Some('=') {
             self.advance();
-            return Token::new(token_types.1, &(char.to_string() + "="), start_location, loc!(self));
+            return Token::new(type_with_eq, &(base_value.to_string() + "="), start_location, loc!(self));
         }
-        return Token::new(token_types.0, &char.to_string(), start_location, loc!(self));
+        return Token::new(type_single, base_value, start_location, loc!(self));
     }
 
     fn make_star(&mut self) -> Token {

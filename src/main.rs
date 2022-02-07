@@ -69,18 +69,10 @@ fn main() {
     let end_read = start_total.elapsed();
     let start = Instant::now();
 
-    let mut lexer = Lexer::new(&code, cli.file);
-    let tokens = match lexer.scan() {
-        Ok(tokens) => tokens,
-        Err(e) => exit!(e, code),
-    };
-    // file = File::create("tokens.txt").unwrap();
-    // write!(file, "{:#?}", tokens).unwrap();
-
     let end_lex = start.elapsed();
     let start = Instant::now();
 
-    let mut parser = Parser::new(&tokens);
+    let mut parser = Parser::new(Lexer::new(&code, cli.file));
     let nodes = match parser.parse() {
         Ok(nodes) => nodes,
         Err(errors) => {

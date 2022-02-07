@@ -1,5 +1,5 @@
 use std::str::Chars;
-use crate::{tokens::{Token, TokenType}, error::{Result, Location}};
+use crate::{tokens::{Token, TokenType}, error::{Location, Error}};
 
 const DIGITS: [char; 10] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 const OCTAL_DIGITS: [char; 8] = ['0', '1', '2', '3', '4', '5', '6', '7'];
@@ -18,7 +18,23 @@ macro_rules! loc {
     };
 }
 
-#[derive(Debug)]
+macro_rules! lex_error {
+    ($self:ident, $start:ident, $($arg:tt)*) => {
+        return Err((
+            error_val!(SyntaxError, $start.clone(), loc!($self), $($arg)*),
+            Token::new(
+                TokenType::Unknown,
+                "Unknown",
+                $start,
+                loc!($self),
+            ),
+        ))
+    };
+}
+
+type LexResult<T> = std::result::Result<T, (Error, Token)>;
+
+#[derive(Debug, Clone)]
 pub struct Lexer<'a> {
     input: Chars<'a>,
     current_char: Option<char>,
@@ -27,59 +43,57 @@ pub struct Lexer<'a> {
 
 impl <'a> Lexer<'a> {
     pub fn new(input: &'a String, filename: String) -> Self {
-        return Lexer {
+        let mut lexer = Lexer {
             input: input.chars(),
             current_char: None,
             location: Location::new(filename),
         };
+        lexer.advance();
+        return lexer;
     }
 
-    pub fn scan(&mut self) -> Result<Vec<Token>> {
-        self.advance();
-        let mut tokens: Vec<Token> = vec![];
-
+    pub fn next_token(&mut self) -> LexResult<Token> {
         while let Some(current_char) = self.current_char {
             match current_char {
                 ' ' | '\t' | '\r' => self.advance(),
-                '"' | '\'' => tokens.push(self.make_string()?),
-                '.' => tokens.push(self.make_dot()?),
-                '/' => { let token = self.make_slash(); if let Some(token) = token { tokens.push(token) } },
-                '*' => tokens.push(self.make_star()),
-                '(' => tokens.push(self.make_single_char(TokenType::LParen,       "(")),
-                ')' => tokens.push(self.make_single_char(TokenType::RParen,       ")")),
-                '{' => tokens.push(self.make_single_char(TokenType::LBrace,       "{")),
-                '}' => tokens.push(self.make_single_char(TokenType::RBrace,       "}")),
-                '|' => tokens.push(self.make_single_char(TokenType::Or,           "|")),
-                '&' => tokens.push(self.make_single_char(TokenType::And,          "&")),
-                ',' => tokens.push(self.make_single_char(TokenType::Comma,        ",")),
-                ';' => tokens.push(self.make_single_char(TokenType::EOL,          ";")),
-                '\n' => tokens.push(self.make_single_char(TokenType::EOL,         "LF")),
-                '=' => tokens.push(self.make_optional_equal(TokenType::Assign,      TokenType::Equal,              "=")),
-                '!' => tokens.push(self.make_optional_equal(TokenType::Not,         TokenType::NotEqual,           "!")),
-                '<' => tokens.push(self.make_optional_equal(TokenType::LessThan,    TokenType::LessThanOrEqual,    "<")),
-                '>' => tokens.push(self.make_optional_equal(TokenType::GreaterThan, TokenType::GreaterThanOrEqual, ">")),
-                '+' => tokens.push(self.make_optional_equal(TokenType::Plus,        TokenType::PlusAssign,         "+")),
-                '-' => tokens.push(self.make_optional_equal(TokenType::Minus,       TokenType::MinusAssign,        "-")),
-                '%' => tokens.push(self.make_optional_equal(TokenType::Modulo,      TokenType::ModuloAssign,       "%")),
-                '\\' => tokens.push(self.make_optional_equal(TokenType::IntDivide,  TokenType::IntDivideAssign,    "\\")),
+                '"' | '\'' => return self.make_string(),
+                '.' => return self.make_dot(),
+                '/' => { let token = self.make_slash(); if let Some(token) = token { return Ok(token) } },
+                '*' => return Ok(self.make_star()),
+                '(' => return Ok(self.make_single_char(TokenType::LParen,       "(")),
+                ')' => return Ok(self.make_single_char(TokenType::RParen,       ")")),
+                '{' => return Ok(self.make_single_char(TokenType::LBrace,       "{")),
+                '}' => return Ok(self.make_single_char(TokenType::RBrace,       "}")),
+                '|' => return Ok(self.make_single_char(TokenType::Or,           "|")),
+                '&' => return Ok(self.make_single_char(TokenType::And,          "&")),
+                ',' => return Ok(self.make_single_char(TokenType::Comma,        ",")),
+                ';' => return Ok(self.make_single_char(TokenType::EOL,          ";")),
+                '\n' => return Ok(self.make_single_char(TokenType::EOL,         "LF")),
+                '=' => return Ok(self.make_optional_equal(TokenType::Assign,      TokenType::Equal,              "=")),
+                '!' => return Ok(self.make_optional_equal(TokenType::Not,         TokenType::NotEqual,           "!")),
+                '<' => return Ok(self.make_optional_equal(TokenType::LessThan,    TokenType::LessThanOrEqual,    "<")),
+                '>' => return Ok(self.make_optional_equal(TokenType::GreaterThan, TokenType::GreaterThanOrEqual, ">")),
+                '+' => return Ok(self.make_optional_equal(TokenType::Plus,        TokenType::PlusAssign,         "+")),
+                '-' => return Ok(self.make_optional_equal(TokenType::Minus,       TokenType::MinusAssign,        "-")),
+                '%' => return Ok(self.make_optional_equal(TokenType::Modulo,      TokenType::ModuloAssign,       "%")),
+                '\\' => return Ok(self.make_optional_equal(TokenType::IntDivide,  TokenType::IntDivideAssign,    "\\")),
                 _ => {
                     if DIGITS.contains(&current_char) {
-                        tokens.push(self.make_number());
+                        return Ok(self.make_number());
                     } else if LETTERS_AND_UNDERSCORE.contains(&current_char) {
-                        tokens.push(self.make_name());
+                        return Ok(self.make_name());
                     } else {
                         let start_pos = loc!(self);
                         self.advance();
-                        error!(SyntaxError, start_pos, loc!(self), "Illegal character '{}'", current_char);
+                        lex_error!(self, start_pos, "Illegal character '{}'", current_char);
                     }
                 },
             }
         }
+
         let start_pos = loc!(self);
         self.location.advance(false);
-        tokens.push(Token::new(TokenType::EOF, "EOF", start_pos, loc!(self)));
-
-        return Ok(tokens);
+        return Ok(Token::new(TokenType::EOF, "EOF", start_pos, loc!(self)));
     }
 
     fn advance(&mut self) {
@@ -106,7 +120,7 @@ impl <'a> Lexer<'a> {
         );
     }
 
-    fn make_string(&mut self) -> Result<Token> {
+    fn make_string(&mut self) -> LexResult<Token> {
         let start_location = loc!(self);
         let start_quote = self.current_char;
         let mut string = String::new();
@@ -119,7 +133,7 @@ impl <'a> Lexer<'a> {
         while self.current_char == Some('\\') {
             let escape_pos = loc!(self);
             self.advance(); // backslash
-            if self.current_char == None { error!(SyntaxError, escape_pos, loc!(self), "Invalid escape sequence") }
+            if self.current_char == None { lex_error!(self, escape_pos, "Invalid escape sequence") }
             let current_char = self.current_char.unwrap();
 
             if ESCAPE_CHAR.contains(&current_char) {
@@ -166,7 +180,7 @@ impl <'a> Lexer<'a> {
                     8,
                 )?);
             } else {
-                error!(SyntaxError, escape_pos, loc!(self), "Invalid escape sequence");
+                lex_error!(self, escape_pos, "Invalid escape sequence");
             }
 
             while ![start_quote, Some('\\'), None].contains(&self.current_char) {
@@ -179,7 +193,7 @@ impl <'a> Lexer<'a> {
         return Ok(Token::new(TokenType::String, &string, start_location, loc!(self)));
     }
 
-    fn escape_sequence(&mut self, current_char: &char, start_pos: Location, is_hex: bool, digits: u8) -> Result<char> {
+    fn escape_sequence(&mut self, current_char: &char, start_pos: Location, is_hex: bool, digits: u8) -> LexResult<char> {
         let mut esc = if is_hex { String::new() } else { current_char.to_string() };
         self.advance();
         for _ in 0..digits {
@@ -188,14 +202,14 @@ impl <'a> Lexer<'a> {
             } else {
                 !OCTAL_DIGITS.contains(&self.current_char.unwrap())
             } {
-                error!(SyntaxError, start_pos, loc!(self), "Invalid escape sequence");
+                lex_error!(self, start_pos, "Invalid escape sequence");
             }
             esc.push(self.current_char.unwrap());
             self.advance();
         }
         match char::from_u32(u32::from_str_radix(&esc, if is_hex { 16 } else { 8 }).unwrap()) {
             Some(char) => return Ok(char),
-            None       => error!(SyntaxError, start_pos, loc!(self), "Invalid character escape"),
+            None       => lex_error!(self, start_pos, "Invalid character escape"),
         }
     }
 
@@ -226,7 +240,7 @@ impl <'a> Lexer<'a> {
         return Token::new(TokenType::Number, &number, start_location, loc!(self));
     }
 
-    fn make_dot(&mut self) -> Result<Token> {
+    fn make_dot(&mut self) -> LexResult<Token> {
         let start_location = loc!(self);
         self.advance();
 
@@ -247,9 +261,9 @@ impl <'a> Lexer<'a> {
             let start_pos = loc!(self);
             self.advance();
             if let Some(current_char) = self.current_char {
-                error!(SyntaxError, start_pos, loc!(self), "Expected '.', got '{}'", current_char);
+                lex_error!(self, start_pos, "Expected '.', got '{}'", current_char);
             }
-            error!(SyntaxError, start_pos, loc!(self), "Expected '.'");
+            lex_error!(self, start_pos, "Expected '.'");
         }
 
         self.advance();

@@ -58,6 +58,7 @@ pub enum TokenType {
     Break,
     Continue,
 
+    Unknown,
     EOL,                // End Of Line: \n or ';'
     EOF,                // End Of File
 }
@@ -77,8 +78,8 @@ impl Token {
 
     pub fn dummy() -> Self {
         return Token {
-            token_type: TokenType::EOF,
-            value: String::from("EOF"),
+            token_type: TokenType::Unknown,
+            value: String::from("Unknown"),
             start: Location::new(String::new()),
             end: Location::new(String::new()),
         };

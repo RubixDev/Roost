@@ -1,4 +1,3 @@
-use std::slice::Iter;
 use rust_decimal::Decimal;
 use crate::{
     tokens::{Token, TokenType},
@@ -25,7 +24,7 @@ use crate::{
         Atom,
         CallExpression,
         ExponentialExpression, FunExpression,
-    },
+    }, lexer::Lexer,
 };
 
 macro_rules! loc {
@@ -56,15 +55,15 @@ macro_rules! expected {
 }
 
 pub struct Parser<'a> {
-    tokens: Iter<'a, Token>,
+    lexer: Lexer<'a>,
     current_token: Token,
     errors: Vec<Error>,
 }
 
 impl <'a> Parser<'a> {
-    pub fn new(tokens: &'a Vec<Token>) -> Self {
+    pub fn new(lexer: Lexer<'a>) -> Self {
         return Parser {
-            tokens: tokens.iter(),
+            lexer,
             current_token: Token::dummy(),
             errors: vec![],
         };
@@ -91,18 +90,20 @@ impl <'a> Parser<'a> {
     }
 
     fn advance(&mut self) {
-        self.current_token = self.tokens
-            .next()
-            .unwrap_or(&Token::dummy())
-            .clone();
+        self.current_token = match self.lexer.next_token() {
+            Ok(token) => token,
+            Err((error, token)) => {
+                self.errors.push(error);
+                token
+            },
+        }
     }
 
-    fn next_token(&self) -> Token {
-        return self.tokens
+    fn following_token(&self) -> Token {
+        return self.lexer
             .clone()
-            .next()
-            .unwrap_or(&Token::dummy())
-            .clone();
+            .next_token()
+            .unwrap_or(Token::dummy());
     }
 
     // ---------------------------------------
@@ -181,7 +182,7 @@ impl <'a> Parser<'a> {
                 TokenType::ModuloAssign,
                 TokenType::IntDivideAssign,
                 TokenType::PowerAssign,
-            ].contains(&self.next_token().token_type) {
+            ].contains(&self.following_token().token_type) {
             return Ok(Statement::Assign(self.assign_statement()?));
         } else {
             return Ok(Statement::Expression(self.expression()?));
@@ -232,12 +233,12 @@ impl <'a> Parser<'a> {
         let block = self.block()?;
         let else_block: Option<Statements>;
 
-        let mut tokens = self.tokens.clone();
+        let mut lexer = self.lexer.clone();
         let mut current_token = self.current_token.clone();
         let mut count = 0;
 
         while current_token.token_type == TokenType::EOL {
-            current_token = tokens.next().unwrap_or(&Token::dummy()).clone();
+            current_token = lexer.next_token().unwrap_or(Token::dummy());
             count += 1;
         }
 
@@ -535,7 +536,7 @@ impl <'a> Parser<'a> {
         if self.current_token.token_type == TokenType::Identifier {
             let value = self.current_token.value.clone();
 
-            if self.next_token().token_type == TokenType::LParen {
+            if self.following_token().token_type == TokenType::LParen {
                 return Ok(Atom::Call(self.call_expression()?));
             } else {
                 self.advance();

@@ -12,8 +12,7 @@ impl Truth for Value {
             Value::Bool(value) => *value,
             Value::String(value) => !value.is_empty(),
             Value::Range(start, end) => start != end,
-            Value::Null
-            | Value::Void => false,
+            Value::Null => false,
             _ => true,
         }
     }

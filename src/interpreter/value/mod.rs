@@ -18,7 +18,6 @@ pub enum Value {
     Function(Vec<String>, Statements),
     BuiltIn,
     Null,
-    Void,
 }
 
 impl Display for Value {
@@ -31,7 +30,6 @@ impl Display for Value {
             Value::Function(_, _)    => String::from("<function>"),
             Value::BuiltIn           => String::from("<built-in>"),
             Value::Null              => String::from("null"),
-            Value::Void              => String::from("void"),
         })
     }
 }

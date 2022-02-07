@@ -9,7 +9,6 @@ pub enum Type {
     Range,
     Function,
     Null,
-    Void,
 }
 
 impl Display for Type {
@@ -21,7 +20,6 @@ impl Display for Type {
             Type::Range    => "range",
             Type::Function => "function",
             Type::Null     => "null",
-            Type::Void     => "void",
         })
     }
 }
@@ -35,6 +33,5 @@ pub fn type_of(value: &Value) -> Type {
         Value::Function(_, _)
         | Value::BuiltIn      => Type::Function,
         Value::Null           => Type::Null,
-        Value::Void           => Type::Void,
     };
 }

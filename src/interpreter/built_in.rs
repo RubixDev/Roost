@@ -6,13 +6,13 @@ use crate::error::{Result, Location};
 pub fn print(args: Vec<Value>, callback: fn(String)) -> Result<Value> {
     let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
     callback(args.join(" "));
-    return Ok(Value::Void);
+    return Ok(Value::Null);
 }
 
 pub fn printl(args: Vec<Value>, callback: fn(String)) -> Result<Value> {
     let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
     callback(args.join(" ") + "\n");
-    return Ok(Value::Void);
+    return Ok(Value::Null);
 }
 
 pub fn type_of(args: Vec<Value>, start_loc: Location, end_loc: Location) -> Result<Value> {
@@ -66,5 +66,5 @@ pub fn exit(args: Vec<Value>, callback: fn(i32), start_loc: Location, end_loc: L
             "First argument of function 'exit' has to be of type number",
         ),
     }
-    return Ok(Value::Void);
+    return Ok(Value::Null);
 }

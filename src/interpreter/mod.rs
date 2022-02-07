@@ -277,7 +277,7 @@ impl Interpreter {
             should_return!(result);
             result.success_return(result.value.clone());
         } else {
-            result.success_return(Some(Value::Void));
+            result.success_return(Some(Value::Null));
         }
         return Ok(result);
     }
@@ -586,7 +586,7 @@ impl Interpreter {
         result.register(self.visit_statements(&statements, false)?);
 
         if result.return_value == None {
-            result.success(Some(Value::Void));
+            result.success(Some(Value::Null));
         } else {
             result.success(result.return_value.clone());
         }

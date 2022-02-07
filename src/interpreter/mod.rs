@@ -12,7 +12,6 @@ use crate::nodes::{
     Statement,
     DeclareStatement,
     AssignStatement,
-    AssignOperator,
     IfStatement,
     LoopStatement,
     WhileStatement,
@@ -23,20 +22,16 @@ use crate::nodes::{
     OrExpression,
     AndExpression,
     EqualityExpression,
-    EqualityOperator,
     RelationalExpression,
-    RelationalOperator,
     AdditiveExpression,
-    AdditiveOperator,
     MultiplicativeExpression,
-    MultiplicativeOperator,
     UnaryExpression,
-    UnaryOperator,
     Atom,
     TernaryExpression,
     CallExpression,
     ExponentialExpression,
 };
+use crate::tokens::TokenType;
 use self::value::{
     truth::Truth,
     calculative_operations::CalculativeOperations,
@@ -170,14 +165,15 @@ impl Interpreter {
         }
 
         self.scopes[value_scope].insert(node.identifier.clone(), match node.operator {
-            AssignOperator::Normal    => Ok(new_value.clone()),
-            AssignOperator::Plus      => value.plus(&new_value, node.start.clone(), node.end.clone()),
-            AssignOperator::Minus     => value.minus(&new_value, node.start.clone(), node.end.clone()),
-            AssignOperator::Multiply  => value.multiply(&new_value, node.start.clone(), node.end.clone()),
-            AssignOperator::Divide    => value.divide(&new_value, node.start.clone(), node.end.clone()),
-            AssignOperator::Modulo    => value.modulo(&new_value, node.start.clone(), node.end.clone()),
-            AssignOperator::IntDivide => value.int_divide(&new_value, node.start.clone(), node.end.clone()),
-            AssignOperator::Power     => value.power(&new_value, node.start.clone(), node.end.clone()),
+            TokenType::Assign          => Ok(new_value.clone()),
+            TokenType::PlusAssign      => value.plus(&new_value, node.start.clone(), node.end.clone()),
+            TokenType::MinusAssign     => value.minus(&new_value, node.start.clone(), node.end.clone()),
+            TokenType::MultiplyAssign  => value.multiply(&new_value, node.start.clone(), node.end.clone()),
+            TokenType::DivideAssign    => value.divide(&new_value, node.start.clone(), node.end.clone()),
+            TokenType::ModuloAssign    => value.modulo(&new_value, node.start.clone(), node.end.clone()),
+            TokenType::IntDivideAssign => value.int_divide(&new_value, node.start.clone(), node.end.clone()),
+            TokenType::PowerAssign     => value.power(&new_value, node.start.clone(), node.end.clone()),
+            _ => panic!(),
         }?);
 
         result.success(None);
@@ -401,8 +397,9 @@ impl Interpreter {
             should_return!(result);
             let equal = base == result.value.clone().unwrap();
             let out = match operator {
-                EqualityOperator::Equal    =>  equal,
-                EqualityOperator::NotEqual => !equal,
+                TokenType::Equal    =>  equal,
+                TokenType::NotEqual => !equal,
+                _ => panic!(),
             };
             result.success(Some(Value::Bool(out)));
         } else {
@@ -423,10 +420,11 @@ impl Interpreter {
             let other = result.value.clone().unwrap();
 
             let out = match operator {
-                RelationalOperator::LessThan           => base.less_than(&other, node.start.clone(), node.end.clone()),
-                RelationalOperator::GreaterThan        => base.greater_than(&other, node.start.clone(), node.end.clone()),
-                RelationalOperator::LessThanOrEqual    => base.less_than_or_equal(&other, node.start.clone(), node.end.clone()),
-                RelationalOperator::GreaterThanOrEqual => base.greater_than_or_equal(&other, node.start.clone(), node.end.clone()),
+                TokenType::LessThan           => base.less_than(&other, node.start.clone(), node.end.clone()),
+                TokenType::GreaterThan        => base.greater_than(&other, node.start.clone(), node.end.clone()),
+                TokenType::LessThanOrEqual    => base.less_than_or_equal(&other, node.start.clone(), node.end.clone()),
+                TokenType::GreaterThanOrEqual => base.greater_than_or_equal(&other, node.start.clone(), node.end.clone()),
+                _ => panic!(),
             }?;
             result.success(Some(out));
         } else {
@@ -447,8 +445,9 @@ impl Interpreter {
             let other = result.value.clone().unwrap();
 
             base = match operator {
-                AdditiveOperator::Plus  => base.plus(&other, node.start.clone(), node.end.clone()),
-                AdditiveOperator::Minus => base.minus(&other, node.start.clone(), node.end.clone()),
+                TokenType::Plus  => base.plus(&other, node.start.clone(), node.end.clone()),
+                TokenType::Minus => base.minus(&other, node.start.clone(), node.end.clone()),
+                _ => panic!(),
             }?;
         }
 
@@ -467,10 +466,11 @@ impl Interpreter {
             let other = result.value.clone().unwrap();
 
             base = match operator {
-                MultiplicativeOperator::Multiply  => base.multiply(&other, node.start.clone(), node.end.clone()),
-                MultiplicativeOperator::Divide    => base.divide(&other, node.start.clone(), node.end.clone()),
-                MultiplicativeOperator::Modulo    => base.modulo(&other, node.start.clone(), node.end.clone()),
-                MultiplicativeOperator::IntDivide => base.int_divide(&other, node.start.clone(), node.end.clone()),
+                TokenType::Multiply  => base.multiply(&other, node.start.clone(), node.end.clone()),
+                TokenType::Divide    => base.divide(&other, node.start.clone(), node.end.clone()),
+                TokenType::Modulo    => base.modulo(&other, node.start.clone(), node.end.clone()),
+                TokenType::IntDivide => base.int_divide(&other, node.start.clone(), node.end.clone()),
+                _ => panic!(),
             }?;
         }
 
@@ -485,9 +485,10 @@ impl Interpreter {
                 should_return!(result);
                 let base = result.value.clone().unwrap();
                 let out = match operator {
-                    UnaryOperator::Plus  => base,
-                    UnaryOperator::Minus => Value::Number(Decimal::ZERO).minus(&base, start.clone(), end.clone())?,
-                    UnaryOperator::Not   => Value::Bool(base.is_false()),
+                    TokenType::Plus  => base,
+                    TokenType::Minus => Value::Number(Decimal::ZERO).minus(&base, start.clone(), end.clone())?,
+                    TokenType::Not   => Value::Bool(base.is_false()),
+                    _ => panic!(),
                 };
                 result.success(Some(out));
                 return Ok(result);

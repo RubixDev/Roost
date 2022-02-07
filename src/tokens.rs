@@ -49,7 +49,7 @@ pub enum TokenType {
     EOF,                // End Of File
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Token {
     pub token_type: TokenType,
     pub value: String,

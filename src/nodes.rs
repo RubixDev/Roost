@@ -1,5 +1,5 @@
 use rust_decimal::Decimal;
-use crate::error::Location;
+use crate::{error::Location, tokens::TokenType};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Statements {
@@ -33,19 +33,8 @@ pub struct AssignStatement {
     pub start: Location,
     pub end: Location,
     pub identifier: String,
-    pub operator: AssignOperator,
+    pub operator: TokenType,
     pub expression: Expression,
-}
-#[derive(Debug, PartialEq, Clone)]
-pub enum AssignOperator {
-    Normal,    // =
-    Plus,      // +=
-    Minus,     // -=
-    Multiply,  // *=
-    Divide,    // /=
-    Modulo,    // %=
-    IntDivide, // \=
-    Power,     // **=
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct IfStatement {
@@ -120,69 +109,39 @@ pub struct AndExpression {
     pub following: Vec<EqualityExpression>,
 }
 #[derive(Debug, PartialEq, Clone)]
-pub enum EqualityOperator {
-    Equal,    // ==
-    NotEqual, // !=
-}
-#[derive(Debug, PartialEq, Clone)]
 pub struct EqualityExpression {
     pub start: Location,
     pub end: Location,
     pub base: RelationalExpression,
-    pub other: Option<(EqualityOperator, RelationalExpression)>,
-}
-#[derive(Debug, PartialEq, Clone)]
-pub enum RelationalOperator {
-    LessThan,           // <
-    GreaterThan,        // >
-    LessThanOrEqual,    // <=
-    GreaterThanOrEqual, // >=
+    pub other: Option<(TokenType, RelationalExpression)>,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct RelationalExpression {
     pub start: Location,
     pub end: Location,
     pub base: AdditiveExpression,
-    pub other: Option<(RelationalOperator, AdditiveExpression)>,
-}
-#[derive(Debug, PartialEq, Clone)]
-pub enum AdditiveOperator {
-    Plus,  // +
-    Minus, // -
+    pub other: Option<(TokenType, AdditiveExpression)>,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct AdditiveExpression {
     pub start: Location,
     pub end: Location,
     pub base: MultiplicativeExpression,
-    pub following: Vec<(AdditiveOperator, MultiplicativeExpression)>,
-}
-#[derive(Debug, PartialEq, Clone)]
-pub enum MultiplicativeOperator {
-    Multiply,  // *
-    Divide,    // /
-    Modulo,    // %
-    IntDivide, // \
+    pub following: Vec<(TokenType, MultiplicativeExpression)>,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct MultiplicativeExpression {
     pub start: Location,
     pub end: Location,
     pub base: UnaryExpression,
-    pub following: Vec<(MultiplicativeOperator, UnaryExpression)>,
-}
-#[derive(Debug, PartialEq, Clone)]
-pub enum UnaryOperator {
-    Plus,  // +
-    Minus, // -
-    Not,   // !
+    pub following: Vec<(TokenType, UnaryExpression)>,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub enum UnaryExpression {
     Operator {
         start: Location,
         end: Location,
-        operator: UnaryOperator,
+        operator: TokenType,
         expression: Box<UnaryExpression>,
     },
     Power(Box<ExponentialExpression>),

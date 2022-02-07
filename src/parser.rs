@@ -1,4 +1,3 @@
-use core::panic;
 use std::slice::Iter;
 use rust_decimal::{Decimal, Error};
 use crate::{
@@ -9,7 +8,6 @@ use crate::{
         Statement,
         DeclareStatement,
         AssignStatement,
-        AssignOperator,
         IfStatement,
         LoopStatement,
         WhileStatement,
@@ -20,15 +18,10 @@ use crate::{
         OrExpression,
         AndExpression,
         EqualityExpression,
-        EqualityOperator,
         RelationalExpression,
-        RelationalOperator,
         AdditiveExpression,
-        AdditiveOperator,
         MultiplicativeExpression,
-        MultiplicativeOperator,
         UnaryExpression,
-        UnaryOperator,
         Atom,
         TernaryExpression,
         CallExpression,
@@ -208,17 +201,7 @@ impl <'a> Parser<'a> {
         let identifier = self.current_token.value.clone();
         self.advance();
 
-        let operator = match self.current_token.token_type {
-            TokenType::Assign          => AssignOperator::Normal,
-            TokenType::PlusAssign      => AssignOperator::Plus,
-            TokenType::MinusAssign     => AssignOperator::Minus,
-            TokenType::MultiplyAssign  => AssignOperator::Multiply,
-            TokenType::DivideAssign    => AssignOperator::Divide,
-            TokenType::ModuloAssign    => AssignOperator::Modulo,
-            TokenType::IntDivideAssign => AssignOperator::IntDivide,
-            TokenType::PowerAssign     => AssignOperator::Power,
-            _ => panic!(),
-        };
+        let operator = self.current_token.token_type.clone();
         self.advance();
 
         let expression = self.expression()?;
@@ -435,11 +418,7 @@ impl <'a> Parser<'a> {
             TokenType::Equal,
             TokenType::NotEqual,
         ].contains(&self.current_token.token_type) {
-            let operator = match self.current_token.token_type {
-                TokenType::Equal    => EqualityOperator::Equal,
-                TokenType::NotEqual => EqualityOperator::NotEqual,
-                _ => panic!(),
-            };
+            let operator = self.current_token.token_type.clone();
             self.advance();
 
             other = Some((operator, self.relational_expression()?));
@@ -459,13 +438,7 @@ impl <'a> Parser<'a> {
             TokenType::LessThanOrEqual,
             TokenType::GreaterThanOrEqual,
         ].contains(&self.current_token.token_type) {
-            let operator = match self.current_token.token_type {
-                TokenType::LessThan           => RelationalOperator::LessThan,
-                TokenType::GreaterThan        => RelationalOperator::GreaterThan,
-                TokenType::LessThanOrEqual    => RelationalOperator::LessThanOrEqual,
-                TokenType::GreaterThanOrEqual => RelationalOperator::GreaterThanOrEqual,
-                _ => panic!(),
-            };
+            let operator = self.current_token.token_type.clone();
             self.advance();
 
             other = Some((operator, self.additive_expression()?));
@@ -483,11 +456,7 @@ impl <'a> Parser<'a> {
             TokenType::Plus,
             TokenType::Minus,
         ].contains(&self.current_token.token_type) {
-            let operator = match self.current_token.token_type {
-                TokenType::Plus  => AdditiveOperator::Plus,
-                TokenType::Minus => AdditiveOperator::Minus,
-                _ => panic!(),
-            };
+            let operator = self.current_token.token_type.clone();
             self.advance();
 
             following.push((operator, self.multiplicative_expression()?));
@@ -507,13 +476,7 @@ impl <'a> Parser<'a> {
             TokenType::Modulo,
             TokenType::IntDivide,
         ].contains(&self.current_token.token_type) {
-            let operator = match self.current_token.token_type {
-                TokenType::Multiply  => MultiplicativeOperator::Multiply,
-                TokenType::Divide    => MultiplicativeOperator::Divide,
-                TokenType::Modulo    => MultiplicativeOperator::Modulo,
-                TokenType::IntDivide => MultiplicativeOperator::IntDivide,
-                _ => panic!(),
-            };
+            let operator = self.current_token.token_type.clone();
             self.advance();
 
             following.push((operator, self.unary_expression()?));
@@ -529,12 +492,7 @@ impl <'a> Parser<'a> {
             TokenType::Minus,
             TokenType::Not,
         ].contains(&self.current_token.token_type) {
-            let operator = match self.current_token.token_type {
-                TokenType::Plus  => UnaryOperator::Plus,
-                TokenType::Minus => UnaryOperator::Minus,
-                TokenType::Not   => UnaryOperator::Not,
-                _ => panic!(),
-            };
+            let operator = self.current_token.token_type.clone();
             self.advance();
             return Ok(UnaryExpression::Operator {
                 start: start_location,

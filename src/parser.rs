@@ -1,8 +1,8 @@
 use std::slice::Iter;
-use rust_decimal::{Decimal, Error};
+use rust_decimal::Decimal;
 use crate::{
     tokens::{Token, TokenType},
-    error::Result,
+    error::{Result, Error},
     nodes::{
         Statements,
         Statement,
@@ -43,14 +43,14 @@ macro_rules! syntax {
 macro_rules! expected {
     ($self:ident, $token_type:ident, $name:expr) => {
         if $self.current_token.token_type != TokenType::$token_type {
-            error!(
+            $self.errors.push(error_val!(
                 SyntaxError,
                 $self.current_token.start.clone(),
                 $self.current_token.end.clone(),
                 "Expected {}, found '{}'",
                 $name,
                 $self.current_token.value
-            );
+            ));
         }
     };
 }
@@ -58,6 +58,7 @@ macro_rules! expected {
 pub struct Parser<'a> {
     tokens: Iter<'a, Token>,
     current_token: Token,
+    errors: Vec<Error>,
 }
 
 impl <'a> Parser<'a> {
@@ -65,14 +66,26 @@ impl <'a> Parser<'a> {
         return Parser {
             tokens: tokens.iter(),
             current_token: Token::dummy(),
+            errors: vec![],
         };
     }
 
-    pub fn parse(&mut self) -> Result<Statements> {
+    pub fn parse(&mut self) -> std::result::Result<Statements, Vec<Error>> {
         self.advance();
-        let statements = self.statements()?;
+        let statements = match self.statements() {
+            Ok(statements) => statements,
+            Err(error) => {
+                self.errors.push(error);
+                return Err(self.errors.clone());
+            },
+        };
+
         if self.current_token.token_type != TokenType::EOF {
-            syntax!(self, "Expected EOF");
+            self.errors.push(error_val!(SyntaxError, self.current_token.start.clone(), self.current_token.end.clone(), "Expected EOF"));
+            return Err(self.errors.clone());
+        }
+        if !self.errors.is_empty() {
+            return Err(self.errors.clone());
         }
         return Ok(statements);
     }
@@ -105,9 +118,7 @@ impl <'a> Parser<'a> {
             statements.push(self.statement()?);
             loop {
                 if [TokenType::EOF, TokenType::RBrace].contains(&self.current_token.token_type) { break; }
-                if self.current_token.token_type != TokenType::EOL {
-                    syntax!(self, "Expected ';' or line break, found '{}'", self.current_token.value);
-                }
+                expected!(self, EOL, "';' or line break");
                 while self.current_token.token_type == TokenType::EOL {
                     self.advance();
                 }
@@ -496,10 +507,10 @@ impl <'a> Parser<'a> {
             let number = match value.parse::<Decimal>() {
                 Ok(value) => value,
                 Err(e) => match e {
-                    Error::ErrorString(message)            => error!(ValueError, start_location, loc!(self), "{}", message),
-                    Error::ExceedsMaximumPossibleValue     => error!(ValueError, start_location, loc!(self), "Value too high"),
-                    Error::LessThanMinimumPossibleValue    => error!(ValueError, start_location, loc!(self), "Value too low"),
-                    Error::ScaleExceedsMaximumPrecision(_) => error!(ValueError, start_location, loc!(self), "Value too precise"),
+                    rust_decimal::Error::ErrorString(message)            => error!(ValueError, start_location, loc!(self), "{}", message),
+                    rust_decimal::Error::ExceedsMaximumPossibleValue     => error!(ValueError, start_location, loc!(self), "Value too high"),
+                    rust_decimal::Error::LessThanMinimumPossibleValue    => error!(ValueError, start_location, loc!(self), "Value too low"),
+                    rust_decimal::Error::ScaleExceedsMaximumPrecision(_) => error!(ValueError, start_location, loc!(self), "Value too precise"),
                 },
             };
             self.advance();

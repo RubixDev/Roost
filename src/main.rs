@@ -15,8 +15,8 @@ struct Roost {
     time: bool,
 }
 
-macro_rules! exit {
-    ($error:expr, $code:expr) => {{
+macro_rules! print_error {
+    ($error:expr, $code:expr) => {
         let lines: Vec<&str> = $code.split('\n').collect();
 
         let line1 = if $error.start.line > 1 {
@@ -30,7 +30,7 @@ macro_rules! exit {
         let marker = format!("{}\x1b[1;31m{}\x1b[0m", " ".repeat($error.start.column + 6), "^".repeat($error.end.index - $error.start.index));
 
         eprintln!(
-            "\x1b[1;36m{:?}\x1b[39m at {}:{}:{}\x1b[0m\n{}\n{}\n{}{}\n\n\x1b[1m{}\x1b[0m",
+            "\x1b[1;36m{:?}\x1b[39m at {}:{}:{}\x1b[0m\n{}\n{}\n{}{}\n\n\x1b[1m{}\x1b[0m\n",
             $error.kind,
             $error.start.filename,
             $error.start.line,
@@ -41,6 +41,12 @@ macro_rules! exit {
             line3,
             $error.message,
         );
+    };
+}
+
+macro_rules! exit {
+    ($error:expr, $code:expr) => {{
+        print_error!($error, $code);
         std::process::exit(1);
     }};
 }
@@ -77,7 +83,12 @@ fn main() {
     let mut parser = Parser::new(&tokens);
     let nodes = match parser.parse() {
         Ok(nodes) => nodes,
-        Err(e) => exit!(e, code),
+        Err(errors) => {
+            for error in errors {
+                print_error!(error, code);
+            }
+            std::process::exit(1);
+        },
     };
     // file = File::create("nodes.txt").unwrap();
     // write!(file, "{:#?}", nodes).unwrap();

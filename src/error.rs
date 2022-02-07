@@ -2,16 +2,20 @@ use std::fmt::Display;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+macro_rules! error_val {
+    ($kind:ident, $start:expr, $end:expr, $($arg:tt)*) => {
+        crate::error::Error::new(
+            crate::error::ErrorKind::$kind,
+            format!($($arg)*),
+            $start,
+            $end,
+        )
+    };
+}
+
 macro_rules! error {
     ($kind:ident, $start:expr, $end:expr, $($arg:tt)*) => {
-        return Err(
-            crate::error::Error::new(
-                crate::error::ErrorKind::$kind,
-                format!($($arg)*),
-                $start,
-                $end,
-            )
-        )
+        return Err(error_val!($kind, $start, $end, $($arg)*))
     };
 }
 
@@ -44,7 +48,7 @@ impl Location {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Error {
     pub kind: ErrorKind,
     pub message: String,
@@ -72,7 +76,7 @@ impl Display for Error {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ErrorKind {
     SyntaxError,
     TypeError,

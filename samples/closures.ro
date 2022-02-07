@@ -3,3 +3,10 @@ fun a(b) {
 }
 
 a(fun (asd) { printl('asd', asd) })
+
+fun b(a) print(a)
+b(4)
+var b = fun (a) print(a)
+b(2)
+
+printl()

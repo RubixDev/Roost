@@ -142,23 +142,23 @@ impl <'a> Parser<'a> {
     }
 
     fn statement(&mut self) -> Result<Statement> {
-        if self.current_token.matches(TokenType::Keyword, "var") {
+        if self.current_token.token_type == TokenType::Var {
             return Ok(Statement::Declare(self.declare_statement()?));
-        } else if self.current_token.matches(TokenType::Keyword, "loop") {
+        } else if self.current_token.token_type == TokenType::Loop {
             return Ok(Statement::Loop(self.loop_statement()?));
-        } else if self.current_token.matches(TokenType::Keyword, "while") {
+        } else if self.current_token.token_type == TokenType::While {
             return Ok(Statement::While(self.while_statement()?));
-        } else if self.current_token.matches(TokenType::Keyword, "for") {
+        } else if self.current_token.token_type == TokenType::For {
             return Ok(Statement::For(self.for_statement()?));
-        } else if self.current_token.matches(TokenType::Keyword, "fun") {
+        } else if self.current_token.token_type == TokenType::Fun {
             return Ok(Statement::Function(self.function_declaration()?));
-        } else if self.current_token.matches(TokenType::Keyword, "break") {
+        } else if self.current_token.token_type == TokenType::Break {
             self.advance();
             return Ok(Statement::Break);
-        } else if self.current_token.matches(TokenType::Keyword, "continue") {
+        } else if self.current_token.token_type == TokenType::Continue {
             self.advance();
             return Ok(Statement::Continue);
-        } else if self.current_token.matches(TokenType::Keyword, "return") {
+        } else if self.current_token.token_type == TokenType::Return {
             return Ok(Statement::Return(self.return_statement()?));
         } else if self.current_token.token_type == TokenType::Identifier
             && [
@@ -230,7 +230,7 @@ impl <'a> Parser<'a> {
             count += 1;
         }
 
-        if current_token.matches(TokenType::Keyword, "else") {
+        if current_token.token_type == TokenType::Else {
             for _ in 0..count { self.advance(); }
             self.advance();
 
@@ -279,7 +279,7 @@ impl <'a> Parser<'a> {
         let identifier = self.current_token.value.clone();
         self.advance();
 
-        if !self.current_token.matches(TokenType::Keyword, "in") {
+        if self.current_token.token_type != TokenType::In {
             expected!(self, EOF, "'in'");
         }
         self.advance();
@@ -498,11 +498,11 @@ impl <'a> Parser<'a> {
 
     fn atom(&mut self) -> Result<Atom> {
         let start_location = loc!(self);
-        if self.current_token.matches(TokenType::Keyword, "null") {
+        if self.current_token.token_type == TokenType::Null {
             self.advance();
 
             return Ok(Atom::Null);
-        } else if self.current_token.matches(TokenType::Keyword, "if") {
+        } else if self.current_token.token_type == TokenType::If {
             return Ok(Atom::If(self.if_expression()?));
         }
 
@@ -521,8 +521,8 @@ impl <'a> Parser<'a> {
             return Ok(Atom::Number(number));
         }
 
-        if self.current_token.matches(TokenType::Keyword, "true")
-            || self.current_token.matches(TokenType::Keyword, "false") {
+        if self.current_token.token_type == TokenType::True
+            || self.current_token.token_type == TokenType::False {
             let value = self.current_token.value == "true";
             self.advance();
 

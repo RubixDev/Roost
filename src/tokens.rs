@@ -3,7 +3,6 @@ use crate::error::Location;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenType {
-    Keyword,            // built-in keywords like 'true', 'var', or 'print'
     Identifier,         // variable and function names
 
     LParen,             // '('
@@ -43,6 +42,22 @@ pub enum TokenType {
 
     Comma,              // ','
 
+    // Keywords
+    Var,
+    True,
+    False,
+    Null,
+    If,
+    Else,
+    Fun,
+    Loop,
+    While,
+    For,
+    In,
+    Return,
+    Break,
+    Continue,
+
     EOL,                // End Of Line: \n or ';'
     EOF,                // End Of File
 }
@@ -58,10 +73,6 @@ pub struct Token {
 impl Token {
     pub fn new(token_type: TokenType, value: &str, start: Location, end: Location) -> Self {
         return Token { token_type, value: String::from(value), start, end };
-    }
-
-    pub fn matches(&self, token_type: TokenType, value: &str) -> bool {
-        return self.token_type == token_type && &self.value == value;
     }
 
     pub fn dummy() -> Self {

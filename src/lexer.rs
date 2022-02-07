@@ -10,8 +10,6 @@ const LETTERS_AND_UNDERSCORE: [char; 53] = ['A', 'a', 'B', 'b', 'C', 'c', 'D',
     'L', 'l', 'M', 'm', 'N', 'n', 'O', 'o', 'P', 'p', 'Q', 'q', 'R', 'r', 'S',
     's', 'T', 't', 'U', 'u', 'V', 'v', 'W', 'w', 'X', 'x', 'Y', 'y', 'Z', 'z', '_'];
 
-const KEYWORDS: [&str; 14] = ["var", "true", "false", "if", "null", "else", "fun",
-    "loop", "while", "for", "in", "return", "break", "continue"];
 const ESCAPE_CHAR: [char; 10] = ['\\', '\'', '"', 'a', 'b', 'f', 'n', 'r', 't', 'v'];
 
 macro_rules! loc {
@@ -334,9 +332,23 @@ impl <'a> Lexer<'a> {
             self.advance();
         }
 
-        if KEYWORDS.contains(&name.as_str()) {
-            return Token::new(TokenType::Keyword, &name, start_location, loc!(self));
-        }
-        return Token::new(TokenType::Identifier, &name, start_location, loc!(self));
+        let token_type =  match name.as_str() {
+            "var"      => TokenType::Var,
+            "true"     => TokenType::True,
+            "false"    => TokenType::False,
+            "null"     => TokenType::Null,
+            "if"       => TokenType::If,
+            "else"     => TokenType::Else,
+            "fun"      => TokenType::Fun,
+            "loop"     => TokenType::Loop,
+            "while"    => TokenType::While,
+            "for"      => TokenType::For,
+            "in"       => TokenType::In,
+            "return"   => TokenType::Return,
+            "break"    => TokenType::Break,
+            "continue" => TokenType::Continue,
+            _ => TokenType::Identifier,
+        };
+        return Token::new(token_type, &name, start_location, loc!(self));
     }
 }

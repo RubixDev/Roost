@@ -8,7 +8,7 @@ use crate::{
         Statement,
         DeclareStatement,
         AssignStatement,
-        IfStatement,
+        IfExpression,
         LoopStatement,
         WhileStatement,
         ForStatement,
@@ -145,8 +145,6 @@ impl <'a> Parser<'a> {
     fn statement(&mut self) -> Result<Statement> {
         if self.current_token.matches(TokenType::Keyword, "var") {
             return Ok(Statement::Declare(self.declare_statement()?));
-        } else if self.current_token.matches(TokenType::Keyword, "if") {
-            return Ok(Statement::If(self.if_statement()?));
         } else if self.current_token.matches(TokenType::Keyword, "loop") {
             return Ok(Statement::Loop(self.loop_statement()?));
         } else if self.current_token.matches(TokenType::Keyword, "while") {
@@ -209,7 +207,7 @@ impl <'a> Parser<'a> {
         return Ok(AssignStatement { start: start_location, end: loc!(self), identifier, operator, expression });
     }
 
-    fn if_statement(&mut self) -> Result<IfStatement> {
+    fn if_expression(&mut self) -> Result<IfExpression> {
         let start_location = loc!(self);
         self.advance();
 
@@ -242,7 +240,7 @@ impl <'a> Parser<'a> {
             else_block = None;
         }
 
-        return Ok(IfStatement { start: start_location, end: loc!(self), condition, block, else_block });
+        return Ok(IfExpression { start: start_location, end: loc!(self), condition, block, else_block });
     }
 
     fn loop_statement(&mut self) -> Result<LoopStatement> {
@@ -525,6 +523,8 @@ impl <'a> Parser<'a> {
             self.advance();
 
             return Ok(Atom::Null);
+        } else if self.current_token.matches(TokenType::Keyword, "if") {
+            return Ok(Atom::If(self.if_expression()?));
         }
 
         if self.current_token.token_type == TokenType::Number {

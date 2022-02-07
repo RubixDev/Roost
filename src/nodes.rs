@@ -11,7 +11,6 @@ pub struct Statements {
 pub enum Statement {
     Declare   (DeclareStatement),
     Assign    (AssignStatement),
-    If        (IfStatement),
     Loop      (LoopStatement),
     While     (WhileStatement),
     For       (ForStatement),
@@ -35,14 +34,6 @@ pub struct AssignStatement {
     pub identifier: String,
     pub operator: TokenType,
     pub expression: Expression,
-}
-#[derive(Debug, PartialEq, Clone)]
-pub struct IfStatement {
-    pub start: Location,
-    pub end: Location,
-    pub condition: Expression,
-    pub block: Statements,
-    pub else_block: Option<Statements>,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct LoopStatement {
@@ -160,6 +151,7 @@ pub enum Atom {
     String(String),
     Identifier { start: Location, end: Location, name: String },
     Call(CallExpression),
+    If(IfExpression),
     Null,
     Expression(Expression),
 }
@@ -169,4 +161,12 @@ pub struct CallExpression {
     pub end: Location,
     pub identifier: String,
     pub args: Vec<Expression>,
+}
+#[derive(Debug, PartialEq, Clone)]
+pub struct IfExpression {
+    pub start: Location,
+    pub end: Location,
+    pub condition: Expression,
+    pub block: Statements,
+    pub else_block: Option<Statements>,
 }

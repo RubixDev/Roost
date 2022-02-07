@@ -48,5 +48,7 @@ printl(loops(3))
 if (42)
     printl('yep', .3)
 
+for (i in 1..=4) printl(i, if (i > 2) 'hi' else 'lo')
+
 exit(4)
 print(a)

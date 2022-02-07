@@ -45,15 +45,16 @@ Atom                        = number
                             | string
                             | identifier
                             | CallExpression
+                            | IfExpression
                             | 'null'
                             | '(' , Expression , ')' ;
 Arguments                   = '(' , [ Expression , { ',' , Expression } ] , ')' ;
 CallExpression              = identifier , Arguments ;
+IfExpression                = 'if' , '(' , Expression , ')' , Block , [ { eol } , 'else' , Block ] ;
 
 (* statement nodes *)
 Statement           = DeclareStatement
                     | AssignStatement
-                    | IfStatement
                     | LoopStatement
                     | WhileStatement
                     | ForStatement
@@ -64,7 +65,6 @@ Statement           = DeclareStatement
                     | ReturnStatement ;
 DeclareStatement    = 'var' , identifier , '=' , Expression ;
 AssignStatement     = identifier , ( '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '\=' | '**=' ) , Expression ;
-IfStatement         = 'if' , '(' , Expression , ')' , Block , [ { eol } , 'else' , Block ] ;
 LoopStatement       = 'loop' , Block ;
 WhileStatement      = 'while' , '(' , Expression , ')' , Block ;
 ForStatement        = 'for' , '(' , identifier , 'in' , Expression , ')' , Block ;

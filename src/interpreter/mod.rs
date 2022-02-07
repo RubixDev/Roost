@@ -12,7 +12,7 @@ use crate::nodes::{
     Statement,
     DeclareStatement,
     AssignStatement,
-    IfStatement,
+    IfExpression,
     LoopStatement,
     WhileStatement,
     ForStatement,
@@ -41,6 +41,15 @@ use self::value::{
 macro_rules! should_return {
     ($result:ident) => {
         if $result.should_return() { return Ok($result); }
+    };
+}
+
+macro_rules! expr_val {
+    ($result:ident, $run_res:expr) => {
+        $result.register($run_res?);
+        should_return!($result);
+        $result.success($result.value.clone());
+        return Ok($result)
     };
 }
 
@@ -130,7 +139,6 @@ impl Interpreter {
         return match node {
             Statement::Declare   (node) => self.visit_declare_statement(node),
             Statement::Assign    (node) => self.visit_assign_statement(node),
-            Statement::If        (node) => self.visit_if_statement(node),
             Statement::Loop      (node) => self.visit_loop_statement(node),
             Statement::While     (node) => self.visit_while_statement(node),
             Statement::For       (node) => self.visit_for_statement(node),
@@ -180,20 +188,21 @@ impl Interpreter {
         return Ok(result);
     }
 
-    fn visit_if_statement(&mut self, node: &IfStatement) -> Result<RuntimeResult> {
+    fn visit_if_expression(&mut self, node: &IfExpression) -> Result<RuntimeResult> {
         let mut result = self.visit_expression(&node.condition)?;
         should_return!(result);
         let condition = result.value.clone().unwrap();
 
         if condition.is_true() {
-            result.register(self.visit_statements(&node.block, true)?)
+            result.register(self.visit_statements(&node.block, true)?);
         } else {
             if let Some(block) = &node.else_block {
-                result.register(self.visit_statements(block, true)?)
+                result.register(self.visit_statements(block, true)?);
+            } else {
+                result.success(Some(Value::Null));
             }
         }
 
-        if !result.should_return() { result.success(None); }
         return Ok(result);
     }
 
@@ -522,18 +531,9 @@ impl Interpreter {
             Atom::String(value) => Value::String(value.clone()),
             Atom::Null => Value::Null,
             Atom::Identifier { start, end, name } => self.find_var(name, start.clone(), end.clone())?.clone(),
-            Atom::Call(expression) => {
-                result.register(self.visit_call_expression(expression)?);
-                should_return!(result);
-                result.success(result.value.clone());
-                return Ok(result);
-            },
-            Atom::Expression(expression) => {
-                result.register(self.visit_expression(expression)?);
-                should_return!(result);
-                result.success(result.value.clone());
-                return Ok(result);
-            },
+            Atom::Call(expression) => { expr_val!(result, self.visit_call_expression(expression)); },
+            Atom::If(expression) => { expr_val!(result, self.visit_if_expression(expression)); },
+            Atom::Expression(expression) => { expr_val!(result, self.visit_expression(expression)); },
         };
         result.success(Some(value));
         return Ok(result);

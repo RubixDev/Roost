@@ -167,7 +167,7 @@ impl <'a> Parser<'a> {
             return Ok(Statement::While(self.while_statement()?));
         } else if self.current_token.token_type == TokenType::For {
             return Ok(Statement::For(self.for_statement()?));
-        } else if self.current_token.token_type == TokenType::Fun {
+        } else if self.current_token.token_type == TokenType::Fun && self.following_token().token_type != TokenType::LParen {
             return Ok(Statement::Function(self.function_declaration()?));
         } else if self.current_token.token_type == TokenType::Break {
             self.advance();

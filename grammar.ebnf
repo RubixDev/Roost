@@ -25,7 +25,8 @@ escape_seq  = '\' , ( ESCAPE_CHAR
                     | 'u' , HEX , HEX , HEX , HEX
                     | 'U' , HEX , HEX , HEX , HEX , HEX , HEX , HEX , HEX ) ;
 identifier  = LETTER_ , { LETTER_ | DIGIT } ;
-number      = DIGIT , { DIGIT | '_' } , [ '.' , DIGIT , { DIGIT | '_' } ] ;
+number      = DIGIT , { DIGIT | '_' } , [ '.' , DIGIT , { DIGIT | '_' } ]
+            | '.' , DIGIT , { DIGIT , | '_' } ;
 
 (* expression nodes *)
 Expression                  = TernaryExpression , [ '..' , [ '=' ] , TernaryExpression ] ;

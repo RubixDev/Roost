@@ -46,7 +46,7 @@ fun loops(iterations) {
 printl(loops(3))
 
 if (42)
-    printl('yep')
+    printl('yep', .3)
 
 exit(4)
 print(a)

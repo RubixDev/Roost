@@ -239,6 +239,19 @@ impl <'a> Lexer<'a> {
         let start_location = loc!(self);
         self.advance();
 
+        if self.current_char != None && DIGITS.contains(&self.current_char.unwrap()) {
+            let mut number = String::from("0.");
+            number.push(self.current_char.unwrap());
+            self.advance();
+
+            while self.current_char != None && (DIGITS.contains(&self.current_char.unwrap()) || self.current_char.unwrap() == '_') {
+                if self.current_char.unwrap() != '_' { number.push(self.current_char.unwrap()); }
+                self.advance();
+            }
+
+            return Ok(Token::new(TokenType::Number, &number, start_location, loc!(self)));
+        }
+
         if self.current_char != Some('.') {
             let start_pos = loc!(self);
             self.advance();
@@ -264,7 +277,7 @@ impl <'a> Lexer<'a> {
             '!'  => (TokenType::Not,         TokenType::NotEqual          ),
             '<'  => (TokenType::LessThan,    TokenType::LessThanOrEqual   ),
             '>'  => (TokenType::GreaterThan, TokenType::GreaterThanOrEqual),
-            '+'  => (TokenType::Plus,        TokenType::PlusAssign        ),
+            '+'  => (TokenType::Plus,         TokenType::PlusAssign        ),
             '-'  => (TokenType::Minus,       TokenType::MinusAssign       ),
             '%'  => (TokenType::Modulo,      TokenType::ModuloAssign      ),
             '\\' => (TokenType::IntDivide,   TokenType::IntDivideAssign   ),

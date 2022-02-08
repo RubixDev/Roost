@@ -139,7 +139,9 @@ fn run_repl() {
                 interpreter.current_scope_index += 1;
                 match interpreter.run(false) {
                     Ok(result) => {
-                        println!("\x1b[90m{}\x1b[0m", result.value.unwrap_or(Value::Null))
+                        if let Some(val) = result.value {
+                            println!("{:?}", val)
+                        }
                     },
                     Err(error) => {
                         print_error!(error, line);

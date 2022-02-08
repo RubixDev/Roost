@@ -1,7 +1,7 @@
 use std::{io::{Read, /* Write */}, time::Instant, fs::File, collections::HashMap};
-use rustyline::{Editor, error::ReadlineError};
+use rustyline::{Editor, error::ReadlineError, Config};
 use structopt::StructOpt;
-use roost::{lexer::Lexer, parser::Parser, interpreter::{Interpreter, value::Value}};
+use roost::{lexer::Lexer, parser::Parser, interpreter::{Interpreter, value::Value}, repl_helper::ReplHelper};
 
 /// Command line interpreter for the roost language
 #[derive(StructOpt, Clone)]
@@ -120,10 +120,14 @@ fn run_file(cli: Roost, filename: String) {
 
 fn run_repl() {
     let mut global_scope: HashMap<String, Value> = HashMap::new();
-    let mut rl = Editor::<()>::new();
+    let mut rl = Editor::with_config(Config::builder()
+        .completion_type(rustyline::CompletionType::List)
+        .tab_stop(4)
+        .indent_size(4)
+        .build());
+    rl.set_helper(Some(ReplHelper::new(global_scope.clone())));
     loop {
-        let line = rl.readline(">> ");
-        match line {
+        match rl.readline(">> ") {
             Ok(line) => {
                 rl.add_history_entry(&line);
                 if line.chars().all(|char| [' ', '\t', '\r'].contains(&char)) { continue; }
@@ -157,6 +161,7 @@ fn run_repl() {
                     },
                 }
                 global_scope = interpreter.scopes[1].clone();
+                rl.set_helper(Some(ReplHelper::new(global_scope.clone())));
             },
             Err(ReadlineError::Eof) => break,
             Err(_) => std::process::exit(1),

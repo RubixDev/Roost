@@ -1,10 +1,13 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, io::Cursor};
 use rustyline::{completion::Completer, hint::Hinter, highlight::Highlighter, validate::{Validator, MatchingBracketValidator}, Helper};
+use syntect::{parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder}, highlighting::{ThemeSet, Theme}, easy::HighlightLines, util::LinesWithEndings};
 use crate::interpreter::value::Value;
 
 pub struct ReplHelper {
     global_scope: HashMap<String, Value>,
     brackets: MatchingBracketValidator,
+    syntaxes: SyntaxSet,
+    theme: Theme,
 }
 
 impl ReplHelper {
@@ -12,6 +15,12 @@ impl ReplHelper {
         return Self {
             global_scope,
             brackets: MatchingBracketValidator::new(),
+            syntaxes: {
+                let mut builder = SyntaxSetBuilder::new();
+                builder.add(SyntaxDefinition::load_from_str(include_str!("res/roost.sublime-syntax"), true, None).unwrap());
+                builder.build()
+            },
+            theme: ThemeSet::load_from_reader(&mut Cursor::new(include_str!("res/one-dark.tmTheme"))).unwrap(),
         }
     }
 }
@@ -89,10 +98,16 @@ impl Hinter for ReplHelper {
 }
 
 impl Highlighter for ReplHelper {
-    // fn highlight<'l>(&self, line: &'l str, pos: usize) -> std::borrow::Cow<'l, str> {
-    //     let _ = pos;
-    //     std::borrow::Cow::Borrowed(line)
-    // }
+    fn highlight<'l>(&self, line: &'l str, _: usize) -> std::borrow::Cow<'l, str> {
+        let mut h = HighlightLines::new(self.syntaxes.find_syntax_by_name("roost").unwrap(), &self.theme);
+        let mut out = String::new();
+        for line in LinesWithEndings::from(line) {
+            let ranges = h.highlight(line, &self.syntaxes);
+            let escaped = syntect::util::as_24_bit_terminal_escaped(&ranges[..], true);
+            out += &escaped;
+        }
+        return std::borrow::Cow::Owned(out);
+    }
 
     fn highlight_prompt<'b, 's: 'b, 'p: 'b>(
         &'s self,
@@ -114,10 +129,9 @@ impl Highlighter for ReplHelper {
         std::borrow::Cow::Owned(format!("\x1b[36m{}\x1b[0m", candidate))
     }
 
-    // fn highlight_char(&self, line: &str, pos: usize) -> bool {
-    //     let _ = (line, pos);
-    //     false
-    // }
+    fn highlight_char(&self, _: &str, _: usize) -> bool {
+        return true;
+    }
 }
 
 impl Validator for ReplHelper {

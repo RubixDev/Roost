@@ -1,0 +1,82 @@
+%YAML 1.2
+---
+# http://www.sublimetext.com/docs/syntax.html
+name: roost
+scope: source.roost
+contexts:
+  main:
+    - include: comments
+    - include: keywords
+    - include: constants
+    - include: strings
+    - include: functions
+    - include: variables
+  comments:
+    - match: //.*
+      scope: comment.line.double-slash.roost
+    - match: /\|
+      push:
+        - meta_scope: comment.block.roost
+        - match: \|/
+          pop: true
+  constants:
+    - match: \b(true|false|null)\b
+      scope: constant.language.roost
+    - match: '\b\d[\d_]*(\.\d[\d_]*)?\b'
+      scope: constant.numeric.roost
+    - match: \banswer\b
+      scope: variable.language.roost
+  escapes:
+    - match: '\\([\\''"abfnrtv]|[0-7]{3}|x[0-7a-fA-F]{2}|u[0-7a-fA-F]{4}|U[0-7a-fA-F]{8})'
+      scope: constant.character.escape.roost
+  functions:
+    - match: \b(printl?|typeOf|exit)\b
+      scope: support.function.roost
+    - match: '\b(fun)\b\s+([A-Za-z_]\w*)\s*\('
+      captures:
+        1: keyword.other.fun.roost storage.type.roost
+        2: entity.name.function.roost
+      push:
+        - meta_scope: meta.function.definition.roost
+        - match: \)
+          pop: true
+        - include: comments
+        - include: keywords
+        - include: constants
+        - include: strings
+        - include: functions
+        - include: variables
+    - match: '\b([A-Za-z_]\w*)\('
+      captures:
+        1: entity.name.function.roost
+      push:
+        - meta_scope: meta.function.call.roost
+        - match: \)
+          pop: true
+        - include: comments
+        - include: keywords
+        - include: constants
+        - include: strings
+        - include: functions
+        - include: variables
+  keywords:
+    - match: \b(if|else|loop|while|for|return|break|continue|in)\b
+      scope: keyword.control.roost
+    - match: \b(var|fun)\b
+      scope: storage.type.roost
+  strings:
+    - match: '"'
+      push:
+        - meta_scope: string.quoted.double.roost
+        - match: '"'
+          pop: true
+        - include: escapes
+    - match: "'"
+      push:
+        - meta_scope: string.quoted.single.roost
+        - match: "'"
+          pop: true
+        - include: escapes
+  variables:
+    - match: '\b(?<!(?<!\.)\.)[A-Za-z_]\w*\b'
+      scope: variable.other.roost

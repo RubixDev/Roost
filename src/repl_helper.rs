@@ -103,7 +103,7 @@ impl Highlighter for ReplHelper {
         let mut out = String::new();
         for line in LinesWithEndings::from(line) {
             let ranges = h.highlight(line, &self.syntaxes);
-            let escaped = syntect::util::as_24_bit_terminal_escaped(&ranges[..], true);
+            let escaped = syntect::util::as_24_bit_terminal_escaped(&ranges[..], false);
             out += &escaped;
         }
         return std::borrow::Cow::Owned(out);

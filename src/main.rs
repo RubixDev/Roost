@@ -164,6 +164,7 @@ fn run_repl() {
                 rl.set_helper(Some(ReplHelper::new(global_scope.clone())));
             },
             Err(ReadlineError::Eof) => break,
+            Err(ReadlineError::Interrupted) => continue,
             Err(_) => std::process::exit(1),
         }
     }

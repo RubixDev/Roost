@@ -28,7 +28,15 @@ macro_rules! print_error {
             format!("\n \x1b[90m{: >3} | \x1b[0m{}", $error.start.line + 1, lines[$error.start.line])
         } else { String::new() };
 
-        let marker = format!("{}\x1b[1;31m{}\x1b[0m", " ".repeat($error.start.column + 6), "^".repeat($error.end.index - $error.start.index));
+        let marker = format!(
+            "{}\x1b[1;31m{}\x1b[0m",
+            " ".repeat($error.start.column + 6),
+            if $error.start.line == $error.end.line || $error.start.index == $error.end.index - 1 {
+                "^".repeat($error.end.index - $error.start.index)
+            } else {
+                "^".repeat(lines[$error.start.line - 1].len() - $error.start.column + 1) + "..."
+            },
+        );
 
         eprintln!(
             "\x1b[1;36m{:?}\x1b[39m at {}:{}:{}\x1b[0m\n{}\n{}\n{}{}\n\n\x1b[1;31m{}\x1b[0m\n",

@@ -137,7 +137,7 @@ impl <OUT: Write> Interpreter<OUT> {
             if result.should_return() { break; }
         }
         if new_scope { self.pop_scope(); }
-        if result.value == None && result.return_value == None { result.success(Some(Value::Null)) }
+        if result.value == None && !result.should_return() { result.success(Some(Value::Null)) }
         return Ok(result);
     }
 

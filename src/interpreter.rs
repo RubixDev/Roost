@@ -3,7 +3,10 @@ mod runtime_result;
 mod built_in;
 
 use std::collections::HashMap;
+#[cfg(not(feature = "no_std_io"))]
 use std::io::Write;
+#[cfg(feature = "no_std_io")]
+use crate::io::Write;
 use runtime_result::RuntimeResult;
 use rust_decimal::Decimal;
 use value::{Value, types::type_of, types::Type};
@@ -543,8 +546,8 @@ impl <OUT: Write> Interpreter<OUT> {
                 }
 
                 let value = match node.identifier.as_str() {
-                    "print" => built_in::print(args, &mut self.stdout, node.start.clone(), node.end.clone()),
-                    "printl" => built_in::printl(args, &mut self.stdout, node.start.clone(), node.end.clone()),
+                    "print" => built_in::print(args, &mut self.stdout, node.start.clone(), node.end.clone(), false),
+                    "printl" => built_in::print(args, &mut self.stdout, node.start.clone(), node.end.clone(), true),
                     "typeOf" => built_in::type_of(args, node.start.clone(), node.end.clone()),
                     "exit" => built_in::exit(args, self.exit_callback, node.start.clone(), node.end.clone()),
                     _ => panic!(),

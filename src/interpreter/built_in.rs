@@ -1,11 +1,15 @@
+#[cfg(not(feature = "no_std_io"))]
 use std::io::Write;
+#[cfg(feature = "no_std_io")]
+use crate::io::Write;
 use rust_decimal::prelude::ToPrimitive;
 use super::value::Value;
 use crate::error::{Result, Location};
 
-pub fn print<T: Write>(args: Vec<Value>, stdout: &mut T, start_loc: Location, end_loc: Location) -> Result<Value> {
+#[cfg(not(feature = "no_std_io"))]
+pub fn print<T: Write>(args: Vec<Value>, stdout: &mut T, start_loc: Location, end_loc: Location, newline: bool) -> Result<Value> {
     let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
-    match write!(stdout, "{}", args.join(" ")) {
+    match write!(stdout, "{}{}", args.join(" "), if newline { "\n" } else { "" }) {
         Ok(_) => {},
         Err(e) => {
             error!(SystemError, start_loc, end_loc, "Failed while writing to stdout: {}", e);
@@ -14,14 +18,11 @@ pub fn print<T: Write>(args: Vec<Value>, stdout: &mut T, start_loc: Location, en
     return Ok(Value::Null);
 }
 
-pub fn printl<T: Write>(args: Vec<Value>, stdout: &mut T, start_loc: Location, end_loc: Location) -> Result<Value> {
+#[cfg(feature = "no_std_io")]
+#[allow(unused_variables)]
+pub fn print<T: Write>(args: Vec<Value>, stdout: &mut T, start_loc: Location, end_loc: Location, newline: bool) -> Result<Value> {
     let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
-    match writeln!(stdout, "{}", args.join(" ")) {
-        Ok(_) => {},
-        Err(e) => {
-            error!(SystemError, start_loc, end_loc, "Failed while writing to stdout: {}", e);
-        },
-    };
+    stdout.write(format!("{}{}", args.join(" "), if newline { "\n" } else { "" }));
     return Ok(Value::Null);
 }
 

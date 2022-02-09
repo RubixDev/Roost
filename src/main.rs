@@ -101,7 +101,7 @@ fn run_file(cli: Roost, filename: String) {
 
     Interpreter::new_run(
         nodes,
-        |m| print!("{}", m),
+        std::io::stdout(),
         |code| std::process::exit(code),
     ).unwrap_or_else(|e| exit!(e, code));
 
@@ -165,7 +165,7 @@ fn run_repl() {
 
                 let mut interpreter = Interpreter::new(
                     nodes,
-                    |m| print!("{}", m),
+                    std::io::stdout(),
                     |code| std::process::exit(code),
                 );
                 interpreter.scopes.push(global_scope.clone());

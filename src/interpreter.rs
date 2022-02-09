@@ -3,6 +3,7 @@ mod runtime_result;
 mod built_in;
 
 use std::collections::HashMap;
+use std::io::Write;
 use runtime_result::RuntimeResult;
 use rust_decimal::Decimal;
 use value::{Value, types::type_of, types::Type};
@@ -52,16 +53,16 @@ macro_rules! expr_val {
     };
 }
 
-pub struct Interpreter {
+pub struct Interpreter<OUT> where OUT: Write {
     start_node: Statements,
     pub scopes: Vec<HashMap<String, Value>>,
     pub current_scope_index: usize,
-    print_callback: fn(String),
+    stdout: OUT,
     exit_callback: fn(i32),
 }
 
-impl Interpreter {
-    pub fn new(start_node: Statements, print_callback: fn(String), exit_callback: fn(i32)) -> Self {
+impl <OUT: Write> Interpreter<OUT> {
+    pub fn new(start_node: Statements, stdout: OUT, exit_callback: fn(i32)) -> Self {
         return Interpreter {
             start_node,
             scopes: vec![HashMap::from([
@@ -72,13 +73,13 @@ impl Interpreter {
                 (String::from("answer"), Value::Number(Decimal::from(42))),
             ])],
             current_scope_index: 0,
-            print_callback,
+            stdout,
             exit_callback,
         };
     }
 
-    pub fn new_run(start_node: Statements, print_callback: fn(String), exit_callback: fn(i32)) -> Result<RuntimeResult> {
-        let mut interpreter = Self::new(start_node, print_callback, exit_callback);
+    pub fn new_run(start_node: Statements, stdout: OUT, exit_callback: fn(i32)) -> Result<RuntimeResult> {
+        let mut interpreter = Self::new(start_node, stdout, exit_callback);
         return interpreter.run(true);
     }
 
@@ -542,8 +543,8 @@ impl Interpreter {
                 }
 
                 let value = match node.identifier.as_str() {
-                    "print" => built_in::print(args, self.print_callback),
-                    "printl" => built_in::printl(args, self.print_callback),
+                    "print" => built_in::print(args, &mut self.stdout, node.start.clone(), node.end.clone()),
+                    "printl" => built_in::printl(args, &mut self.stdout, node.start.clone(), node.end.clone()),
                     "typeOf" => built_in::type_of(args, node.start.clone(), node.end.clone()),
                     "exit" => built_in::exit(args, self.exit_callback, node.start.clone(), node.end.clone()),
                     _ => panic!(),

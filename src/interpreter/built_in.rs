@@ -1,17 +1,27 @@
+use std::io::Write;
 use rust_decimal::prelude::ToPrimitive;
-
 use super::value::Value;
 use crate::error::{Result, Location};
 
-pub fn print(args: Vec<Value>, callback: fn(String)) -> Result<Value> {
+pub fn print<T: Write>(args: Vec<Value>, stdout: &mut T, start_loc: Location, end_loc: Location) -> Result<Value> {
     let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
-    callback(args.join(" "));
+    match write!(stdout, "{}", args.join(" ")) {
+        Ok(_) => {},
+        Err(e) => {
+            error!(SystemError, start_loc, end_loc, "Failed while writing to stdout: {}", e);
+        },
+    };
     return Ok(Value::Null);
 }
 
-pub fn printl(args: Vec<Value>, callback: fn(String)) -> Result<Value> {
+pub fn printl<T: Write>(args: Vec<Value>, stdout: &mut T, start_loc: Location, end_loc: Location) -> Result<Value> {
     let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
-    callback(args.join(" ") + "\n");
+    match writeln!(stdout, "{}", args.join(" ")) {
+        Ok(_) => {},
+        Err(e) => {
+            error!(SystemError, start_loc, end_loc, "Failed while writing to stdout: {}", e);
+        },
+    };
     return Ok(Value::Null);
 }
 

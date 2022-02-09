@@ -84,4 +84,5 @@ pub enum ErrorKind {
     ValueError,
     DivisionByZeroError,
     OverflowError,
+    SystemError,
 }

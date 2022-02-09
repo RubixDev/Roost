@@ -1,7 +1,7 @@
 use std::{collections::HashMap, io::Cursor};
 use rustyline::{completion::Completer, hint::Hinter, highlight::Highlighter, validate::{Validator, MatchingBracketValidator}, Helper};
 use syntect::{parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder}, highlighting::{ThemeSet, Theme}, easy::HighlightLines, util::LinesWithEndings};
-use crate::interpreter::value::Value;
+use roost::interpreter::value::Value;
 
 pub struct ReplHelper {
     global_scope: HashMap<String, Value>,

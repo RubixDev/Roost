@@ -1,7 +1,10 @@
+mod repl_helper;
+
 use std::{io::{Read, /* Write */}, time::Instant, fs::File, collections::HashMap};
 use rustyline::{Editor, error::ReadlineError, Config};
 use structopt::StructOpt;
-use roost::{lexer::Lexer, parser::Parser, interpreter::{Interpreter, value::Value}, repl_helper::ReplHelper};
+use roost::{lexer::Lexer, parser::Parser, interpreter::{Interpreter, value::Value}};
+use repl_helper::ReplHelper;
 
 /// Command line interpreter for the roost language
 #[derive(StructOpt, Clone)]

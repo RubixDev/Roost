@@ -10,5 +10,5 @@ pub mod repl_helper;
 #[cfg(test)]
 mod tests {
     mod fetch;
-    mod assignments;
+    mod all;
 }

@@ -118,8 +118,19 @@ fn run_file(cli: Roost, filename: String) {
     }
 }
 
+macro_rules! repl_num {
+    ($error:ident) => {
+        {
+            let num = $error.start.filename.split("repl-").collect::<Vec<&str>>()[1];
+            let num = &num[..num.len() - 1];
+            num.parse::<usize>().unwrap()
+        }
+    };
+}
+
 fn run_repl() {
     let mut global_scope: HashMap<String, Value> = HashMap::new();
+    let mut codes = vec![];
     let mut rl = Editor::with_config(Config::builder()
         .completion_type(rustyline::CompletionType::List)
         .tab_stop(4)
@@ -136,13 +147,17 @@ fn run_repl() {
         match rl.readline(">> ") {
             Ok(line) => {
                 rl.add_history_entry(&line);
+                codes.push(line.clone());
                 if line.chars().all(|char| [' ', '\t', '\r'].contains(&char)) { continue; }
 
-                let nodes = match Parser::new_parse(Lexer::new(&line, String::from("<stdin>"))) {
+                let nodes = match Parser::new_parse(Lexer::new(
+                    &line,
+                    format!("<repl-{}>", codes.len()),
+                )) {
                     Ok(nodes) => nodes,
                     Err(errors) => {
                         for error in errors {
-                            print_error!(error, line);
+                            print_error!(error, codes[repl_num!(error) - 1]);
                         }
                         continue;
                     },
@@ -162,7 +177,7 @@ fn run_repl() {
                         }
                     },
                     Err(error) => {
-                        print_error!(error, line);
+                        print_error!(error, codes[repl_num!(error) - 1]);
                         continue;
                     },
                 }

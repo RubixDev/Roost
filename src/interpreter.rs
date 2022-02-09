@@ -577,7 +577,11 @@ impl <OUT: Write> Interpreter<OUT> {
         self.pop_scope();
 
         if result.return_value == None {
-            result.success(Some(Value::Null));
+            if result.value != None {
+                result.success(result.value.clone());
+            } else {
+                result.success(Some(Value::Null));
+            }
         } else {
             result.success(result.return_value.clone());
         }

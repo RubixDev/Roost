@@ -85,14 +85,14 @@ fn fun() {
     print(a(3, 4), '')
     fun a(a, b) { return a + b; 10/0 }
     print(a(3, 4), '')
-    // fun a(a, b) a + b
-    // print(a(3, 4), '')
-    // fun a(a, b) { a + b }
-    // print(a(3, 4), '')
+    fun a(a, b) a + b
+    print(a(3, 4), '')
+    fun a(a, b) { a + b }
+    print(a(3, 4), '')
 
     var a = fun(a, b) return a + b
     print(a(3, 4), '')
     var a = fun(a, b) { return a + b; 10/0 }
     print(a(3, 4), '')
-    "#, "7 7 7 7 ")
+    "#, "7 7 7 7 7 7 ")
 }

@@ -561,6 +561,17 @@ impl <'a> Parser<'a> {
             return Ok(Atom::Expression(expression));
         }
 
+        if self.current_token.token_type == TokenType::LBrace {
+            self.advance();
+
+            let block = self.statements()?;
+
+            expected!(self, RBrace, "'}'");
+            self.advance();
+
+            return Ok(Atom::Block(block));
+        }
+
         syntax!(self, "Expected expression, found '{}'", self.current_token.value);
     }
 

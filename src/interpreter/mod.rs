@@ -136,6 +136,7 @@ impl Interpreter {
             if result.should_return() { break; }
         }
         if new_scope { self.pop_scope(); }
+        if result.value == None { result.success(Some(Value::Null)) }
         return Ok(result);
     }
 
@@ -520,6 +521,7 @@ impl Interpreter {
             Atom::If(expression) => { expr_val!(result, self.visit_if_expression(expression)); },
             Atom::Fun(expression) => { expr_val!(result, self.visit_fun_expression(expression)); },
             Atom::Expression(expression) => { expr_val!(result, self.visit_expression(expression)); },
+            Atom::Block(expression) => { expr_val!(result, self.visit_statements(expression, true)); }
         };
         result.success(Some(value));
         return Ok(result);

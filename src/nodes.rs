@@ -148,6 +148,7 @@ pub enum Atom {
     Fun(FunExpression),
     Null,
     Expression(Expression),
+    Block(Statements),
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct CallExpression {

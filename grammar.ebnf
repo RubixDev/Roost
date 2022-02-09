@@ -50,7 +50,8 @@ Atom                        = number
                             | IfExpression
                             | 'null'
                             | '(' , Expression , ')'
-                            | FunExpression ;
+                            | FunExpression
+                            | '{' , Statements , '}' ;
 CallExpression              = identifier , Arguments ;
 IfExpression                = 'if' , '(' , Expression , ')' , Block , [ { eol } , 'else' , Block ] ;
 FunExpression               = 'fun' , ArgumentNames , Block ;

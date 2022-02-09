@@ -126,6 +126,12 @@ fn run_repl() {
         .indent_size(4)
         .build());
     rl.set_helper(Some(ReplHelper::new(global_scope.clone())));
+    match std::env::var("HOME") {
+        Ok(path) => {
+            let _ = rl.load_history(&format!("{}/.roost_history", path));
+        },
+        Err(_) => {},
+    }
     loop {
         match rl.readline(">> ") {
             Ok(line) => {
@@ -167,5 +173,11 @@ fn run_repl() {
             Err(ReadlineError::Interrupted) => continue,
             Err(_) => std::process::exit(1),
         }
+    }
+    match std::env::var("HOME") {
+        Ok(path) => {
+            let _ = rl.save_history(&format!("{}/.roost_history", path));
+        },
+        Err(_) => {},
     }
 }

@@ -1,5 +1,6 @@
 use super::value::Value;
 
+#[derive(Debug)]
 pub struct RuntimeResult {
     pub should_continue: bool,
     pub should_break: bool,

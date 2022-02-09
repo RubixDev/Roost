@@ -329,7 +329,7 @@ impl <'a> Parser<'a> {
         self.advance();
 
         let mut expression = None;
-        if ![TokenType::EOL, TokenType::EOF].contains(&self.current_token.token_type) {
+        if ![TokenType::EOL, TokenType::EOF, TokenType::RBrace].contains(&self.current_token.token_type) {
             expression = Some(self.expression()?);
         }
 

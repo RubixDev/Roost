@@ -11,4 +11,4 @@ pull:
 	mkdir -p src/res/
 	[ -f $(THEME_FILE) ] || touch $(THEME_FILE)
 	[ -f $(GRAMMAR_FILE) ] || touch $(GRAMMAR_FILE)
-	cargo test --package roost --lib -- tests::fetch --exact --nocapture
+	cargo test --release --package roost --lib -- tests::fetch --exact --nocapture

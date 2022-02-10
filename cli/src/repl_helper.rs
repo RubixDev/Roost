@@ -84,6 +84,7 @@ impl Hinter for ReplHelper {
     type Hint = String;
 
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<Self::Hint> {
+        if line.len() > pos { return None; }
         if let Ok((mut completion_pos, completions)) = self.complete(line, pos, ctx) {
             if completions.is_empty() { return None; }
             let mut hint = completions[0].clone();

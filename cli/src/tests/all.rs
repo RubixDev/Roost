@@ -39,7 +39,10 @@ fn assignments() {
     start   = 10; print(start + ' ') // 10
     start  \=  3; print(start + ' ') // 3
     start **=  3; print(start + ' ') // 27
-    "#, "12 14 10 20 10 1 10 3 27 ")
+
+    var start = 'a'
+    print(start)
+    "#, "12 14 10 20 10 1 10 3 27 a")
 }
 
 #[test]
@@ -99,4 +102,44 @@ fn fun() {
     var a = fun(a, b) { return a + b; 10/0 }
     print(a(3, 4), '')
     "#, "7 7 7 7 7 7 ")
+}
+
+#[test]
+fn scopes() {
+    test_code(r#"
+    var a = 1
+    var b = 2
+    var c = 3
+    {
+        var a = 4
+        var b = 5
+        {
+            var a = 6
+            print(a)
+            print(b)
+            print(c)
+            print(answer)
+        }
+        print(a)
+        print(b)
+        print(c)
+        print(answer)
+    }
+    print(a)
+    print(b)
+    print(c)
+    print(answer)
+    "#, "653424534212342")
+}
+
+#[test]
+fn comments() {
+    test_code(r#"
+    print('a') // $ ; print('a')
+    print(/| comment $ |/ 'b') /|
+    comment
+    comment
+    |/
+    print('c')
+    "#, "abc")
 }

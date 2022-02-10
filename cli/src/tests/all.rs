@@ -1,7 +1,6 @@
 use std::io::Cursor;
 use ntest::timeout;
-
-use crate::{interpreter::Interpreter, parser::Parser, lexer::Lexer};
+use roost::{interpreter::Interpreter, parser::Parser, lexer::Lexer};
 
 fn test_code(code: &str, expected: &str) {
     let mut out = Cursor::new(vec![]);

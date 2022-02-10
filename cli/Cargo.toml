@@ -13,3 +13,9 @@ rustyline = "9.1.2"
 structopt = "0.3.26"
 syntect = { version = "4.6.0", features = ["default-fancy"], default-features = false }
 roost = { path = "../" }
+
+[dev-dependencies]
+ntest = "0.7.3"
+plist = "1.3.1"
+reqwest = { version = "0.11.9", features = ["blocking"] }
+serde_json = "1.0.78"

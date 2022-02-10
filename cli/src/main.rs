@@ -6,6 +6,12 @@ use structopt::StructOpt;
 use roost::{lexer::Lexer, parser::Parser, interpreter::{Interpreter, value::Value}};
 use repl_helper::ReplHelper;
 
+#[cfg(test)]
+mod tests {
+    mod fetch;
+    mod all;
+}
+
 /// Command line interpreter for the roost language
 #[derive(StructOpt, Clone)]
 #[structopt(author)]

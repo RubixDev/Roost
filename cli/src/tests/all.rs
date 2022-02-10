@@ -1,6 +1,11 @@
 use std::io::Cursor;
 use ntest::timeout;
-use roost::{interpreter::Interpreter, parser::Parser, lexer::Lexer};
+use roost::{interpreter::{Interpreter, Exit}, parser::Parser, lexer::Lexer};
+
+struct SimpleExit;
+impl Exit for SimpleExit {
+    fn exit(&mut self, code: i32) { std::process::exit(code); }
+}
 
 fn test_code(code: &str, expected: &str) {
     let mut out = Cursor::new(vec![]);
@@ -11,7 +16,7 @@ fn test_code(code: &str, expected: &str) {
             Err(e) => panic!("{:?}", e),
         },
         &mut out,
-        |_| {},
+        SimpleExit,
     ) {
         Ok(_) => {},
         Err(e) => panic!("{}", e),

@@ -56,16 +56,20 @@ macro_rules! expr_val {
     };
 }
 
-pub struct Interpreter<OUT> where OUT: Write {
+pub trait Exit {
+    fn exit(&mut self, code: i32);
+}
+
+pub struct Interpreter<OUT, EXIT> where OUT: Write, EXIT: Exit {
     start_node: Statements,
     pub scopes: Vec<HashMap<String, Value>>,
     pub current_scope_index: usize,
     stdout: OUT,
-    exit_callback: fn(i32),
+    exit: EXIT,
 }
 
-impl <OUT: Write> Interpreter<OUT> {
-    pub fn new(start_node: Statements, stdout: OUT, exit_callback: fn(i32)) -> Self {
+impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
+    pub fn new(start_node: Statements, stdout: OUT, exit: EXIT) -> Self {
         return Interpreter {
             start_node,
             scopes: vec![HashMap::from([
@@ -77,12 +81,12 @@ impl <OUT: Write> Interpreter<OUT> {
             ])],
             current_scope_index: 0,
             stdout,
-            exit_callback,
+            exit,
         };
     }
 
-    pub fn new_run(start_node: Statements, stdout: OUT, exit_callback: fn(i32)) -> Result<RuntimeResult> {
-        let mut interpreter = Self::new(start_node, stdout, exit_callback);
+    pub fn new_run(start_node: Statements, stdout: OUT, exit: EXIT) -> Result<RuntimeResult> {
+        let mut interpreter = Self::new(start_node, stdout, exit);
         return interpreter.run(true);
     }
 
@@ -549,7 +553,7 @@ impl <OUT: Write> Interpreter<OUT> {
                     "print" => built_in::print(args, &mut self.stdout, node.start.clone(), node.end.clone(), false),
                     "printl" => built_in::print(args, &mut self.stdout, node.start.clone(), node.end.clone(), true),
                     "typeOf" => built_in::type_of(args, node.start.clone(), node.end.clone()),
-                    "exit" => built_in::exit(args, self.exit_callback, node.start.clone(), node.end.clone()),
+                    "exit" => built_in::exit(args, &mut self.exit, node.start.clone(), node.end.clone()),
                     _ => panic!(),
                 }?;
                 result.success(Some(value));

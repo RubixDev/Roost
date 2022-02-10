@@ -1,9 +1,9 @@
 mod repl_helper;
 
-use std::{io::{Read, /* Write */}, time::Instant, fs::File, collections::HashMap};
+use std::{io::{Read, /* Write */}, time::{Instant, Duration}, fs::File, collections::HashMap};
 use rustyline::{Editor, error::ReadlineError, Config};
 use structopt::StructOpt;
-use roost::{lexer::Lexer, parser::Parser, interpreter::{Interpreter, value::Value}};
+use roost::{lexer::Lexer, parser::Parser, interpreter::{Interpreter, value::Value, Exit}};
 use repl_helper::ReplHelper;
 
 #[cfg(test)]
@@ -77,6 +77,29 @@ fn main() {
     }
 }
 
+struct FileRunExit {
+    print_time: bool,
+    end_read: Duration,
+    end_parse: Duration,
+    end_run: Duration,
+    end: Duration,
+}
+
+impl Exit for FileRunExit {
+    fn exit(&mut self, code: i32) {
+        if self.print_time {
+            println!(
+                "\n\x1b[36m-----------------------\n{: <15} {:?}\n{: <15} {:?}\n{: <15} {:?}\n{: <15} {:?}\x1b[0m",
+                "Read File:",   self.end_read,
+                "Parse AST:",   self.end_parse,
+                "Run:",         self.end_run,
+                "Total:",       self.end,
+            );
+        }
+        std::process::exit(code);
+    }
+}
+
 fn run_file(cli: Roost, filename: String) {
     let start_total = Instant::now();
 
@@ -111,7 +134,13 @@ fn run_file(cli: Roost, filename: String) {
     Interpreter::new_run(
         nodes,
         std::io::stdout(),
-        |code| std::process::exit(code),
+        FileRunExit {
+            print_time: cli.time,
+            end_read,
+            end_parse,
+            end_run: start.elapsed(),
+            end: start_total.elapsed(),
+        },
     ).unwrap_or_else(|e| exit!(e, code));
 
     let end_run = start.elapsed();
@@ -135,6 +164,22 @@ macro_rules! repl_num {
             num.parse::<usize>().unwrap()
         }
     };
+}
+
+struct ReplExit<'a> {
+    editor: &'a mut Editor<ReplHelper>
+}
+
+impl <'a> Exit for ReplExit<'a> {
+    fn exit(&mut self, code: i32) {
+        match std::env::var("HOME") {
+            Ok(path) => {
+                let _ = self.editor.save_history(&format!("{}/.roost_history", path));
+            },
+            Err(_) => {},
+        }
+        std::process::exit(code);
+    }
 }
 
 fn run_repl() {
@@ -175,7 +220,7 @@ fn run_repl() {
                 let mut interpreter = Interpreter::new(
                     nodes,
                     std::io::stdout(),
-                    |code| std::process::exit(code),
+                    ReplExit { editor: &mut rl },
                 );
                 interpreter.scopes.push(global_scope.clone());
                 interpreter.current_scope_index += 1;

@@ -3,7 +3,7 @@ use std::io::Write;
 #[cfg(feature = "no_std_io")]
 use crate::io::Write;
 use rust_decimal::prelude::ToPrimitive;
-use super::value::Value;
+use super::{value::Value, Exit};
 use crate::error::{Result, Location};
 
 #[cfg(not(feature = "no_std_io"))]
@@ -19,8 +19,7 @@ pub fn print<T: Write>(args: Vec<Value>, stdout: &mut T, start_loc: Location, en
 }
 
 #[cfg(feature = "no_std_io")]
-#[allow(unused_variables)]
-pub fn print<T: Write>(args: Vec<Value>, stdout: &mut T, start_loc: Location, end_loc: Location, newline: bool) -> Result<Value> {
+pub fn print<T: Write>(args: Vec<Value>, stdout: &mut T, _: Location, _: Location, newline: bool) -> Result<Value> {
     let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
     stdout.write(format!("{}{}", args.join(" "), if newline { "\n" } else { "" }));
     return Ok(Value::Null);
@@ -40,7 +39,7 @@ pub fn type_of(args: Vec<Value>, start_loc: Location, end_loc: Location) -> Resu
     return Ok(Value::String(super::value::types::type_of(&args[0]).to_string()));
 }
 
-pub fn exit(args: Vec<Value>, callback: fn(i32), start_loc: Location, end_loc: Location) -> Result<Value> {
+pub fn exit<T: Exit>(args: Vec<Value>, exit: &mut T, start_loc: Location, end_loc: Location) -> Result<Value> {
     if args.len() != 1 {
         error!(
             TypeError,
@@ -61,7 +60,7 @@ pub fn exit(args: Vec<Value>, callback: fn(i32), start_loc: Location, end_loc: L
                 )
             }
             match num.to_i32() {
-                Some(num) => callback(num),
+                Some(num) => exit.exit(num),
                 _ => error!(
                     ValueError,
                     start_loc,

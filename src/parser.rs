@@ -54,6 +54,12 @@ macro_rules! expected {
     };
 }
 
+macro_rules! is_type {
+    ($self:ident, $type:ident) => {
+        $self.current_token.token_type == TokenType::$type
+    };
+}
+
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
     current_token: Token,
@@ -115,7 +121,7 @@ impl <'a> Parser<'a> {
 
     fn statements(&mut self) -> Result<Statements> {
         let start_location = loc!(self);
-        while self.current_token.token_type == TokenType::EOL {
+        while is_type!(self, EOL) {
             self.advance()
         }
 
@@ -125,7 +131,7 @@ impl <'a> Parser<'a> {
             loop {
                 if [TokenType::EOF, TokenType::RBrace].contains(&self.current_token.token_type) { break; }
                 expected!(self, EOL, "';' or line break");
-                while self.current_token.token_type == TokenType::EOL {
+                while is_type!(self, EOL) {
                     self.advance();
                 }
                 if [TokenType::EOF, TokenType::RBrace].contains(&self.current_token.token_type) { break; }
@@ -139,12 +145,12 @@ impl <'a> Parser<'a> {
 
     fn block(&mut self) -> Result<Statements> {
         let start_location = loc!(self);
-        while self.current_token.token_type == TokenType::EOL {
+        while is_type!(self, EOL) {
             self.advance();
         }
 
         let statements: Vec<Statement>;
-        if self.current_token.token_type == TokenType::LBrace {
+        if is_type!(self, LBrace) {
             self.advance();
 
             statements = self.statements()?.statements;
@@ -159,25 +165,25 @@ impl <'a> Parser<'a> {
     }
 
     fn statement(&mut self) -> Result<Statement> {
-        if self.current_token.token_type == TokenType::Var {
+        if is_type!(self, Var) {
             return Ok(Statement::Declare(self.declare_statement()?));
-        } else if self.current_token.token_type == TokenType::Loop {
+        } else if is_type!(self, Loop) {
             return Ok(Statement::Loop(self.loop_statement()?));
-        } else if self.current_token.token_type == TokenType::While {
+        } else if is_type!(self, While) {
             return Ok(Statement::While(self.while_statement()?));
-        } else if self.current_token.token_type == TokenType::For {
+        } else if is_type!(self, For) {
             return Ok(Statement::For(self.for_statement()?));
-        } else if self.current_token.token_type == TokenType::Fun && self.following_token().token_type != TokenType::LParen {
+        } else if is_type!(self, Fun) && self.following_token().token_type != TokenType::LParen {
             return Ok(Statement::Function(self.function_declaration()?));
-        } else if self.current_token.token_type == TokenType::Break {
+        } else if is_type!(self, Break) {
             self.advance();
             return Ok(Statement::Break);
-        } else if self.current_token.token_type == TokenType::Continue {
+        } else if is_type!(self, Continue) {
             self.advance();
             return Ok(Statement::Continue);
-        } else if self.current_token.token_type == TokenType::Return {
+        } else if is_type!(self, Return) {
             return Ok(Statement::Return(self.return_statement()?));
-        } else if self.current_token.token_type == TokenType::Identifier
+        } else if is_type!(self, Identifier)
             && [
                 TokenType::Assign,
                 TokenType::PlusAssign,
@@ -342,7 +348,7 @@ impl <'a> Parser<'a> {
         let base = self.or_expression()?;
 
         let mut range = None;
-        if self.current_token.token_type == TokenType::RangeDots {
+        if is_type!(self, RangeDots) {
             let inclusive = self.current_token.value == "..=";
             self.advance();
 
@@ -359,7 +365,7 @@ impl <'a> Parser<'a> {
         let base = self.and_expression()?;
 
         let mut following = vec![];
-        while self.current_token.token_type == TokenType::Or {
+        while is_type!(self, Or) {
             self.advance();
 
             following.push(self.and_expression()?);
@@ -373,7 +379,7 @@ impl <'a> Parser<'a> {
         let base = self.equality_expression()?;
 
         let mut following = vec![];
-        while self.current_token.token_type == TokenType::And {
+        while is_type!(self, And) {
             self.advance();
 
             following.push(self.equality_expression()?);
@@ -483,7 +489,7 @@ impl <'a> Parser<'a> {
         let base = self.call_expression()?;
 
         let mut exponent = None;
-        if self.current_token.token_type == TokenType::Power {
+        if is_type!(self, Power) {
             self.advance();
 
             exponent = Some(self.unary_expression()?)
@@ -496,7 +502,7 @@ impl <'a> Parser<'a> {
         let start_location = loc!(self);
         let base = self.atom()?;
 
-        let args = if self.current_token.token_type == TokenType::LParen {
+        let args = if is_type!(self, LParen) {
             Some(self.arguments()?)
         } else {
             None
@@ -507,21 +513,21 @@ impl <'a> Parser<'a> {
 
     fn atom(&mut self) -> Result<Atom> {
         let start_location = loc!(self);
-        if self.current_token.token_type == TokenType::Null {
+        if is_type!(self, Null) {
             self.advance();
 
             return Ok(Atom::Null);
         }
 
-        if self.current_token.token_type == TokenType::If {
+        if is_type!(self, If) {
             return Ok(Atom::If(self.if_expression()?));
         }
 
-        if self.current_token.token_type == TokenType::Fun {
+        if is_type!(self, Fun) {
             return Ok(Atom::Fun(self.fun_expression()?));
         }
 
-        if self.current_token.token_type == TokenType::Number {
+        if is_type!(self, Number) {
             let value = self.current_token.value.clone();
             let number = match value.parse::<Decimal>() {
                 Ok(value) => value,
@@ -536,29 +542,29 @@ impl <'a> Parser<'a> {
             return Ok(Atom::Number(number));
         }
 
-        if self.current_token.token_type == TokenType::True
-            || self.current_token.token_type == TokenType::False {
+        if is_type!(self, True)
+            || is_type!(self, False) {
             let value = self.current_token.value == "true";
             self.advance();
 
             return Ok(Atom::Bool(value));
         }
 
-        if self.current_token.token_type == TokenType::String {
+        if is_type!(self, String) {
             let value = self.current_token.value.clone();
             self.advance();
 
             return Ok(Atom::String(value));
         }
 
-        if self.current_token.token_type == TokenType::Identifier {
+        if is_type!(self, Identifier) {
             let value = self.current_token.value.clone();
             self.advance();
 
             return Ok(Atom::Identifier { start: start_location, end: loc!(self), name: value });
         }
 
-        if self.current_token.token_type == TokenType::LParen {
+        if is_type!(self, LParen) {
             self.advance();
 
             let expression = self.expression()?;
@@ -569,7 +575,7 @@ impl <'a> Parser<'a> {
             return Ok(Atom::Expression(expression));
         }
 
-        if self.current_token.token_type == TokenType::LBrace {
+        if is_type!(self, LBrace) {
             self.advance();
 
             let block = self.statements()?;
@@ -602,7 +608,7 @@ impl <'a> Parser<'a> {
         if self.current_token.token_type != TokenType::RParen {
             args.push(self.expression()?);
 
-            while self.current_token.token_type == TokenType::Comma {
+            while is_type!(self, Comma) {
                 self.advance();
 
                 args.push(self.expression()?);
@@ -625,7 +631,7 @@ impl <'a> Parser<'a> {
             args.push(self.current_token.value.clone());
             self.advance();
 
-            while self.current_token.token_type == TokenType::Comma {
+            while is_type!(self, Comma) {
                 self.advance();
 
                 expected!(self, Identifier, "identifier");

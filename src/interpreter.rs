@@ -73,10 +73,10 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
         return Interpreter {
             start_node,
             scopes: vec![HashMap::from([
-                (String::from("print"), Value::BuiltIn),
-                (String::from("printl"), Value::BuiltIn),
-                (String::from("typeOf"), Value::BuiltIn),
-                (String::from("exit"), Value::BuiltIn),
+                (String::from("print"), Value::BuiltIn(String::from("print"))),
+                (String::from("printl"), Value::BuiltIn(String::from("printl"))),
+                (String::from("typeOf"), Value::BuiltIn(String::from("typeOf"))),
+                (String::from("exit"), Value::BuiltIn(String::from("exit"))),
                 (String::from("answer"), Value::Number(Decimal::from(42))),
             ])],
             current_scope_index: 0,
@@ -501,7 +501,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
     }
 
     fn visit_exponential_expression(&mut self, node: &ExponentialExpression) -> Result<RuntimeResult> {
-        let mut result = self.visit_atom(&node.base)?;
+        let mut result = self.visit_call_expression(&node.base)?;
         should_return!(result);
         let mut base = result.value.clone().unwrap();
 
@@ -517,39 +517,27 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
         return Ok(result);
     }
 
-    fn visit_atom(&mut self, node: &Atom) -> Result<RuntimeResult> {
-        let mut result = RuntimeResult::new();
-        let value =  match node {
-            Atom::Number(value) => Value::Number(value.clone()),
-            Atom::Bool(value) => Value::Bool(value.clone()),
-            Atom::String(value) => Value::String(value.clone()),
-            Atom::Null => Value::Null,
-            Atom::Identifier { start, end, name } => self.find_var(name, start.clone(), end.clone())?.clone(),
-            Atom::Call(expression) => { expr_val!(result, self.visit_call_expression(expression)); },
-            Atom::If(expression) => { expr_val!(result, self.visit_if_expression(expression)); },
-            Atom::Fun(expression) => { expr_val!(result, self.visit_fun_expression(expression)); },
-            Atom::Expression(expression) => { expr_val!(result, self.visit_expression(expression)); },
-            Atom::Block(expression) => { expr_val!(result, self.visit_statements(expression, true)); }
-        };
-        result.success(Some(value));
-        return Ok(result);
-    }
-
     fn visit_call_expression(&mut self, node: &CallExpression) -> Result<RuntimeResult> {
         let mut result = RuntimeResult::new();
 
-        let value = self.find_var(&node.identifier, node.start.clone(), node.end.clone())?.clone();
+        result.register(self.visit_atom(&node.base)?);
+        should_return!(result);
+        let value = result.value.clone().unwrap();
+
+        if node.args == None { return Ok(result); }
+        let node_args = node.args.clone().unwrap();
+
         let (args, statements) = match value {
             Value::Function(args, statements) => (args, statements),
-            Value::BuiltIn => {
+            Value::BuiltIn(name) => {
                 let mut args: Vec<Value> = vec![];
-                for arg in &node.args {
+                for arg in &node_args {
                     result.register(self.visit_expression(&arg)?);
                     should_return!(result);
                     args.push(result.value.clone().unwrap());
                 }
 
-                let value = match node.identifier.as_str() {
+                let value = match name.as_str() {
                     "print" => built_in::print(args, &mut self.stdout, node.start.clone(), node.end.clone(), false),
                     "printl" => built_in::print(args, &mut self.stdout, node.start.clone(), node.end.clone(), true),
                     "typeOf" => built_in::type_of(args, node.start.clone(), node.end.clone()),
@@ -562,21 +550,20 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
             _ => error!(TypeError, node.start.clone(), node.end.clone(), "Type {} is not callable", type_of(&value)),
         };
 
-        if args.len() != node.args.len() {
+        if args.len() != node_args.len() {
             error!(
                 TypeError,
                 node.start.clone(),
                 node.end.clone(),
-                "Function '{}' takes {} argument, however {} were supplied",
-                node.identifier,
+                "Function takes {} argument, however {} were supplied",
                 args.len(),
-                node.args.len(),
+                node_args.len(),
             );
         }
 
         self.push_scope();
         for (index, arg) in args.iter().enumerate() {
-            result.register(self.visit_expression(&node.args[index])?);
+            result.register(self.visit_expression(&node_args[index])?);
             should_return!(result);
             self.current_scope().insert(arg.clone(), result.value.clone().unwrap());
         }
@@ -592,6 +579,23 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
         } else {
             result.success(result.return_value.clone());
         }
+        return Ok(result);
+    }
+
+    fn visit_atom(&mut self, node: &Atom) -> Result<RuntimeResult> {
+        let mut result = RuntimeResult::new();
+        let value =  match node {
+            Atom::Number(value) => Value::Number(value.clone()),
+            Atom::Bool(value) => Value::Bool(value.clone()),
+            Atom::String(value) => Value::String(value.clone()),
+            Atom::Null => Value::Null,
+            Atom::Identifier { start, end, name } => self.find_var(name, start.clone(), end.clone())?.clone(),
+            Atom::If(expression) => { expr_val!(result, self.visit_if_expression(expression)); },
+            Atom::Fun(expression) => { expr_val!(result, self.visit_fun_expression(expression)); },
+            Atom::Expression(expression) => { expr_val!(result, self.visit_expression(expression)); },
+            Atom::Block(expression) => { expr_val!(result, self.visit_statements(expression, true)); }
+        };
+        result.success(Some(value));
         return Ok(result);
     }
 

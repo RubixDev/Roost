@@ -41,18 +41,17 @@ AdditiveExpression          = MultiplicativeExpression , { ( '+' | '-' ) , Multi
 MultiplicativeExpression    = UnaryExpression , { ( '*' | '/' | '%' | '\' ) , UnaryExpression } ;
 UnaryExpression             = ( '+' | '-' | '!' ) , UnaryExpression
                             | ExponentialExpression ;
-ExponentialExpression       = Atom , [ '**' , UnaryExpression ] ;
+ExponentialExpression       = CallExpression , [ '**' , UnaryExpression ] ;
+CallExpression              = Atom , [ Arguments ] ;
 Atom                        = number
                             | bool
                             | string
                             | identifier
-                            | CallExpression
                             | IfExpression
                             | 'null'
                             | '(' , Expression , ')'
                             | FunExpression
                             | '{' , Statements , '}' ;
-CallExpression              = identifier , Arguments ;
 IfExpression                = 'if' , '(' , Expression , ')' , Block , [ { eol } , 'else' , Block ] ;
 FunExpression               = 'fun' , ArgumentNames , Block ;
 

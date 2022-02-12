@@ -480,7 +480,7 @@ impl <'a> Parser<'a> {
 
     fn exponential_expression(&mut self) -> Result<ExponentialExpression> {
         let start_location = loc!(self);
-        let base = self.atom()?;
+        let base = self.call_expression()?;
 
         let mut exponent = None;
         if self.current_token.token_type == TokenType::Power {
@@ -490,6 +490,19 @@ impl <'a> Parser<'a> {
         }
 
         return Ok(ExponentialExpression { start: start_location, end: loc!(self), base, exponent });
+    }
+
+    fn call_expression(&mut self) -> Result<CallExpression> {
+        let start_location = loc!(self);
+        let base = self.atom()?;
+
+        let args = if self.current_token.token_type == TokenType::LParen {
+            Some(self.arguments()?)
+        } else {
+            None
+        };
+
+        return Ok(CallExpression { start: start_location, end: loc!(self), base, args });
     }
 
     fn atom(&mut self) -> Result<Atom> {
@@ -540,12 +553,7 @@ impl <'a> Parser<'a> {
 
         if self.current_token.token_type == TokenType::Identifier {
             let value = self.current_token.value.clone();
-
-            if self.following_token().token_type == TokenType::LParen {
-                return Ok(Atom::Call(self.call_expression()?));
-            } else {
-                self.advance();
-            }
+            self.advance();
 
             return Ok(Atom::Identifier { start: start_location, end: loc!(self), name: value });
         }
@@ -573,16 +581,6 @@ impl <'a> Parser<'a> {
         }
 
         syntax!(self, "Expected expression, found '{}'", self.current_token.value);
-    }
-
-    fn call_expression(&mut self) -> Result<CallExpression> {
-        let start_location = loc!(self);
-        let identifier = self.current_token.value.clone();
-        self.advance();
-
-        let args = self.arguments()?;
-
-        return Ok(CallExpression { start: start_location, end: loc!(self), identifier, args });
     }
 
     fn fun_expression(&mut self) -> Result<FunExpression> {

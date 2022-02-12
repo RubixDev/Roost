@@ -31,7 +31,7 @@ pub fn type_of(value: &Value) -> Type {
         Value::String(_)      => Type::String,
         Value::Range(_, _)    => Type::Range,
         Value::Function(_, _)
-        | Value::BuiltIn      => Type::Function,
+        | Value::BuiltIn(_)   => Type::Function,
         Value::Null           => Type::Null,
     };
 }

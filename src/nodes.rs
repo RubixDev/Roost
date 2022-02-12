@@ -134,8 +134,15 @@ pub enum UnaryExpression {
 pub struct ExponentialExpression {
     pub start: Location,
     pub end: Location,
-    pub base: Atom,
+    pub base: CallExpression,
     pub exponent: Option<UnaryExpression>,
+}
+#[derive(Debug, PartialEq, Clone)]
+pub struct CallExpression {
+    pub start: Location,
+    pub end: Location,
+    pub base: Atom,
+    pub args: Option<Vec<Expression>>,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub enum Atom {
@@ -143,19 +150,11 @@ pub enum Atom {
     Bool(bool),
     String(String),
     Identifier { start: Location, end: Location, name: String },
-    Call(CallExpression),
     If(IfExpression),
     Fun(FunExpression),
     Null,
     Expression(Expression),
     Block(Statements),
-}
-#[derive(Debug, PartialEq, Clone)]
-pub struct CallExpression {
-    pub start: Location,
-    pub end: Location,
-    pub identifier: String,
-    pub args: Vec<Expression>,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct IfExpression {

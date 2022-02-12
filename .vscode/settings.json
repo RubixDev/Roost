@@ -3,6 +3,7 @@
         "powd",
         "printl",
         "readline",
-        "rustyline"
+        "rustyline",
+        "ureq"
     ]
 }

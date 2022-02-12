@@ -3,7 +3,7 @@ use plist::{Value as PlistValue, Integer};
 
 #[test]
 fn fetch() -> Result<(), Box<dyn std::error::Error>> {
-    let theme_body = reqwest::blocking::get("https://raw.githubusercontent.com/Binaryify/OneDark-Pro/master/themes/OneDark-Pro.json")?.text()?;
+    let theme_body = ureq::get("https://raw.githubusercontent.com/Binaryify/OneDark-Pro/master/themes/OneDark-Pro.json").call()?.into_string()?;
     let theme_body: Map<String, JsonValue> = serde_json::from_str(&theme_body)?;
     let mut json_theme = serde_json::Map::new();
     json_theme.insert(String::from("name"), theme_body.get("name").unwrap().clone());

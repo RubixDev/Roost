@@ -33,7 +33,7 @@ pub fn to_bool(self_: Value, args: Vec<Value>, start: Location, end: Location) -
     return Ok(Value::Bool(self_.is_true()));
 }
 
-pub fn to_int(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
+pub fn str_to_int(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
     if args.len() > 1 { want_num_args!(args, 1, "toInt", start, end); }
     let radix = match args.get(0) {
         Some(radix) => match radix {
@@ -53,7 +53,7 @@ pub fn to_int(self_: Value, args: Vec<Value>, start: Location, end: Location) ->
     };
 }
 
-pub fn to_decimal(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
+pub fn str_to_decimal(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
     want_num_args!(args, 0, "toDecimal", start, end);
     return match Decimal::from_str(&self_.to_string()) {
         Ok(num) => Ok(Value::Number(num)),
@@ -66,7 +66,7 @@ pub fn str_to_bool(self_: Value, args: Vec<Value>, start: Location, end: Locatio
     return Ok(Value::Bool(self_.to_string().to_ascii_lowercase() == "true"));
 }
 
-pub fn to_bool_strict(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
+pub fn str_to_bool_strict(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
     want_num_args!(args, 0, "toBoolStrict", start, end);
     return Ok(match self_.to_string().as_str() {
         "true" => Value::Bool(true),
@@ -75,7 +75,7 @@ pub fn to_bool_strict(self_: Value, args: Vec<Value>, start: Location, end: Loca
     });
 }
 
-pub fn to_range(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
+pub fn str_to_range(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
     want_num_args!(args, 0, "toRange", start, end);
     let self_str = self_.to_string();
     if !self_str.contains("..") { cannot_to!(self_, start, end, "range"); }
@@ -107,12 +107,36 @@ pub fn to_range(self_: Value, args: Vec<Value>, start: Location, end: Location) 
     } else { Value::Range(num1, num2) });
 }
 
-pub fn to_uppercase(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
+pub fn str_to_uppercase(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
     want_num_args!(args, 0, "toUppercase", start, end);
     return Ok(Value::String(self_.to_string().to_ascii_uppercase()));
 }
 
-pub fn to_lowercase(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
+pub fn str_to_lowercase(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
     want_num_args!(args, 0, "toLowercase", start, end);
     return Ok(Value::String(self_.to_string().to_ascii_lowercase()));
+}
+
+pub fn num_to_int(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
+    want_num_args!(args, 0, "toInt", start, end);
+    let num = if let Value::Number(num) = self_ { num } else { panic!() };
+    return Ok(Value::Number(num.trunc()));
+}
+
+pub fn num_floor(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
+    want_num_args!(args, 0, "toInt", start, end);
+    let num = if let Value::Number(num) = self_ { num } else { panic!() };
+    return Ok(Value::Number(num.floor()));
+}
+
+pub fn num_ceil(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
+    want_num_args!(args, 0, "toInt", start, end);
+    let num = if let Value::Number(num) = self_ { num } else { panic!() };
+    return Ok(Value::Number(num.ceil()));
+}
+
+pub fn num_round(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
+    want_num_args!(args, 0, "toInt", start, end);
+    let num = if let Value::Number(num) = self_ { num } else { panic!() };
+    return Ok(Value::Number(num.round()));
 }

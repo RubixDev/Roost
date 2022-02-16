@@ -631,14 +631,14 @@ dependencies = [
 
 [[package]]
 name = "roost"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "rust_decimal",
 ]
 
 [[package]]
 name = "roost-cli"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "ntest",
  "plist",

@@ -1,6 +1,6 @@
 use std::str::FromStr;
 use rust_decimal::{Decimal, prelude::ToPrimitive};
-use crate::{error::{Result, Location}, interpreter::value::Value};
+use crate::{error::{Result, Location}, interpreter::value::{Value, truth::Truth}};
 
 macro_rules! want_num_args {
     ($args:ident, $num:expr, $name:expr, $start:ident, $end:ident) => {
@@ -26,6 +26,11 @@ macro_rules! cannot_to {
 pub fn to_string(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
     want_num_args!(args, 0, "toString", start, end);
     return Ok(Value::String(self_.to_string()));
+}
+
+pub fn to_bool(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
+    want_num_args!(args, 0, "toBool", start, end);
+    return Ok(Value::Bool(self_.is_true()));
 }
 
 pub fn to_int(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
@@ -56,7 +61,7 @@ pub fn to_decimal(self_: Value, args: Vec<Value>, start: Location, end: Location
     };
 }
 
-pub fn to_bool(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
+pub fn str_to_bool(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
     want_num_args!(args, 0, "toBool", start, end);
     return Ok(Value::Bool(self_.to_string().to_ascii_lowercase() == "true"));
 }

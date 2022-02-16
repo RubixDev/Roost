@@ -32,9 +32,13 @@ use crate::nodes::{
     UnaryExpression,
     Atom,
     CallExpression,
-    ExponentialExpression, FunExpression,
+    ExponentialExpression,
+    FunExpression,
+    MemberExpression, CallPart, MemberPart,
 };
 use crate::tokens::TokenType;
+use self::value::{BuiltIn, SpecialBuiltIn};
+use self::value::members::Members;
 use self::value::{
     truth::Truth,
     calculative_operations::CalculativeOperations,
@@ -73,10 +77,10 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
         return Interpreter {
             start_node,
             scopes: vec![HashMap::from([
-                (String::from("print"), Value::BuiltIn(String::from("print"))),
-                (String::from("printl"), Value::BuiltIn(String::from("printl"))),
-                (String::from("typeOf"), Value::BuiltIn(String::from("typeOf"))),
-                (String::from("exit"), Value::BuiltIn(String::from("exit"))),
+                (String::from("print"), Value::BuiltIn(BuiltIn::Special(SpecialBuiltIn::Print(false)))),
+                (String::from("printl"), Value::BuiltIn(BuiltIn::Special(SpecialBuiltIn::Print(true)))),
+                (String::from("typeOf"), Value::BuiltIn(BuiltIn::Function(built_in::type_of))),
+                (String::from("exit"), Value::BuiltIn(BuiltIn::Special(SpecialBuiltIn::Exit))),
                 (String::from("answer"), Value::Number(Decimal::from(42))),
             ])],
             current_scope_index: 0,
@@ -517,68 +521,119 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
         return Ok(result);
     }
 
-    fn visit_call_expression(&mut self, node: &CallExpression) -> Result<RuntimeResult> {
+    fn call_value(&mut self, result: &RuntimeResult, call_args: &Vec<Expression>, start_loc: Location, end_loc: Location) -> Result<RuntimeResult> {
+        let value = result.value.clone().unwrap();
+        let parent = result.parent_value.clone();
         let mut result = RuntimeResult::new();
 
-        result.register(self.visit_atom(&node.base)?);
-        should_return!(result);
-        let value = result.value.clone().unwrap();
+        match value {
+            Value::Function(args, statements) => {
+                if args.len() != call_args.len() {
+                    error!(
+                        TypeError,
+                        start_loc,
+                        end_loc,
+                        "Function takes {} argument, however {} were supplied",
+                        args.len(),
+                        call_args.len(),
+                    );
+                }
 
-        if node.args == None { return Ok(result); }
-        let node_args = node.args.clone().unwrap();
+                self.push_scope();
+                for (index, arg) in args.iter().enumerate() {
+                    result.register(self.visit_expression(&call_args[index])?);
+                    should_return!(result);
+                    self.current_scope().insert(arg.clone(), result.value.clone().unwrap());
+                }
+                result.register(self.visit_statements(&statements, false)?);
+                self.pop_scope();
 
-        let (args, statements) = match value {
-            Value::Function(args, statements) => (args, statements),
-            Value::BuiltIn(name) => {
+                if result.return_value == None {
+                    if result.value != None {
+                        result.success(result.value.clone());
+                    } else {
+                        result.success(Some(Value::Null));
+                    }
+                } else {
+                    result.success(result.return_value.clone());
+                }
+                return Ok(result);
+            },
+            Value::BuiltIn(built_in) => {
                 let mut args: Vec<Value> = vec![];
-                for arg in &node_args {
+                for arg in call_args {
                     result.register(self.visit_expression(&arg)?);
                     should_return!(result);
                     args.push(result.value.clone().unwrap());
                 }
 
-                let value = match name.as_str() {
-                    "print" => built_in::print(args, &mut self.stdout, node.start.clone(), node.end.clone(), false),
-                    "printl" => built_in::print(args, &mut self.stdout, node.start.clone(), node.end.clone(), true),
-                    "typeOf" => built_in::type_of(args, node.start.clone(), node.end.clone()),
-                    "exit" => built_in::exit(args, &mut self.exit, node.start.clone(), node.end.clone()),
-                    _ => panic!(),
+                let value = match built_in {
+                    BuiltIn::Special(fun) => match fun {
+                        SpecialBuiltIn::Print(newline) => built_in::print(args, &mut self.stdout, start_loc, end_loc, newline),
+                        SpecialBuiltIn::Exit => built_in::exit(args, &mut self.exit, start_loc, end_loc),
+                    },
+                    BuiltIn::Function(fun) => fun(args, start_loc, end_loc),
+                    BuiltIn::Method(fun) => fun(parent.unwrap(), args, start_loc, end_loc),
                 }?;
                 result.success(Some(value));
                 return Ok(result);
             },
-            _ => error!(TypeError, node.start.clone(), node.end.clone(), "Type {} is not callable", type_of(&value)),
-        };
+            _ => error!(TypeError, start_loc, end_loc, "Type {} is not callable", type_of(&value)),
+        }
+    }
 
-        if args.len() != node_args.len() {
-            error!(
-                TypeError,
-                node.start.clone(),
-                node.end.clone(),
-                "Function takes {} argument, however {} were supplied",
-                args.len(),
-                node_args.len(),
-            );
+    fn visit_call_part(&mut self, result: &mut RuntimeResult, part: &CallPart, start_loc: Location, end_loc: Location) -> Result<()> {
+        match part {
+            CallPart::Member(part) => self.visit_member_part(result, part, start_loc, end_loc)?,
+            CallPart::Arguments(args) => {
+                result.register(self.call_value(&result, args, start_loc, end_loc)?);
+            },
+        }
+        return Ok(());
+    }
+
+    fn visit_member_part(&mut self, result: &mut RuntimeResult, part: &MemberPart, start_loc: Location, end_loc: Location) -> Result<()> {
+        match part {
+            MemberPart::Identifier(name) => result.success(Some(result.value.clone().unwrap().get_member(name, start_loc, end_loc)?)),
+        }
+        return Ok(());
+    }
+
+    fn visit_call_expression(&mut self, node: &CallExpression) -> Result<RuntimeResult> {
+        let mut result = RuntimeResult::new();
+
+        result.register(self.visit_member_expression(&node.base)?);
+        should_return!(result);
+
+        if node.call == None { return Ok(result); }
+        let node_call = node.call.clone().unwrap();
+
+        result.register(self.call_value(
+            &result,
+            &node_call.clone().0,
+            node.start.clone(),
+            node.end.clone()
+        )?);
+
+        for part in &node_call.1 {
+            self.visit_call_part(&mut result, part, node.start.clone(), node.end.clone())?;
         }
 
-        self.push_scope();
-        for (index, arg) in args.iter().enumerate() {
-            result.register(self.visit_expression(&node_args[index])?);
-            should_return!(result);
-            self.current_scope().insert(arg.clone(), result.value.clone().unwrap());
-        }
-        result.register(self.visit_statements(&statements, false)?);
-        self.pop_scope();
+        return Ok(result);
+    }
 
-        if result.return_value == None {
-            if result.value != None {
-                result.success(result.value.clone());
-            } else {
-                result.success(Some(Value::Null));
-            }
-        } else {
-            result.success(result.return_value.clone());
+    fn visit_member_expression(&mut self, node: &MemberExpression) -> Result<RuntimeResult> {
+        let mut result = RuntimeResult::new();
+
+        result.register(self.visit_atom(&node.base)?);
+        should_return!(result);
+        let value = result.value.clone().unwrap();
+        result.success(Some(value));
+
+        for part in &node.parts {
+            self.visit_member_part(&mut result, part, node.start.clone(), node.end.clone())?;
         }
+
         return Ok(result);
     }
 

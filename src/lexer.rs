@@ -257,21 +257,16 @@ impl <'a> Lexer<'a> {
             return Ok(Token::new(TokenType::Number, &number, start_location, loc!(self)));
         }
 
-        if self.current_char != Some('.') {
-            let start_pos = loc!(self);
+        if self.current_char == Some('.') {
             self.advance();
-            if let Some(current_char) = self.current_char {
-                lex_error!(self, start_pos, "Expected '.', got '{}'", current_char);
+            if self.current_char == Some('=') {
+                self.advance();
+                return Ok(Token::new(TokenType::RangeDots, "..=", start_location, loc!(self)));
             }
-            lex_error!(self, start_pos, "Expected '.'");
+            return Ok(Token::new(TokenType::RangeDots, "..", start_location, loc!(self)));
         }
 
-        self.advance();
-        if self.current_char == Some('=') {
-            self.advance();
-            return Ok(Token::new(TokenType::RangeDots, "..=", start_location, loc!(self)));
-        }
-        return Ok(Token::new(TokenType::RangeDots, "..", start_location, loc!(self)));
+        return Ok(Token::new(TokenType::Dot, ".", start_location, loc!(self)));
     }
 
     fn make_optional_equal(&mut self, type_single: TokenType, type_with_eq: TokenType, base_value: &str) -> Token {

@@ -28,8 +28,11 @@ identifier  = LETTER_ , { LETTER_ | DIGIT } ;
 number      = DIGIT , { DIGIT | '_' } , [ '.' , DIGIT , { DIGIT | '_' } ]
             | '.' , DIGIT , { DIGIT , | '_' } ;
 
+(* helper stuff *)
 Arguments                   = '(' , [ Expression , { ',' , Expression } ] , ')' ;
 ArgumentNames               = '(' , [ identifier , { ',' , identifier } ] , ')' ;
+MemberPart                  = '.' , identifier ; (* indexing with [..] will be added in the future *)
+CallPart                    = MemberPart | Arguments ;
 
 (* expression nodes *)
 Expression                  = OrExpression , [ '..' , [ '=' ] , OrExpression ] ;
@@ -42,7 +45,8 @@ MultiplicativeExpression    = UnaryExpression , { ( '*' | '/' | '%' | '\' ) , Un
 UnaryExpression             = ( '+' | '-' | '!' ) , UnaryExpression
                             | ExponentialExpression ;
 ExponentialExpression       = CallExpression , [ '**' , UnaryExpression ] ;
-CallExpression              = Atom , [ Arguments ] ;
+CallExpression              = MemberExpression , [ Arguments , { CallPart } ] ;
+MemberExpression            = Atom , { MemberPart } ;
 Atom                        = number
                             | bool
                             | string

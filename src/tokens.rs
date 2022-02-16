@@ -41,6 +41,7 @@ pub enum TokenType {
     PowerAssign,        // '**='
 
     Comma,              // ','
+    Dot,                // '.'
 
     // Keywords
     Var,

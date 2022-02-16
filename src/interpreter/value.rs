@@ -3,11 +3,11 @@ pub mod calculative_operations;
 pub mod relational_operations;
 pub mod truth;
 pub mod iterator;
+pub mod members;
 
 use std::fmt::{Display, Debug};
 use rust_decimal::Decimal;
-
-use crate::nodes::Statements;
+use crate::{nodes::Statements, error::{Result, Location}};
 
 #[derive(PartialEq, Clone)]
 pub enum Value {
@@ -16,8 +16,20 @@ pub enum Value {
     String(String),
     Range(Decimal, Decimal),
     Function(Vec<String>, Statements),
-    BuiltIn(String),
+    BuiltIn(BuiltIn),
     Null,
+}
+
+#[derive(PartialEq, Clone)]
+pub enum BuiltIn {
+    Special(SpecialBuiltIn),
+    Function(fn (args: Vec<Value>, start_loc: Location, end_loc: Location) -> Result<Value>),
+    Method(fn (self_: Value, args: Vec<Value>, start_loc: Location, end_loc: Location) -> Result<Value>),
+}
+#[derive(PartialEq, Clone)]
+pub enum SpecialBuiltIn {
+    Print(bool),
+    Exit,
 }
 
 impl Display for Value {

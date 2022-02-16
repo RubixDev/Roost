@@ -23,7 +23,11 @@ use crate::{
         UnaryExpression,
         Atom,
         CallExpression,
-        ExponentialExpression, FunExpression,
+        ExponentialExpression,
+        FunExpression,
+        CallPart,
+        MemberPart,
+        MemberExpression,
     }, lexer::Lexer,
 };
 
@@ -57,6 +61,12 @@ macro_rules! expected {
 macro_rules! is_type {
     ($self:ident, $type:ident) => {
         $self.current_token.token_type == TokenType::$type
+    };
+}
+
+macro_rules! of_types {
+    ($self:ident, $($type:ident),+) => {
+        [$(TokenType::$type, )*].contains(&$self.current_token.token_type)
     };
 }
 
@@ -500,15 +510,48 @@ impl <'a> Parser<'a> {
 
     fn call_expression(&mut self) -> Result<CallExpression> {
         let start_location = loc!(self);
+        let base = self.member_expression()?;
+
+        if is_type!(self, LParen) {
+            let args = self.arguments()?;
+
+            let mut parts = vec![];
+            while of_types!(self, Dot, LParen) {
+                if is_type!(self, Dot) {
+                    self.advance();
+
+                    expected!(self, Identifier, "identifier");
+                    let name = self.current_token.value.clone();
+                    self.advance();
+
+                    parts.push(CallPart::Member(MemberPart::Identifier(name)));
+                } else {
+                    parts.push(CallPart::Arguments(self.arguments()?));
+                }
+            }
+
+            return Ok(CallExpression { start: start_location, end: loc!(self), base, call: Some((args, parts)) });
+        }
+
+        return Ok(CallExpression { start: start_location, end: loc!(self), base, call: None });
+    }
+
+    fn member_expression(&mut self) -> Result<MemberExpression> {
+        let start_location = loc!(self);
         let base = self.atom()?;
 
-        let args = if is_type!(self, LParen) {
-            Some(self.arguments()?)
-        } else {
-            None
-        };
+        let mut parts = vec![];
+        while is_type!(self, Dot) {
+            self.advance();
 
-        return Ok(CallExpression { start: start_location, end: loc!(self), base, args });
+            expected!(self, Identifier, "identifier");
+            let name = self.current_token.value.clone();
+            self.advance();
+
+            parts.push(MemberPart::Identifier(name));
+        }
+
+        return Ok(MemberExpression { start: start_location, end: loc!(self), base, parts });
     }
 
     fn atom(&mut self) -> Result<Atom> {

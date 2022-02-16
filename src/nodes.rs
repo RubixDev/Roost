@@ -138,11 +138,27 @@ pub struct ExponentialExpression {
     pub exponent: Option<UnaryExpression>,
 }
 #[derive(Debug, PartialEq, Clone)]
+pub enum MemberPart {
+    Identifier(String),
+}
+#[derive(Debug, PartialEq, Clone)]
+pub enum CallPart {
+    Member(MemberPart),
+    Arguments(Vec<Expression>),
+}
+#[derive(Debug, PartialEq, Clone)]
 pub struct CallExpression {
     pub start: Location,
     pub end: Location,
+    pub base: MemberExpression,
+    pub call: Option<(Vec<Expression>, Vec<CallPart>)>,
+}
+#[derive(Debug, PartialEq, Clone)]
+pub struct MemberExpression {
+    pub start: Location,
+    pub end: Location,
     pub base: Atom,
-    pub args: Option<Vec<Expression>>,
+    pub parts: Vec<MemberPart>,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub enum Atom {

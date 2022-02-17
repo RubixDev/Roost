@@ -8,6 +8,8 @@ pub enum Type {
     String,
     Range,
     Function,
+    Class,
+    Object,
     Null,
 }
 
@@ -19,6 +21,8 @@ impl Display for Type {
             Type::String   => "string",
             Type::Range    => "range",
             Type::Function => "function",
+            Type::Class    => "class",
+            Type::Object    => "object",
             Type::Null     => "null",
         })
     }
@@ -30,8 +34,10 @@ pub fn type_of(value: &Value) -> Type {
         Value::Bool(_)        => Type::Bool,
         Value::String(_)      => Type::String,
         Value::Range(_, _)    => Type::Range,
-        Value::Function(_, _)
+        Value::Function(_, _, _)
         | Value::BuiltIn(_)   => Type::Function,
+        Value::Class(_)       => Type::Class,
+        Value::Object(_)      => Type::Object,
         Value::Null           => Type::Null,
     };
 }

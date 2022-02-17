@@ -28,6 +28,8 @@ use crate::{
         CallPart,
         MemberPart,
         MemberExpression,
+        ClassDeclaration,
+        ClassExpression,
     }, lexer::Lexer,
 };
 
@@ -153,6 +155,30 @@ impl <'a> Parser<'a> {
         return Ok(Statements { start: start_location, end: loc!(self), statements: vec![] });
     }
 
+    fn declarations(&mut self) -> Result<Statements> {
+        let start_location = loc!(self);
+        while is_type!(self, EOL) {
+            self.advance()
+        }
+
+        if !of_types!(self, EOF, RBrace) {
+            let mut declarations: Vec<Statement> = vec![];
+            declarations.push(self.declaration()?);
+            loop {
+                if [TokenType::EOF, TokenType::RBrace].contains(&self.current_token.token_type) { break; }
+                expected!(self, EOL, "';' or line break");
+                while is_type!(self, EOL) {
+                    self.advance();
+                }
+                if [TokenType::EOF, TokenType::RBrace].contains(&self.current_token.token_type) { break; }
+                declarations.push(self.declaration()?);
+            }
+            return Ok(Statements { start: start_location, end: loc!(self), statements: declarations });
+        }
+
+        return Ok(Statements { start: start_location, end: loc!(self), statements: vec![] });
+    }
+
     fn block(&mut self) -> Result<Statements> {
         let start_location = loc!(self);
         while is_type!(self, EOL) {
@@ -174,6 +200,21 @@ impl <'a> Parser<'a> {
         return Ok(Statements { start: start_location, end: loc!(self), statements });
     }
 
+    fn declaration_block(&mut self) -> Result<Statements> {
+        let start_location = loc!(self);
+        while is_type!(self, EOL) { self.advance(); }
+
+        expected!(self, LBrace, "'{'");
+        self.advance();
+
+        let declarations = self.declarations()?.statements;
+
+        expected!(self, RBrace, "'}'");
+        self.advance();
+
+        return Ok(Statements { start: start_location, end: loc!(self), statements: declarations });
+    }
+
     fn statement(&mut self) -> Result<Statement> {
         if is_type!(self, Var) {
             return Ok(Statement::Declare(self.declare_statement()?));
@@ -183,8 +224,10 @@ impl <'a> Parser<'a> {
             return Ok(Statement::While(self.while_statement()?));
         } else if is_type!(self, For) {
             return Ok(Statement::For(self.for_statement()?));
-        } else if is_type!(self, Fun) && self.following_token().token_type != TokenType::LParen {
+        } else if (is_type!(self, Fun) && self.following_token().token_type != TokenType::LParen) || is_type!(self, Static) {
             return Ok(Statement::Function(self.function_declaration()?));
+        } else if is_type!(self, Class) && self.following_token().token_type != TokenType::LBrace {
+            return Ok(Statement::Class(self.class_declaration()?));
         } else if is_type!(self, Break) {
             self.advance();
             return Ok(Statement::Break);
@@ -193,8 +236,19 @@ impl <'a> Parser<'a> {
             return Ok(Statement::Continue);
         } else if is_type!(self, Return) {
             return Ok(Statement::Return(self.return_statement()?));
-        } else if is_type!(self, Identifier)
-            && [
+        } else if is_type!(self, Identifier) && {
+            let mut res = true;
+
+            let mut lexer = self.lexer.clone();
+            let mut current_token = lexer.next_token().unwrap_or(Token::dummy());
+
+            while current_token.token_type == TokenType::Dot {
+                current_token = lexer.next_token().unwrap_or(Token::dummy());
+                if current_token.token_type != TokenType::Identifier { res = false; break; }
+                current_token = lexer.next_token().unwrap_or(Token::dummy());
+            }
+
+            if ![
                 TokenType::Assign,
                 TokenType::PlusAssign,
                 TokenType::MinusAssign,
@@ -203,11 +257,24 @@ impl <'a> Parser<'a> {
                 TokenType::ModuloAssign,
                 TokenType::IntDivideAssign,
                 TokenType::PowerAssign,
-            ].contains(&self.following_token().token_type) {
+            ].contains(&current_token.token_type) { res = false; }
+            res
+        } {
             return Ok(Statement::Assign(self.assign_statement()?));
         } else {
             return Ok(Statement::Expression(self.expression()?));
         }
+    }
+
+    fn declaration(&mut self) -> Result<Statement> {
+        let start_location = loc!(self);
+
+        if is_type!(self, Var) {
+            return Ok(Statement::Declare(self.declare_statement()?));
+        } else if of_types!(self, Fun, Static) {
+            return Ok(Statement::Function(self.function_declaration()?));
+        }
+        error!(SyntaxError, start_location, loc!(self), "Expected declaration, found '{}'", self.current_token.value);
     }
 
     fn declare_statement(&mut self) -> Result<DeclareStatement> {
@@ -218,10 +285,10 @@ impl <'a> Parser<'a> {
         let identifier = self.current_token.value.clone();
         self.advance();
 
-        expected!(self, Assign, "'='");
-        self.advance();
-
-        let expression = self.expression()?;
+        let expression = if is_type!(self, Assign) {
+            self.advance();
+            Some(self.expression()?)
+        } else { None };
 
         return Ok(DeclareStatement { start: start_location, end: loc!(self), identifier, expression }) ;
     }
@@ -231,12 +298,17 @@ impl <'a> Parser<'a> {
         let identifier = self.current_token.value.clone();
         self.advance();
 
+        let mut parts = vec![];
+        while is_type!(self, Dot) {
+            parts.push(self.member_part()?);
+        }
+
         let operator = self.current_token.token_type.clone();
         self.advance();
 
         let expression = self.expression()?;
 
-        return Ok(AssignStatement { start: start_location, end: loc!(self), identifier, operator, expression });
+        return Ok(AssignStatement { start: start_location, end: loc!(self), identifier, parts, operator, expression });
     }
 
     fn if_expression(&mut self) -> Result<IfExpression> {
@@ -327,6 +399,10 @@ impl <'a> Parser<'a> {
 
     fn function_declaration(&mut self) -> Result<FunctionDeclaration> {
         let start_location = loc!(self);
+        let is_static = if is_type!(self, Static) {
+            self.advance();
+            true
+        } else { false };
         self.advance();
 
         expected!(self, Identifier, "identifier");
@@ -337,7 +413,20 @@ impl <'a> Parser<'a> {
 
         let block = self.block()?;
 
-        return Ok(FunctionDeclaration { start: start_location, end: loc!(self), identifier, params, block });
+        return Ok(FunctionDeclaration { start: start_location, end: loc!(self), is_static, identifier, params, block });
+    }
+
+    fn class_declaration(&mut self) -> Result<ClassDeclaration> {
+        let start_location = loc!(self);
+        self.advance();
+
+        expected!(self, Identifier, "identifier");
+        let identifier = self.current_token.value.clone();
+        self.advance();
+
+        let block = self.declaration_block()?;
+
+        return Ok(ClassDeclaration { start: start_location, end: loc!(self), identifier, block });
     }
 
     fn return_statement(&mut self) -> Result<ReturnStatement> {
@@ -517,17 +606,7 @@ impl <'a> Parser<'a> {
 
             let mut parts = vec![];
             while of_types!(self, Dot, LParen) {
-                if is_type!(self, Dot) {
-                    self.advance();
-
-                    expected!(self, Identifier, "identifier");
-                    let name = self.current_token.value.clone();
-                    self.advance();
-
-                    parts.push(CallPart::Member(MemberPart::Identifier(name)));
-                } else {
-                    parts.push(CallPart::Arguments(self.arguments()?));
-                }
+                parts.push(self.call_part()?);
             }
 
             return Ok(CallExpression { start: start_location, end: loc!(self), base, call: Some((args, parts)) });
@@ -542,13 +621,7 @@ impl <'a> Parser<'a> {
 
         let mut parts = vec![];
         while is_type!(self, Dot) {
-            self.advance();
-
-            expected!(self, Identifier, "identifier");
-            let name = self.current_token.value.clone();
-            self.advance();
-
-            parts.push(MemberPart::Identifier(name));
+            parts.push(self.member_part()?);
         }
 
         return Ok(MemberExpression { start: start_location, end: loc!(self), base, parts });
@@ -568,6 +641,10 @@ impl <'a> Parser<'a> {
 
         if is_type!(self, Fun) {
             return Ok(Atom::Fun(self.fun_expression()?));
+        }
+
+        if is_type!(self, Class) {
+            return Ok(Atom::Class(self.class_expression()?));
         }
 
         if is_type!(self, Number) {
@@ -643,6 +720,15 @@ impl <'a> Parser<'a> {
         return Ok(FunExpression { start: start_location, end: loc!(self), params, block });
     }
 
+    fn class_expression(&mut self) -> Result<ClassExpression> {
+        let start_location = loc!(self);
+        self.advance();
+
+        let block = self.declaration_block()?;
+
+        return Ok(ClassExpression { start: start_location, end: loc!(self), block });
+    }
+
     fn arguments(&mut self) -> Result<Vec<Expression>> {
         expected!(self, LParen, "'('");
         self.advance();
@@ -687,5 +773,24 @@ impl <'a> Parser<'a> {
         self.advance();
 
         return Ok(args);
+    }
+
+    fn member_part(&mut self) -> Result<MemberPart> {
+        expected!(self, Dot, "'.'");
+        self.advance();
+
+        expected!(self, Identifier, "identifier");
+        let name = self.current_token.value.clone();
+        self.advance();
+
+        return Ok(MemberPart::Identifier(name));
+    }
+
+    fn call_part(&mut self) -> Result<CallPart> {
+        let start_location = loc!(self);
+        if is_type!(self, Dot) { return Ok(CallPart::Member(self.member_part()?)); }
+        if is_type!(self, LParen) { return Ok(CallPart::Arguments(self.arguments()?)); }
+        self.advance();
+        error!(SyntaxError, start_location, loc!(self), "Expected one of '.' or '(', got '{}'", self.current_token.value);
     }
 }

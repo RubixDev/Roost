@@ -34,7 +34,11 @@ use crate::nodes::{
     CallExpression,
     ExponentialExpression,
     FunExpression,
-    MemberExpression, CallPart, MemberPart,
+    MemberExpression,
+    CallPart,
+    MemberPart,
+    ClassDeclaration,
+    ClassExpression,
 };
 use crate::tokens::TokenType;
 use self::value::{BuiltIn, SpecialBuiltIn};
@@ -57,6 +61,12 @@ macro_rules! expr_val {
         should_return!($result);
         $result.success($result.value.clone());
         return Ok($result)
+    };
+}
+
+macro_rules! current_scope {
+    ($self:ident) => {
+        $self.scopes[$self.current_scope_index]
     };
 }
 
@@ -108,10 +118,6 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
         self.current_scope_index -= 1;
     }
 
-    fn current_scope(&mut self) -> &mut HashMap<String, Value> {
-        return &mut self.scopes[self.current_scope_index];
-    }
-
     fn find_var(&self, name: &String, start_loc: Location, end_loc: Location) -> Result<&Value> {
         let mut scope = self.current_scope_index;
         loop {
@@ -160,6 +166,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
             Statement::While     (node) => self.visit_while_statement(node),
             Statement::For       (node) => self.visit_for_statement(node),
             Statement::Function  (node) => Ok(self.visit_function_declaration(node)),
+            Statement::Class     (node) => self.visit_class_declaration(node),
             Statement::Expression(node) => self.visit_expression(node),
             Statement::Break            => Ok(self.visit_break_statement()),
             Statement::Continue         => Ok(self.visit_continue_statement()),
@@ -168,10 +175,15 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
     }
 
     fn visit_declare_statement(&mut self, node: &DeclareStatement) -> Result<RuntimeResult> {
-        let mut result = self.visit_expression(&node.expression)?;
-        should_return!(result);
+        let mut result = RuntimeResult::new();
+        if let Some(expr) = &node.expression {
+            result.register(self.visit_expression(expr)?);
+            should_return!(result);
+        } else {
+            result.success(Some(Value::Null));
+        }
 
-        self.current_scope().insert(node.identifier.clone(), result.value.clone().unwrap());
+        current_scope!(self).insert(node.identifier.clone(), result.value.clone().unwrap());
         result.success(None);
         return Ok(result);
     }
@@ -183,25 +195,53 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
         let value_scope = self.find_var_scope(&node.identifier, node.start.clone(), node.end.clone())?;
         let value = self.scopes[value_scope][&node.identifier].clone();
 
-        let old_type = type_of(&value);
-        let new_type = type_of(&new_value);
-        if old_type != Type::Null && new_type != Type::Null && old_type != new_type {
-            error!(TypeError, node.start.clone(), node.end.clone(), "Cannot assign type '{}' to '{}'", new_type, old_type);
-        }
-
-        self.scopes[value_scope].insert(node.identifier.clone(), match node.operator {
-            TokenType::Assign          => Ok(new_value.clone()),
-            TokenType::PlusAssign      => value.plus(&new_value, node.start.clone(), node.end.clone()),
-            TokenType::MinusAssign     => value.minus(&new_value, node.start.clone(), node.end.clone()),
-            TokenType::MultiplyAssign  => value.multiply(&new_value, node.start.clone(), node.end.clone()),
-            TokenType::DivideAssign    => value.divide(&new_value, node.start.clone(), node.end.clone()),
-            TokenType::ModuloAssign    => value.modulo(&new_value, node.start.clone(), node.end.clone()),
-            TokenType::IntDivideAssign => value.int_divide(&new_value, node.start.clone(), node.end.clone()),
-            TokenType::PowerAssign     => value.power(&new_value, node.start.clone(), node.end.clone()),
-            _ => panic!(),
-        }?);
+        result.register(self.assign_member(
+            value,
+            &node.parts,
+            &node.operator,
+            new_value,
+            node.start.clone(),
+            node.end.clone()
+        )?);
+        should_return!(result);
+        self.scopes[value_scope].insert(node.identifier.clone(), result.value.clone().unwrap());
 
         result.success(None);
+        return Ok(result);
+    }
+
+    fn assign_member(&mut self, base: Value, parts: &Vec<MemberPart>, operator: &TokenType, rhs: Value, start_loc: Location, end_loc: Location) -> Result<RuntimeResult> {
+        let mut result = RuntimeResult::new();
+        if parts.is_empty() {
+            let old_type = type_of(&base);
+            let new_type = type_of(&rhs);
+            if old_type != Type::Null && new_type != Type::Null && old_type != new_type {
+                error!(TypeError, start_loc, end_loc, "Cannot assign type '{}' to '{}'", new_type, old_type);
+            }
+            result.success(Some(match operator {
+                TokenType::Assign          => Ok(rhs.clone()),
+                TokenType::PlusAssign      => base.plus      (&rhs, start_loc, end_loc),
+                TokenType::MinusAssign     => base.minus     (&rhs, start_loc, end_loc),
+                TokenType::MultiplyAssign  => base.multiply  (&rhs, start_loc, end_loc),
+                TokenType::DivideAssign    => base.divide    (&rhs, start_loc, end_loc),
+                TokenType::ModuloAssign    => base.modulo    (&rhs, start_loc, end_loc),
+                TokenType::IntDivideAssign => base.int_divide(&rhs, start_loc, end_loc),
+                TokenType::PowerAssign     => base.power     (&rhs, start_loc, end_loc),
+                _ => panic!(),
+            }?));
+        } else {
+            let next_base = match &parts[0] {
+                MemberPart::Identifier(name) => base.get_member(name, start_loc.clone(), end_loc.clone()),
+            }?;
+            let next_parts = Vec::from(&parts[1..]);
+            result.register(self.assign_member(next_base, &next_parts, operator, rhs, start_loc.clone(), end_loc.clone())?);
+            should_return!(result);
+            let new_val = result.value.clone().unwrap();
+            result.success(Some(match &parts[0] {
+                MemberPart::Identifier(name) => base.set_member(name, new_val, start_loc, end_loc),
+            }?));
+        }
+
         return Ok(result);
     }
 
@@ -263,7 +303,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
         let mut iter = expression.to_iter(node.start.clone(), node.end.clone())?;
         while let Some(i) = iter.next() {
             self.push_scope();
-            self.current_scope().insert(node.identifier.clone(), i.clone());
+            current_scope!(self).insert(node.identifier.clone(), i.clone());
 
             result.register(self.visit_statements(&node.block, false)?);
             self.pop_scope();
@@ -277,8 +317,22 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
     }
 
     fn visit_function_declaration(&mut self, node: &FunctionDeclaration) -> RuntimeResult {
-        self.current_scope().insert(node.identifier.clone(), Value::Function(node.params.clone(), node.block.clone()));
+        current_scope!(self).insert(node.identifier.clone(), Value::Function(node.is_static, node.params.clone(), node.block.clone()));
         return RuntimeResult::new();
+    }
+
+    fn visit_class_declaration(&mut self, node: &ClassDeclaration) -> Result<RuntimeResult> {
+        let mut result = RuntimeResult::new();
+        self.push_scope();
+        for declaration in &node.block.statements {
+            result.register(self.visit_statement(declaration)?);
+            should_return!(result);
+        }
+        let members = current_scope!(self).clone();
+        self.pop_scope();
+
+        current_scope!(self).insert(node.identifier.clone(), Value::Class(members));
+        return Ok(result);
     }
 
     fn visit_break_statement(&mut self) -> RuntimeResult {
@@ -527,23 +581,24 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
         let mut result = RuntimeResult::new();
 
         match value {
-            Value::Function(args, statements) => {
+            Value::Function(_, args, statements) => {
                 if args.len() != call_args.len() {
                     error!(
                         TypeError,
                         start_loc,
                         end_loc,
-                        "Function takes {} argument, however {} were supplied",
+                        "Function takes {} arguments, however {} were supplied",
                         args.len(),
                         call_args.len(),
                     );
                 }
 
                 self.push_scope();
+                current_scope!(self).insert(String::from("this"), parent.unwrap());
                 for (index, arg) in args.iter().enumerate() {
                     result.register(self.visit_expression(&call_args[index])?);
                     should_return!(result);
-                    self.current_scope().insert(arg.clone(), result.value.clone().unwrap());
+                    current_scope!(self).insert(arg.clone(), result.value.clone().unwrap());
                 }
                 result.register(self.visit_statements(&statements, false)?);
                 self.pop_scope();
@@ -578,6 +633,19 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
                 result.success(Some(value));
                 return Ok(result);
             },
+            Value::Class(members) => {
+                if call_args.len() != 0 {
+                    error!(
+                        TypeError,
+                        start_loc,
+                        end_loc,
+                        "Class constructor takes no arguments, however {} were supplied",
+                        call_args.len(),
+                    );
+                }
+                result.success(Some(Value::Object(members)));
+                return Ok(result);
+            }
             _ => error!(TypeError, start_loc, end_loc, "Type {} is not callable", type_of(&value)),
         }
     }
@@ -647,6 +715,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
             Atom::Identifier { start, end, name } => self.find_var(name, start.clone(), end.clone())?.clone(),
             Atom::If(expression) => { expr_val!(result, self.visit_if_expression(expression)); },
             Atom::Fun(expression) => { expr_val!(result, self.visit_fun_expression(expression)); },
+            Atom::Class(expression) => { expr_val!(result, self.visit_class_expression(expression)); },
             Atom::Expression(expression) => { expr_val!(result, self.visit_expression(expression)); },
             Atom::Block(expression) => { expr_val!(result, self.visit_statements(expression, true)); }
         };
@@ -656,7 +725,21 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
 
     fn visit_fun_expression(&mut self, node: &FunExpression) -> Result<RuntimeResult> {
         let mut result = RuntimeResult::new();
-        result.success(Some(Value::Function(node.params.clone(), node.block.clone())));
+        result.success(Some(Value::Function(true, node.params.clone(), node.block.clone())));
+        return Ok(result);
+    }
+
+    fn visit_class_expression(&mut self, node: &ClassExpression) -> Result<RuntimeResult> {
+        let mut result = RuntimeResult::new();
+        self.push_scope();
+        for declaration in &node.block.statements {
+            result.register(self.visit_statement(declaration)?);
+            should_return!(result);
+        }
+        let members = current_scope!(self).clone();
+        self.pop_scope();
+
+        result.success(Some(Value::Class(members)));
         return Ok(result);
     }
 }

@@ -55,9 +55,11 @@ Atom                        = number
                             | 'null'
                             | '(' , Expression , ')'
                             | FunExpression
+                            | ClassExpression
                             | '{' , Statements , '}' ;
 IfExpression                = 'if' , '(' , Expression , ')' , Block , [ { eol } , 'else' , Block ] ;
 FunExpression               = 'fun' , ArgumentNames , Block ;
+ClassExpression             = 'class' , DeclarationBlock ;
 
 (* statement nodes *)
 Statement           = DeclareStatement
@@ -66,21 +68,27 @@ Statement           = DeclareStatement
                     | WhileStatement
                     | ForStatement
                     | FunctionDeclaration
+                    | ClassDeclaration
                     | Expression
                     | BreakStatement
                     | ContinueStatement
                     | ReturnStatement ;
-DeclareStatement    = 'var' , identifier , '=' , Expression ;
-AssignStatement     = identifier , ( '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '\=' | '**=' ) , Expression ;
+Declaration         = [ 'static' ] , FunctionDeclaration
+                    | DeclareStatement ;
+DeclareStatement    = 'var' , identifier , [ '=' , Expression ] ;
+AssignStatement     = identifier , { MemberPart } , ( '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '\=' | '**=' ) , Expression ;
 LoopStatement       = 'loop' , Block ;
 WhileStatement      = 'while' , '(' , Expression , ')' , Block ;
 ForStatement        = 'for' , '(' , identifier , 'in' , Expression , ')' , Block ;
 FunctionDeclaration = 'fun' , identifier , ArgumentNames , Block ;
+ClassDeclaration    = 'class' , identifier , DeclarationBlock ;
 BreakStatement      = 'break' ;
 ContinueStatement   = 'continue' ;
 ReturnStatement     = 'return' , [ Expression ] ;
 
 (* other nodes *)
-Statements  = { eol } , [ Statement , { eol , { eol } , Statement } ] , { eol } ;
-Block       = { eol } , ( '{' , Statements , '}' | Statement ) ;
-Program     = Statements , eof ;
+Statements       = { eol } , [ Statement , { eol , { eol } , Statement } ] , { eol } ;
+Block            = { eol } , ( '{' , Statements , '}' | Statement ) ;
+Declarations     = { eol } , [ Declaration , { eol , { eol } , Declaration } ] , { eol } ;
+DeclarationBlock = { eol } , '{' , Declarations , '}' ;
+Program          = Statements , eof ;

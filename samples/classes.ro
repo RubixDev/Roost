@@ -1,0 +1,16 @@
+class Greeter {
+    var name
+
+    static fun new(name) {
+        var new = this()
+        new.name = name
+        return new
+    }
+
+    fun greet() {
+        printl('Hello, ' + this.name + '!')
+    }
+}
+
+var greeter = Greeter.new('World')
+greeter.greet()

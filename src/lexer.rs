@@ -349,6 +349,8 @@ impl <'a> Lexer<'a> {
             "if"       => TokenType::If,
             "else"     => TokenType::Else,
             "fun"      => TokenType::Fun,
+            "static"   => TokenType::Static,
+            "class"    => TokenType::Class,
             "loop"     => TokenType::Loop,
             "while"    => TokenType::While,
             "for"      => TokenType::For,

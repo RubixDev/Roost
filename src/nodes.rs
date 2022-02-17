@@ -15,6 +15,7 @@ pub enum Statement {
     While     (WhileStatement),
     For       (ForStatement),
     Function  (FunctionDeclaration),
+    Class     (ClassDeclaration),
     Expression(Expression),
     Break,
     Continue,
@@ -25,13 +26,14 @@ pub struct DeclareStatement {
     pub start: Location,
     pub end: Location,
     pub identifier: String,
-    pub expression: Expression,
+    pub expression: Option<Expression>,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub struct AssignStatement {
     pub start: Location,
     pub end: Location,
     pub identifier: String,
+    pub parts: Vec<MemberPart>,
     pub operator: TokenType,
     pub expression: Expression,
 }
@@ -60,8 +62,16 @@ pub struct ForStatement {
 pub struct FunctionDeclaration {
     pub start: Location,
     pub end: Location,
+    pub is_static: bool,
     pub identifier: String,
     pub params: Vec<String>,
+    pub block: Statements,
+}
+#[derive(Debug, PartialEq, Clone)]
+pub struct ClassDeclaration {
+    pub start: Location,
+    pub end: Location,
+    pub identifier: String,
     pub block: Statements,
 }
 #[derive(Debug, PartialEq, Clone)]
@@ -168,6 +178,7 @@ pub enum Atom {
     Identifier { start: Location, end: Location, name: String },
     If(IfExpression),
     Fun(FunExpression),
+    Class(ClassExpression),
     Null,
     Expression(Expression),
     Block(Statements),
@@ -185,5 +196,11 @@ pub struct FunExpression {
     pub start: Location,
     pub end: Location,
     pub params: Vec<String>,
+    pub block: Statements,
+}
+#[derive(Debug, PartialEq, Clone)]
+pub struct ClassExpression {
+    pub start: Location,
+    pub end: Location,
     pub block: Statements,
 }

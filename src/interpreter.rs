@@ -601,7 +601,6 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
                     current_scope!(self).insert(arg.clone(), result.value.clone().unwrap());
                 }
                 result.register(self.visit_statements(&statements, false)?);
-                should_return!(result);
                 self.pop_scope();
 
                 if result.return_value == None {

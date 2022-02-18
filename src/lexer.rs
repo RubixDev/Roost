@@ -148,7 +148,7 @@ impl <'a> Lexer<'a> {
                     'r'  => '\r',
                     't'  => '\t',
                     'v'  => '\x0b',
-                    _ => panic!(),
+                    _ => unreachable!(),
                 });
                 self.advance();
             } else if OCTAL_DIGITS.contains(&current_char) {

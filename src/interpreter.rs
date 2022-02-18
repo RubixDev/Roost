@@ -233,7 +233,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
                 TokenType::ModuloAssign    => base.modulo    (&rhs, start_loc, end_loc),
                 TokenType::IntDivideAssign => base.int_divide(&rhs, start_loc, end_loc),
                 TokenType::PowerAssign     => base.power     (&rhs, start_loc, end_loc),
-                _ => panic!(),
+                _ => unreachable!(),
             }?));
         } else {
             let next_base = match &parts[0] {
@@ -456,7 +456,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
             let out = match operator {
                 TokenType::Equal    =>  equal,
                 TokenType::NotEqual => !equal,
-                _ => panic!(),
+                _ => unreachable!(),
             };
             result.success(Some(Value::Bool(out)));
         } else {
@@ -479,7 +479,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
                 TokenType::GreaterThan        => base.greater_than(&other, node.start.clone(), node.end.clone()),
                 TokenType::LessThanOrEqual    => base.less_than_or_equal(&other, node.start.clone(), node.end.clone()),
                 TokenType::GreaterThanOrEqual => base.greater_than_or_equal(&other, node.start.clone(), node.end.clone()),
-                _ => panic!(),
+                _ => unreachable!(),
             }?;
             result.success(Some(out));
         } else {
@@ -500,7 +500,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
             base = match operator {
                 TokenType::Plus  => base.plus(&other, node.start.clone(), node.end.clone()),
                 TokenType::Minus => base.minus(&other, node.start.clone(), node.end.clone()),
-                _ => panic!(),
+                _ => unreachable!(),
             }?;
         }
 
@@ -521,7 +521,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
                 TokenType::Divide    => base.divide(&other, node.start.clone(), node.end.clone()),
                 TokenType::Modulo    => base.modulo(&other, node.start.clone(), node.end.clone()),
                 TokenType::IntDivide => base.int_divide(&other, node.start.clone(), node.end.clone()),
-                _ => panic!(),
+                _ => unreachable!(),
             }?;
         }
 
@@ -539,7 +539,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
                     TokenType::Plus  => base,
                     TokenType::Minus => Value::Number(Decimal::ZERO).minus(&base, start.clone(), end.clone())?,
                     TokenType::Not   => Value::Bool(base.is_false()),
-                    _ => panic!(),
+                    _ => unreachable!(),
                 };
                 result.success(Some(out));
                 return Ok(result);

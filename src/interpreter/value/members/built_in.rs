@@ -119,24 +119,24 @@ pub fn str_to_lowercase(self_: Value, args: Vec<Value>, start: Location, end: Lo
 
 pub fn num_to_int(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
     want_num_args!(args, 0, "toInt", start, end);
-    let num = if let Value::Number(num) = self_ { num } else { panic!() };
+    let num = if let Value::Number(num) = self_ { num } else { unreachable!() };
     return Ok(Value::Number(num.trunc()));
 }
 
 pub fn num_floor(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
     want_num_args!(args, 0, "toInt", start, end);
-    let num = if let Value::Number(num) = self_ { num } else { panic!() };
+    let num = if let Value::Number(num) = self_ { num } else { unreachable!() };
     return Ok(Value::Number(num.floor()));
 }
 
 pub fn num_ceil(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
     want_num_args!(args, 0, "toInt", start, end);
-    let num = if let Value::Number(num) = self_ { num } else { panic!() };
+    let num = if let Value::Number(num) = self_ { num } else { unreachable!() };
     return Ok(Value::Number(num.ceil()));
 }
 
 pub fn num_round(self_: Value, args: Vec<Value>, start: Location, end: Location) -> Result<Value> {
     want_num_args!(args, 0, "toInt", start, end);
-    let num = if let Value::Number(num) = self_ { num } else { panic!() };
+    let num = if let Value::Number(num) = self_ { num } else { unreachable!() };
     return Ok(Value::Number(num.round()));
 }

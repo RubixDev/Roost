@@ -601,6 +601,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
                     current_scope!(self).insert(arg.clone(), result.value.clone().unwrap());
                 }
                 result.register(self.visit_statements(&statements, false)?);
+                should_return!(result);
                 self.pop_scope();
 
                 if result.return_value == None {
@@ -682,6 +683,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
             node.start.clone(),
             node.end.clone()
         )?);
+        should_return!(result);
 
         for part in &node_call.1 {
             self.visit_call_part(&mut result, part, node.start.clone(), node.end.clone())?;

@@ -70,6 +70,14 @@ macro_rules! current_scope {
     };
 }
 
+macro_rules! register {
+    ($result:ident, $new_res:expr) => {{
+        $result.register($new_res);
+        should_return!($result);
+        $result.value.clone().unwrap_or(Value::Null)
+    }};
+}
+
 pub trait Exit {
     fn exit(&mut self, code: i32);
 }
@@ -177,8 +185,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
     fn visit_declare_statement(&mut self, node: &DeclareStatement) -> Result<RuntimeResult> {
         let mut result = RuntimeResult::new();
         if let Some(expr) = &node.expression {
-            result.register(self.visit_expression(expr)?);
-            should_return!(result);
+            register!(result, self.visit_expression(expr)?);
         } else {
             result.success(Some(Value::Null));
         }
@@ -195,7 +202,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
         let value_scope = self.find_var_scope(&node.identifier, node.start.clone(), node.end.clone())?;
         let value = self.scopes[value_scope][&node.identifier].clone();
 
-        result.register(self.assign_member(
+        let new_val = register!(result, self.assign_member(
             value,
             &node.parts,
             &node.operator,
@@ -203,8 +210,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
             node.start.clone(),
             node.end.clone()
         )?);
-        should_return!(result);
-        self.scopes[value_scope].insert(node.identifier.clone(), result.value.clone().unwrap());
+        self.scopes[value_scope].insert(node.identifier.clone(), new_val);
 
         result.success(None);
         return Ok(result);
@@ -234,9 +240,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
                 MemberPart::Identifier(name) => base.get_member(name, start_loc.clone(), end_loc.clone()),
             }?;
             let next_parts = Vec::from(&parts[1..]);
-            result.register(self.assign_member(next_base, &next_parts, operator, rhs, start_loc.clone(), end_loc.clone())?);
-            should_return!(result);
-            let new_val = result.value.clone().unwrap();
+            let new_val = register!(result, self.assign_member(next_base, &next_parts, operator, rhs, start_loc.clone(), end_loc.clone())?);
             result.success(Some(match &parts[0] {
                 MemberPart::Identifier(name) => base.set_member(name, new_val, start_loc, end_loc),
             }?));
@@ -281,9 +285,8 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
         let mut result = RuntimeResult::new();
 
         loop {
-            result.register(self.visit_expression(&node.condition)?);
-            should_return!(result);
-            if !result.value.clone().unwrap().is_true() { break; }
+            let res = register!(result, self.visit_expression(&node.condition)?);
+            if !res.is_true() { break; }
 
             result.register(self.visit_statements(&node.block, true)?);
             if result.should_continue { continue; }
@@ -325,8 +328,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
         let mut result = RuntimeResult::new();
         self.push_scope();
         for declaration in &node.block.statements {
-            result.register(self.visit_statement(declaration)?);
-            should_return!(result);
+            register!(result, self.visit_statement(declaration)?);
         }
         let members = current_scope!(self).clone();
         self.pop_scope();
@@ -350,9 +352,8 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
     fn visit_return_statement(&mut self, node: &ReturnStatement) -> Result<RuntimeResult> {
         let mut result = RuntimeResult::new();
         if let Some(expression) = &node.expression {
-            result.register(self.visit_expression(&expression)?);
-            should_return!(result);
-            result.success_return(result.value.clone());
+            let val = register!(result, self.visit_expression(&expression)?);
+            result.success_return(Some(val));
         } else {
             result.success_return(Some(Value::Null));
         }
@@ -366,9 +367,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
         let val1 = result.value.clone().unwrap();
 
         if let Some((inclusive, expression)) = &*node.range {
-            result.register(self.visit_or_expression(&expression)?);
-            should_return!(result);
-            let val2 = result.value.clone().unwrap();
+            let val2 = register!(result, self.visit_or_expression(&expression)?);
 
             let range = match val1 {
                 Value::Number(start) => match val2 {
@@ -407,9 +406,8 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
                 return Ok(result);
             }
             for expression in &node.following {
-                result.register(self.visit_and_expression(&expression)?);
-                should_return!(result);
-                if result.value.clone().unwrap().is_true() {
+                let res = register!(result, self.visit_and_expression(&expression)?);
+                if res.is_true() {
                     result.success(Some(Value::Bool(true)));
                     return Ok(result);
                 }
@@ -433,9 +431,8 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
                 return Ok(result);
             }
             for expression in &node.following {
-                result.register(self.visit_equality_expression(&expression)?);
-                should_return!(result);
-                if result.value.clone().unwrap().is_false() {
+                let res = register!(result, self.visit_equality_expression(&expression)?);
+                if res.is_false() {
                     result.success(Some(Value::Bool(false)));
                     return Ok(result);
                 }
@@ -454,9 +451,8 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
         let base = result.value.clone().unwrap();
 
         if let Some((operator, expression)) = &node.other {
-            result.register(self.visit_relational_expression(&expression)?);
-            should_return!(result);
-            let equal = base == result.value.clone().unwrap();
+            let res = register!(result, self.visit_relational_expression(&expression)?);
+            let equal = base == res;
             let out = match operator {
                 TokenType::Equal    =>  equal,
                 TokenType::NotEqual => !equal,
@@ -476,9 +472,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
         let base = result.value.clone().unwrap();
 
         if let Some((operator, expression)) = &node.other {
-            result.register(self.visit_additive_expression(&expression)?);
-            should_return!(result);
-            let other = result.value.clone().unwrap();
+            let other = register!(result, self.visit_additive_expression(&expression)?);
 
             let out = match operator {
                 TokenType::LessThan           => base.less_than(&other, node.start.clone(), node.end.clone()),
@@ -501,9 +495,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
         let mut base = result.value.clone().unwrap();
 
         for (operator, expression) in &node.following {
-            result.register(self.visit_multiplicative_expression(&expression)?);
-            should_return!(result);
-            let other = result.value.clone().unwrap();
+            let other = register!(result, self.visit_multiplicative_expression(&expression)?);
 
             base = match operator {
                 TokenType::Plus  => base.plus(&other, node.start.clone(), node.end.clone()),
@@ -522,9 +514,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
         let mut base = result.value.clone().unwrap();
 
         for (operator, expression) in &node.following {
-            result.register(self.visit_unary_expression(&expression)?);
-            should_return!(result);
-            let other = result.value.clone().unwrap();
+            let other = register!(result, self.visit_unary_expression(&expression)?);
 
             base = match operator {
                 TokenType::Multiply  => base.multiply(&other, node.start.clone(), node.end.clone()),
@@ -564,9 +554,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
         let mut base = result.value.clone().unwrap();
 
         if let Some(exponent) = &node.exponent {
-            result.register(self.visit_unary_expression(exponent)?);
-            should_return!(result);
-            let exponent = result.value.clone().unwrap();
+            let exponent = register!(result, self.visit_unary_expression(exponent)?);
 
             base = base.power(&exponent, node.start.clone(), node.end.clone())?;
         }
@@ -596,9 +584,8 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
                 self.push_scope();
                 current_scope!(self).insert(String::from("this"), parent.unwrap());
                 for (index, arg) in args.iter().enumerate() {
-                    result.register(self.visit_expression(&call_args[index])?);
-                    should_return!(result);
-                    current_scope!(self).insert(arg.clone(), result.value.clone().unwrap());
+                    let val = register!(result, self.visit_expression(&call_args[index])?);
+                    current_scope!(self).insert(arg.clone(), val);
                 }
                 result.register(self.visit_statements(&statements, false)?);
                 self.pop_scope();
@@ -617,9 +604,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
             Value::BuiltIn(built_in) => {
                 let mut args: Vec<Value> = vec![];
                 for arg in call_args {
-                    result.register(self.visit_expression(&arg)?);
-                    should_return!(result);
-                    args.push(result.value.clone().unwrap());
+                    args.push(register!(result, self.visit_expression(&arg)?));
                 }
 
                 let value = match built_in {
@@ -670,8 +655,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
     fn visit_call_expression(&mut self, node: &CallExpression) -> Result<RuntimeResult> {
         let mut result = RuntimeResult::new();
 
-        result.register(self.visit_member_expression(&node.base)?);
-        should_return!(result);
+        register!(result, self.visit_member_expression(&node.base)?);
 
         if node.call == None { return Ok(result); }
         let node_call = node.call.clone().unwrap();
@@ -694,9 +678,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
     fn visit_member_expression(&mut self, node: &MemberExpression) -> Result<RuntimeResult> {
         let mut result = RuntimeResult::new();
 
-        result.register(self.visit_atom(&node.base)?);
-        should_return!(result);
-        let value = result.value.clone().unwrap();
+        let value = register!(result, self.visit_atom(&node.base)?);
         result.success(Some(value));
 
         for part in &node.parts {
@@ -734,8 +716,7 @@ impl <OUT: Write, EXIT: Exit> Interpreter<OUT, EXIT> {
         let mut result = RuntimeResult::new();
         self.push_scope();
         for declaration in &node.block.statements {
-            result.register(self.visit_statement(declaration)?);
-            should_return!(result);
+            register!(result, self.visit_statement(declaration)?);
         }
         let members = current_scope!(self).clone();
         self.pop_scope();

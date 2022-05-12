@@ -29,7 +29,7 @@ git clone https://github.com/RubixDev/roost.git && cd roost
 
 ### 2. Compile the binary
 ```bash
-cargo build --release
+make release
 ```
 
 ### 3. Copy the binary into your PATH

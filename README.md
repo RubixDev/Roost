@@ -2,8 +2,8 @@
 *Roost* is a simple example for an interpreted programming language.
 Its name is a combination of the language it was written in - [Rust](https://rust-lang.org) - and the word "rooster".
 
-I created this language in conjunction with an obligatory research paper about the structure of a programming language in my 11th grade on school. The resulting paper can be found [here](Facharbeit_Der-Aufbau-einer-Programmiersprache_Silas-Groh_2022-03-07_digital.pdf).
-The main focus of the paper are the lexing and parsing steps, regular and context-free languages, and the grammatical definition of a language. After that a short note on compilers and [LLVM](https://llvm.org/) follows and some basic implementation details for a tree-walking interpreter are given.
+I created this language in connection with an obligatory research paper about the structure of a programming language in my 11th grade on school. The resulting paper can be found [here](Facharbeit_Der-Aufbau-einer-Programmiersprache_Silas-Groh_2022-03-07_digital.pdf).
+The main focuses of the paper are the lexing and parsing steps, regular and context-free languages, and the grammatical definition of a language. After that a short note on compilers and [LLVM](https://llvm.org/) follows and some basic implementation details for a tree-walking interpreter are given.
 
 Most of the paper actually refers to [*rost*](https://github.com/RubixDev/rost), an even more stripped down language acting just as a calculator but following the same principles, because while writing I quickly noticed that even *Roost* is too complex to explain in such a short paper.
 

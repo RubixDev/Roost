@@ -1,94 +1,119 @@
-(* predefined "lists"  *)
-LETTER_     = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J'
-            | 'K' | 'L' | 'M' | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T'
-            | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z' | 'a' | 'b' | 'c' | 'd'
-            | 'e' | 'f' | 'g' | 'h' | 'i' | 'j' | 'k' | 'l' | 'm' | 'n'
-            | 'o' | 'p' | 'q' | 'r' | 's' | 't' | 'u' | 'v' | 'w' | 'x'
-            | 'y' | 'z' | '_' ;
-DIGIT       = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
-OCTAL       = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' ;
-HEX         = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
-            | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'a' | 'b' | 'c' | 'd'
-            | 'e' | 'f' ;
-CHAR        = ? any UTF8 character ? ;
-ESCAPE_CHAR = '\' | "'" | '"' | 'a' | 'b' | 'f' | 'n' | 'r' | 't' | 'v' ;
+(*
+  -- Grammar for Roost v2 --
 
-(* tokens *)
-eol         = ? line break ? | ';' ;
-eof         = ? end of file ? ;
-bool        = 'true' | 'false' ;
-string      = '"' , [ { CHAR - '"' - '\' } , { escape_seq , { CHAR - '"' - '\' } } ] , '"'
-            | "'" , [ { CHAR - "'" - '\' } , { escape_seq , { CHAR - "'" - '\' } } ] , "'" ;
-escape_seq  = '\' , ( ESCAPE_CHAR
-                    | OCTAL , OCTAL , OCTAL
-                    | 'x' , HEX , HEX
-                    | 'u' , HEX , HEX , HEX , HEX
-                    | 'U' , HEX , HEX , HEX , HEX , HEX , HEX , HEX , HEX ) ;
-identifier  = LETTER_ , { LETTER_ | DIGIT } ;
+  Author: RubixDev
+*)
+
+Program      = Statements ;
+Statements   = { Statement , ';' } ;
+Block        = BlockExpr | Statement ;
+
+(**************************)
+(******* STATEMENTS *******)
+(**************************)
+Statement    = VarStmt
+             | FunctionDecl
+             | ClassDecl
+             | BreakStmt
+             | ContinueStmt
+             | ReturnStmt
+             | Expression ;
+VarStmt      = 'var' , identifier , [ '=' , Expression ] ;
+FunctionDecl = 'fun' , identifier , ArgNames , Block ;
+ClassDecl    = 'class' , identifier , MemberBlock ;
+BreakStmt    = 'break' , [ Expression ] ;
+ContinueStmt = 'continue' ;
+ReturnStmt   = 'return' , [ Expression ] ;
+
+(*****************************)
+(******* CLASS MEMBERS *******)
+(*****************************)
+Member = [ 'static' ] , ( FunctionDecl | VarStmt ) ;
+MemberBlock = '{' , { Member } , '}' ;
+
+(***************************)
+(******* EXPRESSIONS *******)
+(***************************)
+Expression = RangeExpr ;
+RangeExpr  = OrExpr , [ ( '..' | '..=' ) , OrExpr ] ;
+OrExpr     = AndExpr , { '||' , AndExpr } ;
+AndExpr    = BitOrExpr , { '&&' , BitOrExpr } ;
+BitOrExpr  = BitXorExpr , { '|' , BitXorExpr } ;
+BitXorExpr = BitAndExpr , { '^' , BitAndExpr } ;
+BitAndExpr = EqExpr , { '&' , EqExpr } ;
+EqExpr     = RelExpr , [ ( '==' | '!=' ) , RelExpr ] ;
+RelExpr    = ShiftExpr , [ ( '<' | '>' | '<=' | '>=' ) , ShiftExpr ] ;
+ShiftExpr  = AddExpr , { ( '<<' | '>>' ) , AddExpr } ;
+AddExpr    = MulExpr , { ( '+' | '-' ) , MulExpr } ;
+MulExpr    = UnaryExpr , { ( '*' | '/' | '%' | '\' ) , UnaryExpr } ;
+UnaryExpr  = ( '+' | '-' | '!' ) , UnaryExpr
+           | ExpExpr ;
+ExpExpr    = AssignExpr , [ '**' , UnaryExpr ] ;
+AssignExpr = CallExpr , [ ASSIGN_OPERATOR , Expression ] ;
+ASSING_OPERATOR = '=' | '*=' | '/=' | '\=' | '%=' | '+=' | '-='
+                | '<<=' | '>>=' | '&=' | '^=' | '|=' | '**=' ;
+CallExpr   = MemberExpr , [ Args , { CallPart } ] ;
+MemberExpr = Atom , { MemberPart } ;
+Atom       = number
+           | bool
+           | string
+           | 'null'
+           | identifier
+           | '(' , Expression , ')'
+           | IfExpr
+           | ForExpr
+           | WhileExpr
+           | LoopExpr
+           | FunExpr
+           | ClassExpr
+           | TryExpr
+           | BlockExpr ;
+IfExpr     = 'if' , '(' , Expression , ')' , Block , [ 'else' , Block ] ;
+ForExpr    = 'for' , '(' , identifier , 'in' , Expression , ')' , Block ;
+WhileExpr  = 'while' , '(' , Expression , ')' , Block ;
+LoopExpr   = 'loop' , Block ;
+FunExpr    = 'fun' , ArgNames , Block ;
+ClassExpr  = 'class' , MemberBlock ;
+TryExpr    = 'try' , Block , 'catch' , '(' , identifier , ')' , Block ;
+BlockExpr  = '{' , Statements , [ Expression ] , '}' ;
+
+(*********************)
+(******* OTHER *******)
+(*********************)
+MemberPart = '.' , identifier ;
+CallPart   = MemberPart | Args ;
+Args       = '(' , [ Expression , { ',' , Expression } , [ ',' ] ] , ')' ;
+ArgNames   = '(' , [ identifier , { ',' , identifier } , [ ',' ] ] , ')' ;
+
+(**********************************)
+(******* NONTERMINAL TOKENS *******)
+(**********************************)
 number      = DIGIT , { DIGIT | '_' } , [ '.' , DIGIT , { DIGIT | '_' } ]
             | '.' , DIGIT , { DIGIT , | '_' } ;
+string      = '"' , { CHAR - ( '"' | '\' ) | escape_seq } , '"'
+            | "'" , { CHAR - ( "'" | '\' ) | escape_seq } , "'" ;
+escape_seq  = '\' , ( ESCAPE_CHAR
+                    | 3 * OCTAL
+                    | 'x' , 2 * HEX
+                    | 'u' , 4 * HEX
+                    | 'U' , 8 * HEX ) ;
+bool        = 'true' | 'false' ;
+identifier  = ( LETTER , { LETTER | DIGIT } ) - ( bool | 'null' | ? any keyword ? ) ;
 
-(* helper stuff *)
-Arguments                   = '(' , [ Expression , { ',' , Expression } ] , ')' ;
-ArgumentNames               = '(' , [ identifier , { ',' , identifier } ] , ')' ;
-MemberPart                  = '.' , identifier ; (* indexing with [..] will be added in the future *)
-CallPart                    = MemberPart | Arguments ;
-
-(* expression nodes *)
-Expression                  = OrExpression , [ '..' , [ '=' ] , OrExpression ] ;
-OrExpression                = AndExpression , { '|' , AndExpression } ;
-AndExpression               = EqualityExpression , { '&' , EqualityExpression } ;
-EqualityExpression          = RelationalExpression , [ ( '==' | '!=' ) , RelationalExpression ] ;
-RelationalExpression        = AdditiveExpression , [ ( '<' | '>' | '<=' | '>=' ) , AdditiveExpression ] ;
-AdditiveExpression          = MultiplicativeExpression , { ( '+' | '-' ) , MultiplicativeExpression } ;
-MultiplicativeExpression    = UnaryExpression , { ( '*' | '/' | '%' | '\' ) , UnaryExpression } ;
-UnaryExpression             = ( '+' | '-' | '!' ) , UnaryExpression
-                            | ExponentialExpression ;
-ExponentialExpression       = CallExpression , [ '**' , UnaryExpression ] ;
-CallExpression              = MemberExpression , [ Arguments , { CallPart } ] ;
-MemberExpression            = Atom , { MemberPart } ;
-Atom                        = number
-                            | bool
-                            | string
-                            | identifier
-                            | IfExpression
-                            | 'null'
-                            | '(' , Expression , ')'
-                            | FunExpression
-                            | ClassExpression
-                            | '{' , Statements , '}' ;
-IfExpression                = 'if' , '(' , Expression , ')' , Block , [ { eol } , 'else' , Block ] ;
-FunExpression               = 'fun' , ArgumentNames , Block ;
-ClassExpression             = 'class' , DeclarationBlock ;
-
-(* statement nodes *)
-Statement           = DeclareStatement
-                    | AssignStatement
-                    | LoopStatement
-                    | WhileStatement
-                    | ForStatement
-                    | FunctionDeclaration
-                    | ClassDeclaration
-                    | Expression
-                    | BreakStatement
-                    | ContinueStatement
-                    | ReturnStatement ;
-Declaration         = [ 'static' ] , FunctionDeclaration
-                    | DeclareStatement ;
-DeclareStatement    = 'var' , identifier , [ '=' , Expression ] ;
-AssignStatement     = identifier , { MemberPart } , ( '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '\=' | '**=' ) , Expression ;
-LoopStatement       = 'loop' , Block ;
-WhileStatement      = 'while' , '(' , Expression , ')' , Block ;
-ForStatement        = 'for' , '(' , identifier , 'in' , Expression , ')' , Block ;
-FunctionDeclaration = 'fun' , identifier , ArgumentNames , Block ;
-ClassDeclaration    = 'class' , identifier , DeclarationBlock ;
-BreakStatement      = 'break' ;
-ContinueStatement   = 'continue' ;
-ReturnStatement     = 'return' , [ Expression ] ;
-
-(* other nodes *)
-Statements       = { eol } , [ Statement , { eol , { eol } , Statement } ] , { eol } ;
-Block            = { eol } , ( '{' , Statements , '}' | Statement ) ;
-Declarations     = { eol } , [ Declaration , { eol , { eol } , Declaration } ] , { eol } ;
-DeclarationBlock = { eol } , '{' , Declarations , '}' ;
-Program          = Statements , eof ;
+(************************************)
+(******* TERMINAL SYMBOL SETS *******)
+(************************************)
+LETTER      = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J'
+            | 'K' | 'L' | 'M' | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T'
+            | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z'
+            | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j'
+            | 'k' | 'l' | 'm' | 'n' | 'o' | 'p' | 'q' | 'r' | 's' | 't'
+            | 'u' | 'v' | 'w' | 'x' | 'y' | 'z'
+            | '_' ;
+OCTAL       = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' ;
+DIGIT       = OCTAL | '8' | '9' ;
+HEX         = DIGIT
+            | 'A' | 'B' | 'C' | 'D' | 'E' | 'F'
+            | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' ;
+CHAR        = ? any character included in the Unicode character set ? ;
+ESCAPE_CHAR = '\' | "'" | '"' | 'a' | 'b' | 'f' | 'n' | 'r' | 't' | 'v' ;

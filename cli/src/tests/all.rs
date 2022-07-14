@@ -1,10 +1,16 @@
-use std::io::Cursor;
 use ntest::timeout;
-use roost::{interpreter::{Interpreter, Exit}, parser::Parser, lexer::Lexer};
+use roost::{
+    interpreter::{Exit, Interpreter},
+    lexer::Lexer,
+    parser::Parser,
+};
+use std::io::Cursor;
 
 struct SimpleExit;
 impl Exit for SimpleExit {
-    fn exit(&mut self, code: i32) { std::process::exit(code); }
+    fn exit(&mut self, code: i32) {
+        std::process::exit(code);
+    }
 }
 
 fn test_code(code: &str, expected: &str) {
@@ -18,7 +24,7 @@ fn test_code(code: &str, expected: &str) {
         &mut out,
         SimpleExit,
     ) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => panic!("{}", e),
     };
 
@@ -27,7 +33,8 @@ fn test_code(code: &str, expected: &str) {
 
 #[test]
 fn assignments() {
-    test_code(r#"
+    test_code(
+        r#"
     var start = 12
     print(start + ' ')
 
@@ -42,7 +49,9 @@ fn assignments() {
 
     var start = 'a'
     print(start)
-    "#, "12 14 10 20 10 1 10 3 27 a")
+    "#,
+        "12 14 10 20 10 1 10 3 27 a",
+    )
 }
 
 #[test]
@@ -74,7 +83,8 @@ fn operators() {
 #[test]
 #[timeout(20_000)]
 fn loops() {
-    test_code(r#"
+    test_code(
+        r#"
     var i = 0
     loop { if (i > 50) break; i += 1 }
     var i = 0
@@ -82,12 +92,15 @@ fn loops() {
     var i = 0
     while (i <= 50) i += 1
     for (i in 0..=50) { continue; 10/0 }
-    "#, "")
+    "#,
+        "",
+    )
 }
 
 #[test]
 fn fun() {
-    test_code(r#"
+    test_code(
+        r#"
     fun a(a, b) return a + b
     print(a(3, 4), '')
     fun a(a, b) { return a + b; 10/0 }
@@ -101,12 +114,15 @@ fn fun() {
     print(a(3, 4), '')
     var a = fun(a, b) { return a + b; 10/0 }
     print(a(3, 4), '')
-    "#, "7 7 7 7 7 7 ")
+    "#,
+        "7 7 7 7 7 7 ",
+    )
 }
 
 #[test]
 fn scopes() {
-    test_code(r#"
+    test_code(
+        r#"
     var a = 1
     var b = 2
     var c = 3
@@ -129,17 +145,22 @@ fn scopes() {
     print(b)
     print(c)
     print(answer)
-    "#, "653424534212342")
+    "#,
+        "653424534212342",
+    )
 }
 
 #[test]
 fn comments() {
-    test_code(r#"
+    test_code(
+        r#"
     print('a') // $ ; print('a')
     print(/| comment $ |/ 'b') /|
     comment
     comment
     |/
     print('c')
-    "#, "abc")
+    "#,
+        "abc",
+    )
 }

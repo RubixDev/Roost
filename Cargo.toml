@@ -6,9 +6,9 @@ edition = "2021"
 authors = ["RubixDev"]
 license = "GPL-2.0-only"
 
-[workspace]
-members = ["cli"]
-default-members = ["cli"]
+#[workspace]
+#members = ["cli"]
+#default-members = ["cli"]
 
 [features]
 no_std_io = []
@@ -16,4 +16,4 @@ no_std_io = []
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rust_decimal = { version = "1.20.0", features = ["maths"] }
+rust_decimal = { version = "1.25.0", features = ["maths"] }

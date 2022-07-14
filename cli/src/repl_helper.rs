@@ -1,7 +1,18 @@
-use std::{collections::HashMap, io::Cursor};
-use rustyline::{completion::Completer, hint::Hinter, highlight::Highlighter, validate::{Validator, MatchingBracketValidator}, Helper};
-use syntect::{parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder}, highlighting::{ThemeSet, Theme}, easy::HighlightLines, util::LinesWithEndings};
 use roost::interpreter::value::Value;
+use rustyline::{
+    completion::Completer,
+    highlight::Highlighter,
+    hint::Hinter,
+    validate::{MatchingBracketValidator, Validator},
+    Helper,
+};
+use std::{collections::HashMap, io::Cursor};
+use syntect::{
+    easy::HighlightLines,
+    highlighting::{Theme, ThemeSet},
+    parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder},
+    util::LinesWithEndings,
+};
 
 pub struct ReplHelper {
     global_scope: HashMap<String, Value>,
@@ -17,11 +28,21 @@ impl ReplHelper {
             brackets: MatchingBracketValidator::new(),
             syntaxes: {
                 let mut builder = SyntaxSetBuilder::new();
-                builder.add(SyntaxDefinition::load_from_str(include_str!("res/roost.sublime-syntax"), true, None).unwrap());
+                builder.add(
+                    SyntaxDefinition::load_from_str(
+                        include_str!("res/roost.sublime-syntax"),
+                        true,
+                        None,
+                    )
+                    .unwrap(),
+                );
                 builder.build()
             },
-            theme: ThemeSet::load_from_reader(&mut Cursor::new(include_str!("res/one-dark.tmTheme"))).unwrap(),
-        }
+            theme: ThemeSet::load_from_reader(&mut Cursor::new(include_str!(
+                "res/one-dark.tmTheme"
+            )))
+            .unwrap(),
+        };
     }
 }
 
@@ -39,11 +60,15 @@ impl Completer for ReplHelper {
         let mut name = String::new();
         let mut name_pos = pos;
         while let Some(char) = line.chars().nth(name_pos.wrapping_sub(1)) {
-            if !char.is_ascii_alphanumeric() && char != '_' { break; }
+            if !char.is_ascii_alphanumeric() && char != '_' {
+                break;
+            }
             name.push(char);
             name_pos -= 1;
         }
-        if name.is_empty() { return Ok((0, vec![])) }
+        if name.is_empty() {
+            return Ok((0, vec![]));
+        }
         name = name.chars().rev().collect();
 
         let mut completions = vec![
@@ -61,7 +86,6 @@ impl Completer for ReplHelper {
             String::from("return"),
             String::from("break"),
             String::from("continue"),
-
             String::from("print"),
             String::from("printl"),
             String::from("typeOf"),
@@ -71,12 +95,18 @@ impl Completer for ReplHelper {
         for name in self.global_scope.keys() {
             completions.push(name.clone());
         }
-        completions = completions.iter().filter_map(|it| if it.starts_with(&name) { Some(it.clone()) } else { None }).collect();
+        completions = completions
+            .iter()
+            .filter_map(|it| {
+                if it.starts_with(&name) {
+                    Some(it.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
 
-        return Ok((
-            name_pos,
-            completions,
-        ));
+        return Ok((name_pos, completions));
     }
 }
 
@@ -84,23 +114,34 @@ impl Hinter for ReplHelper {
     type Hint = String;
 
     fn hint(&self, line: &str, pos: usize, ctx: &rustyline::Context<'_>) -> Option<Self::Hint> {
-        if line.len() > pos { return None; }
+        if line.len() > pos {
+            return None;
+        }
         if let Ok((mut completion_pos, completions)) = self.complete(line, pos, ctx) {
-            if completions.is_empty() { return None; }
+            if completions.is_empty() {
+                return None;
+            }
             let mut hint = completions[0].clone();
             while completion_pos < pos {
-                if hint.is_empty() { return None; }
+                if hint.is_empty() {
+                    return None;
+                }
                 hint.remove(0);
                 completion_pos += 1;
             }
             return Some(hint);
-        } else { return None; };
+        } else {
+            return None;
+        };
     }
 }
 
 impl Highlighter for ReplHelper {
     fn highlight<'l>(&self, line: &'l str, _: usize) -> std::borrow::Cow<'l, str> {
-        let mut h = HighlightLines::new(self.syntaxes.find_syntax_by_name("roost").unwrap(), &self.theme);
+        let mut h = HighlightLines::new(
+            self.syntaxes.find_syntax_by_name("roost").unwrap(),
+            &self.theme,
+        );
         let mut out = String::new();
         for line in LinesWithEndings::from(line) {
             let ranges = h.highlight(line, &self.syntaxes);
@@ -136,7 +177,10 @@ impl Highlighter for ReplHelper {
 }
 
 impl Validator for ReplHelper {
-    fn validate(&self, ctx: &mut rustyline::validate::ValidationContext) -> rustyline::Result<rustyline::validate::ValidationResult> {
+    fn validate(
+        &self,
+        ctx: &mut rustyline::validate::ValidationContext,
+    ) -> rustyline::Result<rustyline::validate::ValidationResult> {
         return self.brackets.validate(ctx);
     }
 }

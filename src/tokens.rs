@@ -1,27 +1,33 @@
-use std::fmt::Debug;
 use crate::error::Location;
+use std::fmt::Debug;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenType {
-    Identifier,         // variable and function names
+    Identifier, // name for variable, function or class
 
-    LParen,             // '('
-    RParen,             // ')'
-    LBrace,             // '{'
-    RBrace,             // '}'
+    LParen, // '('
+    RParen, // ')'
+    LBrace, // '{'
+    RBrace, // '}'
 
-    String,             // string including quotes, token value does not include quotes
-    Number,             // int or float
-    RangeDots,          // '..' or '..='
+    String,        // string including quotes, token value does not include quotes
+    Number,        // int or float
+    Dots,          // '..'
+    DotsInclusive, // '..='
 
-    Or,                 // '|'
-    And,                // '&'
+    Or,                 // '||'
+    And,                // '&&'
+    BitOr,              // '|'
+    BitXor,             // '^'
+    BitAnd,             // '&'
     Equal,              // '=='
     NotEqual,           // '!='
     LessThan,           // '<'
     GreaterThan,        // '>'
     LessThanOrEqual,    // '<='
     GreaterThanOrEqual, // '>='
+    ShiftRight,         // '>>'
+    ShiftLeft,          // '<<'
     Plus,               // '+'
     Minus,              // '-'
     Multiply,           // '*'
@@ -39,9 +45,14 @@ pub enum TokenType {
     ModuloAssign,       // '%='
     IntDivideAssign,    // '\='
     PowerAssign,        // '**='
+    ShiftLeftAssign,    // '<<='
+    ShiftRightAssign,   // '>>='
+    BitOrAssign,        // '|='
+    BitAndAssign,       // '&='
+    BitXorAssign,       // '^='
 
-    Comma,              // ','
-    Dot,                // '.'
+    Comma, // ','
+    Dot,   // '.'
 
     // Keywords
     Var,
@@ -60,37 +71,53 @@ pub enum TokenType {
     Return,
     Break,
     Continue,
+    Try,
+    Catch,
 
     Unknown,
-    EOL,                // End Of Line: \n or ';'
-    EOF,                // End Of File
+    Semicolon,
+    Eof,
 }
 
 #[derive(Clone, PartialEq)]
-pub struct Token {
+pub struct Token<'f> {
     pub token_type: TokenType,
     pub value: String,
-    pub start: Location,
-    pub end: Location,
+    pub start: Location<'f>,
+    pub end: Location<'f>,
 }
 
-impl Token {
-    pub fn new(token_type: TokenType, value: &str, start: Location, end: Location) -> Self {
-        return Token { token_type, value: String::from(value), start, end };
+impl<'f> Token<'f> {
+    pub fn new(token_type: TokenType, value: String, start: Location<'f>, end: Location<'f>) -> Self {
+        Token {
+            token_type,
+            value,
+            start,
+            end,
+        }
     }
 
     pub fn dummy() -> Self {
         return Token {
             token_type: TokenType::Unknown,
             value: String::from("Unknown"),
-            start: Location::new(String::new()),
-            end: Location::new(String::new()),
+            start: Location::new(""),
+            end: Location::new(""),
         };
     }
 }
 
-impl Debug for Token {
+impl Debug for Token<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "( {:?} | {:?} | {}:{}..{}:{} )", self.token_type, self.value, self.start.line, self.start.column, self.end.line, self.end.column)
+        write!(
+            f,
+            "( {:?} | {:?} | {}:{}..{}:{} )",
+            self.token_type,
+            self.value,
+            self.start.line,
+            self.start.column,
+            self.end.line,
+            self.end.column
+        )
     }
 }

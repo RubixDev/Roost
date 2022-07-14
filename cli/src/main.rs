@@ -1,15 +1,24 @@
 mod repl_helper;
 
-use std::{io::{Read, /* Write */}, time::{Instant, Duration}, fs::File, collections::HashMap};
-use rustyline::{Editor, error::ReadlineError, Config};
-use structopt::StructOpt;
-use roost::{lexer::Lexer, parser::Parser, interpreter::{Interpreter, value::Value, Exit}};
 use repl_helper::ReplHelper;
+use roost::{
+    interpreter::{value::Value, Exit, Interpreter},
+    lexer::Lexer,
+    parser::Parser,
+};
+use rustyline::{error::ReadlineError, Config, Editor};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::Read,
+    time::{Duration, Instant},
+};
+use structopt::StructOpt;
 
 #[cfg(test)]
 mod tests {
-    mod fetch;
     mod all;
+    mod fetch;
 }
 
 /// Command line interpreter for the roost language
@@ -30,12 +39,28 @@ macro_rules! print_error {
         let lines: Vec<&str> = $code.split('\n').collect();
 
         let line1 = if $error.start.line > 1 {
-            format!("\n \x1b[90m{: >3} | \x1b[0m{}", $error.start.line - 1, lines[$error.start.line - 2])
-        } else { String::new() };
-        let line2 = format!(" \x1b[90m{: >3} | \x1b[0m{}", $error.start.line, lines[$error.start.line - 1]);
+            format!(
+                "\n \x1b[90m{: >3} | \x1b[0m{}",
+                $error.start.line - 1,
+                lines[$error.start.line - 2]
+            )
+        } else {
+            String::new()
+        };
+        let line2 = format!(
+            " \x1b[90m{: >3} | \x1b[0m{}",
+            $error.start.line,
+            lines[$error.start.line - 1]
+        );
         let line3 = if $error.start.line < lines.len() {
-            format!("\n \x1b[90m{: >3} | \x1b[0m{}", $error.start.line + 1, lines[$error.start.line])
-        } else { String::new() };
+            format!(
+                "\n \x1b[90m{: >3} | \x1b[0m{}",
+                $error.start.line + 1,
+                lines[$error.start.line]
+            )
+        } else {
+            String::new()
+        };
 
         let marker = format!(
             "{}\x1b[1;31m{}\x1b[0m",
@@ -105,25 +130,31 @@ fn run_file(cli: Roost, filename: String) {
 
     let mut code = String::new();
     let mut file = File::open(&filename).unwrap_or_else(|e| {
-        eprintln!("\x1b[31mCould not read file \x1b[1m{}\x1b[22m: {}\x1b[0m", filename, e);
+        eprintln!(
+            "\x1b[31mCould not read file \x1b[1m{}\x1b[22m: {}\x1b[0m",
+            filename, e
+        );
         std::process::exit(2);
     });
     file.read_to_string(&mut code).unwrap_or_else(|e| {
-        eprintln!("\x1b[31mCould not read file \x1b[1m{}\x1b[22m: {}\x1b[0m", filename, e);
+        eprintln!(
+            "\x1b[31mCould not read file \x1b[1m{}\x1b[22m: {}\x1b[0m",
+            filename, e
+        );
         std::process::exit(3);
     });
 
     let end_read = start_total.elapsed();
     let start = Instant::now();
 
-    let nodes = match Parser::new_parse(Lexer::new(&code, filename)) {
+    let nodes = match Parser::new_parse(Lexer::new(&code, &filename)) {
         Ok(nodes) => nodes,
         Err(errors) => {
             for error in errors {
                 print_error!(error, code);
             }
             std::process::exit(1);
-        },
+        }
     };
     // file = File::create("nodes.txt").unwrap();
     // write!(file, "{:#?}", nodes).unwrap();
@@ -141,7 +172,8 @@ fn run_file(cli: Roost, filename: String) {
             end_run: start.elapsed(),
             end: start_total.elapsed(),
         },
-    ).unwrap_or_else(|e| exit!(e, code));
+    )
+    .unwrap_or_else(|e| exit!(e, code));
 
     let end_run = start.elapsed();
     let end = start_total.elapsed();
@@ -157,26 +189,26 @@ fn run_file(cli: Roost, filename: String) {
 }
 
 macro_rules! repl_num {
-    ($error:ident) => {
-        {
-            let num = $error.start.filename.split("repl-").collect::<Vec<&str>>()[1];
-            let num = &num[..num.len() - 1];
-            num.parse::<usize>().unwrap()
-        }
-    };
+    ($error:ident) => {{
+        let num = $error.start.filename.split("repl-").collect::<Vec<&str>>()[1];
+        let num = &num[..num.len() - 1];
+        num.parse::<usize>().unwrap()
+    }};
 }
 
 struct ReplExit<'a> {
-    editor: &'a mut Editor<ReplHelper>
+    editor: &'a mut Editor<ReplHelper>,
 }
 
-impl <'a> Exit for ReplExit<'a> {
+impl<'a> Exit for ReplExit<'a> {
     fn exit(&mut self, code: i32) {
         match std::env::var("HOME") {
             Ok(path) => {
-                let _ = self.editor.save_history(&format!("{}/.roost_history", path));
-            },
-            Err(_) => {},
+                let _ = self
+                    .editor
+                    .save_history(&format!("{}/.roost_history", path));
+            }
+            Err(_) => {}
         }
         std::process::exit(code);
     }
@@ -185,28 +217,32 @@ impl <'a> Exit for ReplExit<'a> {
 fn run_repl() {
     let mut global_scope: HashMap<String, Value> = HashMap::new();
     let mut codes = vec![];
-    let mut rl = Editor::with_config(Config::builder()
-        .completion_type(rustyline::CompletionType::List)
-        .tab_stop(4)
-        .indent_size(4)
-        .build());
+    let mut rl = Editor::with_config(
+        Config::builder()
+            .completion_type(rustyline::CompletionType::List)
+            .tab_stop(4)
+            .indent_size(4)
+            .build(),
+    );
     rl.set_helper(Some(ReplHelper::new(global_scope.clone())));
     match std::env::var("HOME") {
         Ok(path) => {
             let _ = rl.load_history(&format!("{}/.roost_history", path));
-        },
-        Err(_) => {},
+        }
+        Err(_) => {}
     }
     loop {
         match rl.readline(">> ") {
             Ok(line) => {
                 rl.add_history_entry(&line);
                 codes.push(line.clone());
-                if line.chars().all(|char| [' ', '\t', '\r'].contains(&char)) { continue; }
+                if line.chars().all(|char| [' ', '\t', '\r'].contains(&char)) {
+                    continue;
+                }
 
                 let nodes = match Parser::new_parse(Lexer::new(
                     &line,
-                    format!("<repl-{}>", codes.len()),
+                    &format!("<repl-{}>", codes.len()),
                 )) {
                     Ok(nodes) => nodes,
                     Err(errors) => {
@@ -214,14 +250,11 @@ fn run_repl() {
                             print_error!(error, codes[repl_num!(error) - 1]);
                         }
                         continue;
-                    },
+                    }
                 };
 
-                let mut interpreter = Interpreter::new(
-                    nodes,
-                    std::io::stdout(),
-                    ReplExit { editor: &mut rl },
-                );
+                let mut interpreter =
+                    Interpreter::new(nodes, std::io::stdout(), ReplExit { editor: &mut rl });
                 interpreter.scopes.push(global_scope.clone());
                 interpreter.current_scope_index += 1;
                 match interpreter.run(false) {
@@ -229,15 +262,15 @@ fn run_repl() {
                         if let Some(val) = result.value {
                             println!("{:?}", val)
                         }
-                    },
+                    }
                     Err(error) => {
                         print_error!(error, codes[repl_num!(error) - 1]);
                         continue;
-                    },
+                    }
                 }
                 global_scope = interpreter.scopes[1].clone();
                 rl.set_helper(Some(ReplHelper::new(global_scope.clone())));
-            },
+            }
             Err(ReadlineError::Eof) => break,
             Err(ReadlineError::Interrupted) => continue,
             Err(_) => std::process::exit(1),
@@ -246,7 +279,7 @@ fn run_repl() {
     match std::env::var("HOME") {
         Ok(path) => {
             let _ = rl.save_history(&format!("{}/.roost_history", path));
-        },
-        Err(_) => {},
+        }
+        Err(_) => {}
     }
 }

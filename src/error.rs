@@ -1,11 +1,11 @@
 use std::fmt::Display;
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<'f, T> = std::result::Result<T, Error<'f>>;
 
 macro_rules! error_val {
     ($kind:ident, $start:expr, $end:expr, $($arg:tt)*) => {
-        crate::error::Error::new(
-            crate::error::ErrorKind::$kind,
+        $crate::error::Error::new(
+            $crate::error::ErrorKind::$kind,
             format!($($arg)*),
             $start,
             $end,
@@ -19,22 +19,22 @@ macro_rules! error {
     };
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Location {
-    pub filename: String,
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Location<'f> {
+    pub filename: &'f str,
     pub line: usize,
     pub column: usize,
     pub index: usize,
 }
 
-impl Location {
-    pub fn new(filename: String) -> Self {
-        return Location {
+impl<'f> Location<'f> {
+    pub fn new(filename: &'f str) -> Self {
+        Self {
             filename,
             line: 1,
             column: 1,
             index: 0,
-        };
+        }
     }
 
     pub fn advance(&mut self, next_line: bool) {
@@ -49,34 +49,36 @@ impl Location {
 }
 
 #[derive(Debug, Clone)]
-pub struct Error {
+pub struct Error<'f> {
     pub kind: ErrorKind,
     pub message: String,
-    pub start: Location,
-    pub end: Location,
+    pub start: Location<'f>,
+    pub end: Location<'f>,
 }
 
-impl Error {
-    pub fn new(kind: ErrorKind, message: String, start: Location, end: Location) -> Self {
-        return Error { kind, message, start, end };
+impl<'f> Error<'f> {
+    pub fn new(kind: ErrorKind, message: String, start: Location<'f>, end: Location<'f>) -> Self {
+        Self {
+            kind,
+            message,
+            start,
+            end,
+        }
     }
 }
 
-impl Display for Error {
+impl Display for Error<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{:?} at {}:{}:{}  {}",
-            self.kind,
-            self.start.filename,
-            self.start.line,
-            self.start.column,
-            self.message,
+            self.kind, self.start.filename, self.start.line, self.start.column, self.message,
         )
     }
 }
 
 #[derive(Debug, Clone)]
+#[allow(clippy::enum_variant_names)]
 pub enum ErrorKind {
     SyntaxError,
     TypeError,

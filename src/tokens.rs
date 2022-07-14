@@ -37,19 +37,19 @@ pub enum TokenType {
     IntDivide,          // '\'
     Not,                // '!'
 
-    Assign,             // '='
-    PlusAssign,         // '+='
-    MinusAssign,        // '-='
-    MultiplyAssign,     // '*='
-    DivideAssign,       // '/='
-    ModuloAssign,       // '%='
-    IntDivideAssign,    // '\='
-    PowerAssign,        // '**='
-    ShiftLeftAssign,    // '<<='
-    ShiftRightAssign,   // '>>='
-    BitOrAssign,        // '|='
-    BitAndAssign,       // '&='
-    BitXorAssign,       // '^='
+    Assign,           // '='
+    PlusAssign,       // '+='
+    MinusAssign,      // '-='
+    MultiplyAssign,   // '*='
+    DivideAssign,     // '/='
+    ModuloAssign,     // '%='
+    IntDivideAssign,  // '\='
+    PowerAssign,      // '**='
+    ShiftLeftAssign,  // '<<='
+    ShiftRightAssign, // '>>='
+    BitOrAssign,      // '|='
+    BitAndAssign,     // '&='
+    BitXorAssign,     // '^='
 
     Comma, // ','
     Dot,   // '.'
@@ -88,7 +88,12 @@ pub struct Token<'f> {
 }
 
 impl<'f> Token<'f> {
-    pub fn new(token_type: TokenType, value: String, start: Location<'f>, end: Location<'f>) -> Self {
+    pub fn new(
+        token_type: TokenType,
+        value: String,
+        start: Location<'f>,
+        end: Location<'f>,
+    ) -> Self {
         Token {
             token_type,
             value,

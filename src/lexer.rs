@@ -65,7 +65,7 @@ impl<'i, 'f> Lexer<'i, 'f> {
         lexer
     }
 
-    pub fn next_token(&mut self) -> LexResult<'f, Token> {
+    pub fn next_token(&mut self) -> LexResult<'f, Token<'f>> {
         while let Some(current_char) = self.current_char {
             match current_char {
                 ' ' | '\t' | '\r' | '\n' => self.advance(),
@@ -155,7 +155,7 @@ impl<'i, 'f> Lexer<'i, 'f> {
         ) {
             (Some(ty), .., Some('=')) => {
                 self.advance();
-                Token::new(ty, format!("{char}="), start_location, self.location)
+                Token::new(ty, char.to_string() + "=", start_location, self.location)
             }
             (_, Some(_), _, Some(c)) | (_, _, Some(_), Some(c)) if c == char => {
                 self.advance();
@@ -179,7 +179,7 @@ impl<'i, 'f> Lexer<'i, 'f> {
         }
     }
 
-    fn make_string(&mut self) -> LexResult<'f, Token> {
+    fn make_string(&mut self) -> LexResult<'f, Token<'f>> {
         let start_location = self.location;
         let start_quote = self.current_char;
         let mut string = String::new();
@@ -310,7 +310,7 @@ impl<'i, 'f> Lexer<'i, 'f> {
         Token::new(TokenType::Number, number, start_location, self.location)
     }
 
-    fn make_dot(&mut self) -> LexResult<'f, Token> {
+    fn make_dot(&mut self) -> LexResult<'f, Token<'f>> {
         let start_location = self.location;
         self.advance();
 

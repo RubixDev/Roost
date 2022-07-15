@@ -1,4 +1,4 @@
-use roost::{lexer::Lexer, tokens::TokenType};
+use roost::{lexer::Lexer, tokens::TokenType, parser::Parser};
 
 fn main() {
     let mut l = Lexer::new(r#"< > <= >= << >> <<= >>= . .. ..= .3"#, "asd");
@@ -8,4 +8,8 @@ fn main() {
             break;
         }
     }
+
+    let l = Lexer::new(r#"var a = 1;"#, "asd");
+    let mut p = Parser::new(l);
+    println!("{:#?}", p.parse());
 }

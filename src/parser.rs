@@ -1,796 +1,643 @@
-use rust_decimal::Decimal;
+use std::result;
+
 use crate::{
+    error::{Error, Result},
+    lexer::Lexer,
+    nodes::*,
     tokens::{Token, TokenType},
-    error::{Result, Error},
-    nodes::{
-        Statements,
-        Statement,
-        DeclareStatement,
-        AssignStatement,
-        IfExpression,
-        LoopStatement,
-        WhileStatement,
-        ForStatement,
-        FunctionDeclaration,
-        ReturnStatement,
-        Expression,
-        OrExpression,
-        AndExpression,
-        EqualityExpression,
-        RelationalExpression,
-        AdditiveExpression,
-        MultiplicativeExpression,
-        UnaryExpression,
-        Atom,
-        CallExpression,
-        ExponentialExpression,
-        FunExpression,
-        CallPart,
-        MemberPart,
-        MemberExpression,
-        ClassDeclaration,
-        ClassExpression,
-    }, lexer::Lexer,
 };
 
-macro_rules! loc {
-    ($self:ident) => {
-        $self.current_token.start.clone()
-    };
-}
-
-macro_rules! syntax {
+macro_rules! syntax_err {
     ($self:ident, $($arg:tt)*) => {
-        error!(SyntaxError, $self.current_token.start.clone(), $self.current_token.end.clone(), $($arg)*)
+        error!(SyntaxError, $self.token.start, $self.token.end, $($arg)*)
     };
 }
 
-macro_rules! expected {
+macro_rules! expect {
     ($self:ident, $token_type:ident, $name:expr) => {
-        if $self.current_token.token_type != TokenType::$token_type {
+        if $self.token.token_type != TokenType::$token_type {
             $self.errors.push(error_val!(
                 SyntaxError,
-                $self.current_token.start.clone(),
-                $self.current_token.end.clone(),
+                $self.token.start,
+                $self.token.end,
                 "Expected {}, found '{}'",
                 $name,
-                $self.current_token.value
+                $self.token.value(),
             ));
         }
+        $self.advance();
     };
 }
 
-macro_rules! is_type {
-    ($self:ident, $type:ident) => {
-        $self.current_token.token_type == TokenType::$type
-    };
+macro_rules! expect_ident {
+    ($self:ident) => {{
+        if $self.token.token_type != TokenType::Identifier {
+            $self.errors.push(error_val!(
+                SyntaxError,
+                $self.token.start,
+                $self.token.end,
+                "Expected identifier, found '{}'",
+                $self.token.value(),
+            ));
+        }
+        let ident = $self.token.value.take().unwrap_or_default();
+        $self.advance();
+        ident
+    }};
 }
 
 macro_rules! of_types {
-    ($self:ident, $($type:ident),+) => {
-        [$(TokenType::$type, )*].contains(&$self.current_token.token_type)
+    ($self:ident, $type:ident) => {
+        $self.token.token_type == TokenType::$type
+    };
+    ($self:ident, $($type:ident),+ $(,)?) => {
+        [$(TokenType::$type, )*].contains(&$self.token.token_type)
     };
 }
 
-pub struct Parser<'a> {
-    lexer: Lexer<'a>,
-    current_token: Token,
-    errors: Vec<Error>,
+macro_rules! simple_expr {
+    ($name:ident -> $type:ident : $($tok:ident),+ => $next:ident $kind:tt) => {
+        fn $name(&mut self) -> Result<'f, $type<'f>> {
+            let start = self.token.start;
+            simple_expr!(@kind self, start, $type, $($tok),+ | $next, $kind)
+        }
+    };
+    (@kind $self:ident, $start:ident, $type:ident, $($tok:ident),+ | $next:ident, *) => {{
+        let base = $self.$next()?;
+        let mut following = Rep::new();
+        while of_types!($self, $($tok),+) {
+            following.push(simple_expr!(@inner $self, $next, $($tok),+));
+        }
+        Ok($type { start: $start, end: $self.token.start, base, following })
+    }};
+    (@kind $self:ident, $start:ident, $type:ident, $($tok:ident),+ | $next:ident, ?) => {{
+        let left = $self.$next()?;
+        let right = if of_types!($self, $($tok),+) {
+            Some(simple_expr!(@inner $self, $next, $($tok),+))
+        } else {
+            None
+        };
+        Ok($type { start: $start, end: $self.token.start, left, right })
+    }};
+    (@inner $self:ident, $next:ident, $_:ident) => {{
+        $self.advance();
+        $self.$next()?
+    }};
+    (@inner $self:ident, $next:ident, $($_:ident),+) => {{
+        let tok = $self.token.token_type;
+        $self.advance();
+        (tok, $self.$next()?)
+    }};
 }
 
-impl <'a> Parser<'a> {
-    pub fn new(lexer: Lexer<'a>) -> Self {
+macro_rules! done {
+    ($type:ident, $start:ident, $self:ident; $($tt:tt)*) => {
+        Ok($type {
+            start: $start,
+            end: $self.token.start,
+            $($tt)*
+        })
+    };
+}
+
+pub struct Parser<'i, 'f> {
+    lexer: Lexer<'i, 'f>,
+    token: Token<'f>,
+    errors: Rep<Error<'f>>,
+}
+
+impl<'i, 'f> Parser<'i, 'f> {
+    pub fn new(lexer: Lexer<'i, 'f>) -> Self {
         return Parser {
             lexer,
-            current_token: Token::dummy(),
-            errors: vec![],
+            token: Token::dummy(),
+            errors: Rep::new(),
         };
     }
 
-    pub fn new_parse(lexer: Lexer<'a>) -> std::result::Result<Statements, Vec<Error>> {
+    pub fn new_parse(lexer: Lexer<'i, 'f>) -> result::Result<Program<'f>, Vec<Error<'f>>> {
         let mut parser = Self::new(lexer);
-        return parser.parse();
+        parser.parse()
     }
 
-    pub fn parse(&mut self) -> std::result::Result<Statements, Vec<Error>> {
+    pub fn parse(&mut self) -> result::Result<Program<'f>, Vec<Error<'f>>> {
         self.advance();
-        let statements = match self.statements() {
+        let statements = match Self::program(self) {
             Ok(statements) => statements,
             Err(error) => {
                 self.errors.push(error);
-                return Err(self.errors.clone());
-            },
+                return Err(self.errors.take().unwrap_or_default());
+            }
         };
 
-        if self.current_token.token_type != TokenType::EOF {
-            self.errors.push(error_val!(SyntaxError, self.current_token.start.clone(), self.current_token.end.clone(), "Expected EOF"));
-            return Err(self.errors.clone());
+        if !of_types!(self, Eof) {
+            self.errors.push(error_val!(
+                SyntaxError,
+                self.token.start,
+                self.token.end,
+                "Expected EOF",
+            ));
         }
         if !self.errors.is_empty() {
-            return Err(self.errors.clone());
+            return Err(self.errors.take().unwrap_or_default());
         }
-        return Ok(statements);
+        Ok(statements)
     }
 
     fn advance(&mut self) {
-        self.current_token = match self.lexer.next_token() {
+        self.token = match self.lexer.next_token() {
             Ok(token) => token,
             Err((error, token)) => {
                 self.errors.push(error);
                 token
-            },
+            }
         }
-    }
-
-    fn following_token(&self) -> Token {
-        return self.lexer
-            .clone()
-            .next_token()
-            .unwrap_or(Token::dummy());
     }
 
     // ---------------------------------------
 
-    fn statements(&mut self) -> Result<Statements> {
-        let start_location = loc!(self);
-        while is_type!(self, EOL) {
-            self.advance()
-        }
-
-        if ![TokenType::EOF, TokenType::RBrace].contains(&self.current_token.token_type) {
-            let mut statements: Vec<Statement> = vec![];
-            statements.push(self.statement()?);
-            loop {
-                if [TokenType::EOF, TokenType::RBrace].contains(&self.current_token.token_type) { break; }
-                expected!(self, EOL, "';' or line break");
-                while is_type!(self, EOL) {
-                    self.advance();
-                }
-                if [TokenType::EOF, TokenType::RBrace].contains(&self.current_token.token_type) { break; }
-                statements.push(self.statement()?);
+    fn program(&mut self) -> Result<'f, Program<'f>> {
+        let mut stmts = Rep::new();
+        while !of_types!(self, Eof) {
+            match self.statement() {
+                Ok(stmt) => stmts.push(stmt),
+                Err(e) => self.errors.push(e),
             }
-            return Ok(Statements { start: start_location, end: loc!(self), statements });
+            expect!(self, Semicolon, "';'");
         }
-
-        return Ok(Statements { start: start_location, end: loc!(self), statements: vec![] });
+        Ok(stmts)
     }
 
-    fn declarations(&mut self) -> Result<Statements> {
-        let start_location = loc!(self);
-        while is_type!(self, EOL) {
-            self.advance()
-        }
-
-        if !of_types!(self, EOF, RBrace) {
-            let mut declarations: Vec<Statement> = vec![];
-            declarations.push(self.declaration()?);
-            loop {
-                if [TokenType::EOF, TokenType::RBrace].contains(&self.current_token.token_type) { break; }
-                expected!(self, EOL, "';' or line break");
-                while is_type!(self, EOL) {
-                    self.advance();
-                }
-                if [TokenType::EOF, TokenType::RBrace].contains(&self.current_token.token_type) { break; }
-                declarations.push(self.declaration()?);
-            }
-            return Ok(Statements { start: start_location, end: loc!(self), statements: declarations });
-        }
-
-        return Ok(Statements { start: start_location, end: loc!(self), statements: vec![] });
-    }
-
-    fn block(&mut self) -> Result<Statements> {
-        let start_location = loc!(self);
-        while is_type!(self, EOL) {
-            self.advance();
-        }
-
-        let statements: Vec<Statement>;
-        if is_type!(self, LBrace) {
-            self.advance();
-
-            statements = self.statements()?.statements;
-
-            expected!(self, RBrace, "'}'");
-            self.advance();
+    fn block(&mut self) -> Result<'f, Block<'f>> {
+        if of_types!(self, LBrace) {
+            Ok(Block::Multiple(self.block_expr()?))
         } else {
-            statements = vec![self.statement()?];
-        }
-
-        return Ok(Statements { start: start_location, end: loc!(self), statements });
-    }
-
-    fn declaration_block(&mut self) -> Result<Statements> {
-        let start_location = loc!(self);
-        while is_type!(self, EOL) { self.advance(); }
-
-        expected!(self, LBrace, "'{'");
-        self.advance();
-
-        let declarations = self.declarations()?.statements;
-
-        expected!(self, RBrace, "'}'");
-        self.advance();
-
-        return Ok(Statements { start: start_location, end: loc!(self), statements: declarations });
-    }
-
-    fn statement(&mut self) -> Result<Statement> {
-        if is_type!(self, Var) {
-            return Ok(Statement::Declare(self.declare_statement()?));
-        } else if is_type!(self, Loop) {
-            return Ok(Statement::Loop(self.loop_statement()?));
-        } else if is_type!(self, While) {
-            return Ok(Statement::While(self.while_statement()?));
-        } else if is_type!(self, For) {
-            return Ok(Statement::For(self.for_statement()?));
-        } else if (is_type!(self, Fun) && self.following_token().token_type != TokenType::LParen) || is_type!(self, Static) {
-            return Ok(Statement::Function(self.function_declaration()?));
-        } else if is_type!(self, Class) && self.following_token().token_type != TokenType::LBrace {
-            return Ok(Statement::Class(self.class_declaration()?));
-        } else if is_type!(self, Break) {
-            self.advance();
-            return Ok(Statement::Break);
-        } else if is_type!(self, Continue) {
-            self.advance();
-            return Ok(Statement::Continue);
-        } else if is_type!(self, Return) {
-            return Ok(Statement::Return(self.return_statement()?));
-        } else if is_type!(self, Identifier) && {
-            let mut res = true;
-
-            let mut lexer = self.lexer.clone();
-            let mut current_token = lexer.next_token().unwrap_or(Token::dummy());
-
-            while current_token.token_type == TokenType::Dot {
-                current_token = lexer.next_token().unwrap_or(Token::dummy());
-                if current_token.token_type != TokenType::Identifier { res = false; break; }
-                current_token = lexer.next_token().unwrap_or(Token::dummy());
-            }
-
-            if ![
-                TokenType::Assign,
-                TokenType::PlusAssign,
-                TokenType::MinusAssign,
-                TokenType::MultiplyAssign,
-                TokenType::DivideAssign,
-                TokenType::ModuloAssign,
-                TokenType::IntDivideAssign,
-                TokenType::PowerAssign,
-            ].contains(&current_token.token_type) { res = false; }
-            res
-        } {
-            return Ok(Statement::Assign(self.assign_statement()?));
-        } else {
-            return Ok(Statement::Expression(self.expression()?));
+            Ok(Block::Single(Box::new(self.statement()?)))
         }
     }
 
-    fn declaration(&mut self) -> Result<Statement> {
-        let start_location = loc!(self);
-
-        if is_type!(self, Var) {
-            return Ok(Statement::Declare(self.declare_statement()?));
-        } else if of_types!(self, Fun, Static) {
-            return Ok(Statement::Function(self.function_declaration()?));
-        }
-        error!(SyntaxError, start_location, loc!(self), "Expected declaration, found '{}'", self.current_token.value);
+    fn statement(&mut self) -> Result<'f, Statement<'f>> {
+        Ok(match self.token.token_type {
+            TokenType::Var => Statement::Var(self.var_stmt()?),
+            TokenType::Fun => Statement::Function(self.function_decl()?),
+            TokenType::Class => Statement::Class(self.class_decl()?),
+            TokenType::Break => Statement::Break(self.break_stmt()?),
+            TokenType::Continue => Statement::Continue(self.continue_stmt()?),
+            TokenType::Return => Statement::Return(self.return_stmt()?),
+            _ => Statement::Expr(self.expression()?),
+        })
     }
 
-    fn declare_statement(&mut self) -> Result<DeclareStatement> {
-        let start_location = loc!(self);
-        self.advance();
+    fn var_stmt(&mut self) -> Result<'f, VarStmt<'f>> {
+        let start = self.token.start;
 
-        expected!(self, Identifier, "identifier");
-        let identifier = self.current_token.value.clone();
-        self.advance();
+        expect!(self, Var, "'var'");
+        let ident = expect_ident!(self);
 
-        let expression = if is_type!(self, Assign) {
+        let expr = if of_types!(self, Assign) {
             self.advance();
             Some(self.expression()?)
-        } else { None };
-
-        return Ok(DeclareStatement { start: start_location, end: loc!(self), identifier, expression }) ;
-    }
-
-    fn assign_statement(&mut self) -> Result<AssignStatement> {
-        let start_location = loc!(self);
-        let identifier = self.current_token.value.clone();
-        self.advance();
-
-        let mut parts = vec![];
-        while is_type!(self, Dot) {
-            parts.push(self.member_part()?);
-        }
-
-        let operator = self.current_token.token_type.clone();
-        self.advance();
-
-        let expression = self.expression()?;
-
-        return Ok(AssignStatement { start: start_location, end: loc!(self), identifier, parts, operator, expression });
-    }
-
-    fn if_expression(&mut self) -> Result<IfExpression> {
-        let start_location = loc!(self);
-        self.advance();
-
-        expected!(self, LParen, "'('");
-        self.advance();
-
-        let condition = self.expression()?;
-
-        expected!(self, RParen, "')'");
-        self.advance();
-
-        let block = self.block()?;
-        let else_block: Option<Statements>;
-
-        let mut lexer = self.lexer.clone();
-        let mut current_token = self.current_token.clone();
-        let mut count = 0;
-
-        while current_token.token_type == TokenType::EOL {
-            current_token = lexer.next_token().unwrap_or(Token::dummy());
-            count += 1;
-        }
-
-        if current_token.token_type == TokenType::Else {
-            for _ in 0..count { self.advance(); }
-            self.advance();
-
-            else_block = Some(self.block()?);
         } else {
-            else_block = None;
-        }
+            None
+        };
 
-        return Ok(IfExpression { start: start_location, end: loc!(self), condition, block, else_block });
+        done!(VarStmt, start, self; ident, expr)
     }
 
-    fn loop_statement(&mut self) -> Result<LoopStatement> {
-        let start_location = loc!(self);
-        self.advance();
+    fn function_decl(&mut self) -> Result<'f, FunctionDecl<'f>> {
+        let start = self.token.start;
 
+        expect!(self, Fun, "'fun'");
+        let ident = expect_ident!(self);
+        let args = self.arg_names()?;
         let block = self.block()?;
 
-        return Ok(LoopStatement { start: start_location, end: loc!(self), block });
+        done!(FunctionDecl, start, self; ident, args, block)
     }
 
-    fn while_statement(&mut self) -> Result<WhileStatement> {
-        let start_location = loc!(self);
-        self.advance();
+    fn class_decl(&mut self) -> Result<'f, ClassDecl<'f>> {
+        let start = self.token.start;
 
-        expected!(self, LParen, "'('");
-        self.advance();
+        expect!(self, Class, "'class'");
+        let ident = expect_ident!(self);
+        let block = self.member_block()?;
 
-        let condition = self.expression()?;
-
-        expected!(self, RParen, "')'");
-        self.advance();
-
-        let block = self.block()?;
-
-        return Ok(WhileStatement { start: start_location, end: loc!(self), condition, block });
+        done!(ClassDecl, start, self; ident, block)
     }
 
-    fn for_statement(&mut self) -> Result<ForStatement> {
-        let start_location = loc!(self);
-        self.advance();
+    fn break_stmt(&mut self) -> Result<'f, BreakStmt<'f>> {
+        let start = self.token.start;
 
-        expected!(self, LParen, "'('");
-        self.advance();
+        expect!(self, Break, "'break'");
+        let expr = self.expression()?;
 
-        expected!(self, Identifier, "identifier");
-        let identifier = self.current_token.value.clone();
-        self.advance();
-
-        expected!(self, In, "'in'");
-        self.advance();
-
-        let expression = self.expression()?;
-
-        expected!(self, RParen, "')'");
-        self.advance();
-
-        let block = self.block()?;
-
-        return Ok(ForStatement { start: start_location, end: loc!(self), identifier, expression, block });
+        done!(BreakStmt, start, self; expr)
     }
 
-    fn function_declaration(&mut self) -> Result<FunctionDeclaration> {
-        let start_location = loc!(self);
-        let is_static = if is_type!(self, Static) {
+    fn continue_stmt(&mut self) -> Result<'f, ContinueStmt<'f>> {
+        let start = self.token.start;
+
+        expect!(self, Continue, "'continue'");
+
+        done!(ContinueStmt, start, self;)
+    }
+    fn return_stmt(&mut self) -> Result<'f, ReturnStmt<'f>> {
+        let start = self.token.start;
+
+        expect!(self, Return, "'return'");
+        let expr = self.expression()?;
+
+        done!(ReturnStmt, start, self; expr)
+    }
+
+    fn member(&mut self) -> Result<'f, Member<'f>> {
+        let start = self.token.start;
+
+        let is_static = of_types!(self, Static);
+        if is_static {
             self.advance();
-            true
-        } else { false };
-        self.advance();
-
-        expected!(self, Identifier, "identifier");
-        let identifier = self.current_token.value.clone();
-        self.advance();
-
-        let params = self.argument_names()?;
-
-        let block = self.block()?;
-
-        return Ok(FunctionDeclaration { start: start_location, end: loc!(self), is_static, identifier, params, block });
-    }
-
-    fn class_declaration(&mut self) -> Result<ClassDeclaration> {
-        let start_location = loc!(self);
-        self.advance();
-
-        expected!(self, Identifier, "identifier");
-        let identifier = self.current_token.value.clone();
-        self.advance();
-
-        let block = self.declaration_block()?;
-
-        return Ok(ClassDeclaration { start: start_location, end: loc!(self), identifier, block });
-    }
-
-    fn return_statement(&mut self) -> Result<ReturnStatement> {
-        let start_location = loc!(self);
-        self.advance();
-
-        let mut expression = None;
-        if ![TokenType::EOL, TokenType::EOF, TokenType::RBrace].contains(&self.current_token.token_type) {
-            expression = Some(self.expression()?);
         }
+        let member_type = if of_types!(self, Var) {
+            MemberType::Attribute(self.var_stmt()?)
+        } else {
+            MemberType::Method(self.function_decl()?)
+        };
 
-        return Ok(ReturnStatement { start: start_location, end: loc!(self), expression });
+        done!(Member, start, self; is_static, member_type)
     }
 
+    fn member_block(&mut self) -> Result<'f, MemberBlock<'f>> {
+        let start = self.token.start;
 
-    fn expression(&mut self) -> Result<Expression> {
-        let start_location = loc!(self);
-        let base = self.or_expression()?;
-
-        let mut range = None;
-        if is_type!(self, RangeDots) {
-            let inclusive = self.current_token.value == "..=";
-            self.advance();
-
-            let upper = self.or_expression()?;
-
-            range = Some((inclusive, upper));
+        expect!(self, LBrace, "'{'");
+        let mut members = Rep::new();
+        while !of_types!(self, RBrace, Eof) {
+            match self.member() {
+                Ok(member) => members.push(member),
+                Err(e) => self.errors.push(e),
+            }
         }
+        expect!(self, RBrace, "'}'");
 
-        return Ok(Expression { start: start_location, end: loc!(self), base: Box::new(base), range: Box::new(range) });
+        done!(MemberBlock, start, self; members)
     }
 
-    fn or_expression(&mut self) -> Result<OrExpression> {
-        let start_location = loc!(self);
-        let base = self.and_expression()?;
-
-        let mut following = vec![];
-        while is_type!(self, Or) {
-            self.advance();
-
-            following.push(self.and_expression()?);
-        }
-
-        return Ok(OrExpression { start: start_location, end: loc!(self), base, following });
+    fn expression(&mut self) -> Result<'f, Expression<'f>> {
+        self.range_expr()
     }
 
-    fn and_expression(&mut self) -> Result<AndExpression> {
-        let start_location = loc!(self);
-        let base = self.equality_expression()?;
+    fn range_expr(&mut self) -> Result<'f, RangeExpr<'f>> {
+        let start = self.token.start;
 
-        let mut following = vec![];
-        while is_type!(self, And) {
+        let base = Box::new(self.or_expr()?);
+        let range = if of_types!(self, Dots, DotsInclusive) {
+            let tok = self.token.token_type;
             self.advance();
+            Some((tok, Box::new(self.or_expr()?)))
+        } else {
+            None
+        };
 
-            following.push(self.equality_expression()?);
-        }
-
-        return Ok(AndExpression { start: start_location, end: loc!(self), base, following });
+        done!(RangeExpr, start, self; base, range)
     }
 
-    fn equality_expression(&mut self) -> Result<EqualityExpression> {
-        let start_location = loc!(self);
-        let base = self.relational_expression()?;
+    simple_expr!(or_expr -> OrExpr: Or => and_expr *);
+    simple_expr!(and_expr -> AndExpr: And => bit_or_expr *);
+    simple_expr!(bit_or_expr -> BitOrExpr: BitOr => bit_xor_expr *);
+    simple_expr!(bit_xor_expr -> BitXorExpr: BitXor => bit_and_expr *);
+    simple_expr!(bit_and_expr -> BitAndExpr: BitAnd => eq_expr *);
+    simple_expr!(eq_expr -> EqExpr: Equal, NotEqual => rel_expr ?);
+    simple_expr!(rel_expr -> RelExpr: LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual => shift_expr ?);
+    simple_expr!(shift_expr -> ShiftExpr: ShiftLeft, ShiftRight => add_expr *);
+    simple_expr!(add_expr -> AddExpr: Plus, Minus => mul_expr *);
+    simple_expr!(mul_expr -> MulExpr: Multiply, Divide, Modulo, IntDivide => unary_expr *);
 
-        let mut other = None;
-        if [
-            TokenType::Equal,
-            TokenType::NotEqual,
-        ].contains(&self.current_token.token_type) {
-            let operator = self.current_token.token_type.clone();
+    fn unary_expr(&mut self) -> Result<'f, UnaryExpr<'f>> {
+        let start = self.token.start;
+
+        if of_types!(self, Plus, Minus, Not) {
+            let operator = self.token.token_type;
             self.advance();
-
-            other = Some((operator, self.relational_expression()?));
-        }
-
-        return Ok(EqualityExpression { start: start_location, end: loc!(self), base, other });
-    }
-
-    fn relational_expression(&mut self) -> Result<RelationalExpression> {
-        let start_location = loc!(self);
-        let base = self.additive_expression()?;
-
-        let mut other = None;
-        if [
-            TokenType::LessThan,
-            TokenType::GreaterThan,
-            TokenType::LessThanOrEqual,
-            TokenType::GreaterThanOrEqual,
-        ].contains(&self.current_token.token_type) {
-            let operator = self.current_token.token_type.clone();
-            self.advance();
-
-            other = Some((operator, self.additive_expression()?));
-        }
-
-        return Ok(RelationalExpression { start: start_location, end: loc!(self), base, other });
-    }
-
-    fn additive_expression(&mut self) -> Result<AdditiveExpression> {
-        let start_location = loc!(self);
-        let base = self.multiplicative_expression()?;
-
-        let mut following = vec![];
-        while [
-            TokenType::Plus,
-            TokenType::Minus,
-        ].contains(&self.current_token.token_type) {
-            let operator = self.current_token.token_type.clone();
-            self.advance();
-
-            following.push((operator, self.multiplicative_expression()?));
-        }
-
-        return Ok(AdditiveExpression { start: start_location, end: loc!(self), base, following });
-    }
-
-    fn multiplicative_expression(&mut self) -> Result<MultiplicativeExpression> {
-        let start_location = loc!(self);
-        let base = self.unary_expression()?;
-
-        let mut following = vec![];
-        while [
-            TokenType::Multiply,
-            TokenType::Divide,
-            TokenType::Modulo,
-            TokenType::IntDivide,
-        ].contains(&self.current_token.token_type) {
-            let operator = self.current_token.token_type.clone();
-            self.advance();
-
-            following.push((operator, self.unary_expression()?));
-        }
-
-        return Ok(MultiplicativeExpression { start: start_location, end: loc!(self), base, following });
-    }
-
-    fn unary_expression(&mut self) -> Result<UnaryExpression> {
-        let start_location = loc!(self);
-        if [
-            TokenType::Plus,
-            TokenType::Minus,
-            TokenType::Not,
-        ].contains(&self.current_token.token_type) {
-            let operator = self.current_token.token_type.clone();
-            self.advance();
-            return Ok(UnaryExpression::Operator {
-                start: start_location,
-                end: loc!(self),
+            let expr = Box::new(self.unary_expr()?);
+            Ok(UnaryExpr::Unary {
+                start,
+                end: self.token.start,
                 operator,
-                expression: Box::new(self.unary_expression()?),
-            });
+                expr,
+            })
+        } else {
+            Ok(UnaryExpr::Done(Box::new(self.exp_expr()?)))
         }
-
-        return Ok(UnaryExpression::Power(Box::new(self.exponential_expression()?)));
     }
 
-    fn exponential_expression(&mut self) -> Result<ExponentialExpression> {
-        let start_location = loc!(self);
-        let base = self.call_expression()?;
+    fn exp_expr(&mut self) -> Result<'f, ExpExpr<'f>> {
+        let start = self.token.start;
 
-        let mut exponent = None;
-        if is_type!(self, Power) {
+        let base = self.assign_expr()?;
+        let exponent = if of_types!(self, Power) {
             self.advance();
+            Some(self.unary_expr()?)
+        } else {
+            None
+        };
 
-            exponent = Some(self.unary_expression()?)
-        }
-
-        return Ok(ExponentialExpression { start: start_location, end: loc!(self), base, exponent });
+        done!(ExpExpr, start, self; base, exponent)
     }
 
-    fn call_expression(&mut self) -> Result<CallExpression> {
-        let start_location = loc!(self);
-        let base = self.member_expression()?;
+    fn assign_expr(&mut self) -> Result<'f, AssignExpr<'f>> {
+        let start = self.token.start;
 
-        if is_type!(self, LParen) {
-            let args = self.arguments()?;
+        let left = self.call_expr()?;
+        let right = if of_types!(
+            self,
+            Assign,
+            PlusAssign,
+            MultiplyAssign,
+            DivideAssign,
+            IntDivideAssign,
+            ModuloAssign,
+            PlusAssign,
+            MinusAssign,
+            ShiftLeftAssign,
+            ShiftRightAssign,
+            BitAndAssign,
+            BitXorAssign,
+            BitOrAssign,
+        ) {
+            let tok = self.token.token_type;
+            self.advance();
+            Some((tok, self.expression()?))
+        } else {
+            None
+        };
 
-            let mut parts = vec![];
-            while of_types!(self, Dot, LParen) {
+        done!(AssignExpr, start, self; left, right)
+    }
+
+    fn call_expr(&mut self) -> Result<'f, CallExpr<'f>> {
+        let start = self.token.start;
+
+        let base = self.member_expr()?;
+        let following = if of_types!(self, LParen) {
+            let args = self.args()?;
+            let mut parts = Rep::new();
+            while of_types!(self, LParen, Dot) {
                 parts.push(self.call_part()?);
             }
+            Some((args, parts))
+        } else {
+            None
+        };
 
-            return Ok(CallExpression { start: start_location, end: loc!(self), base, call: Some((args, parts)) });
-        }
-
-        return Ok(CallExpression { start: start_location, end: loc!(self), base, call: None });
+        done!(CallExpr, start, self; base, following)
     }
 
-    fn member_expression(&mut self) -> Result<MemberExpression> {
-        let start_location = loc!(self);
+    fn member_expr(&mut self) -> Result<'f, MemberExpr<'f>> {
+        let start = self.token.start;
+
         let base = self.atom()?;
-
-        let mut parts = vec![];
-        while is_type!(self, Dot) {
-            parts.push(self.member_part()?);
+        let mut following = Rep::new();
+        while of_types!(self, Dot) {
+            following.push(self.member_part()?);
         }
 
-        return Ok(MemberExpression { start: start_location, end: loc!(self), base, parts });
+        done!(MemberExpr, start, self; base, following)
     }
 
-    fn atom(&mut self) -> Result<Atom> {
-        let start_location = loc!(self);
-        if is_type!(self, Null) {
-            self.advance();
+    fn atom(&mut self) -> Result<'f, Atom<'f>> {
+        let start = self.token.start;
 
-            return Ok(Atom::Null);
-        }
-
-        if is_type!(self, If) {
-            return Ok(Atom::If(self.if_expression()?));
-        }
-
-        if is_type!(self, Fun) {
-            return Ok(Atom::Fun(self.fun_expression()?));
-        }
-
-        if is_type!(self, Class) {
-            return Ok(Atom::Class(self.class_expression()?));
-        }
-
-        if is_type!(self, Number) {
-            let value = self.current_token.value.clone();
-            let number = match value.parse::<Decimal>() {
-                Ok(value) => value,
-                Err(e) => match e {
-                    rust_decimal::Error::ErrorString(message)            => error!(ValueError, start_location, loc!(self), "{}", message),
-                    rust_decimal::Error::ExceedsMaximumPossibleValue     => error!(ValueError, start_location, loc!(self), "Value too high"),
-                    rust_decimal::Error::LessThanMinimumPossibleValue    => error!(ValueError, start_location, loc!(self), "Value too low"),
-                    rust_decimal::Error::ScaleExceedsMaximumPrecision(_) => error!(ValueError, start_location, loc!(self), "Value too precise"),
-                },
-            };
-            self.advance();
-            return Ok(Atom::Number(number));
-        }
-
-        if is_type!(self, True)
-            || is_type!(self, False) {
-            let value = self.current_token.value == "true";
-            self.advance();
-
-            return Ok(Atom::Bool(value));
-        }
-
-        if is_type!(self, String) {
-            let value = self.current_token.value.clone();
-            self.advance();
-
-            return Ok(Atom::String(value));
-        }
-
-        if is_type!(self, Identifier) {
-            let value = self.current_token.value.clone();
-            self.advance();
-
-            return Ok(Atom::Identifier { start: start_location, end: loc!(self), name: value });
-        }
-
-        if is_type!(self, LParen) {
-            self.advance();
-
-            let expression = self.expression()?;
-
-            expected!(self, RParen, "')'");
-            self.advance();
-
-            return Ok(Atom::Expression(expression));
-        }
-
-        if is_type!(self, LBrace) {
-            self.advance();
-
-            let block = self.statements()?;
-
-            expected!(self, RBrace, "'}'");
-            self.advance();
-
-            return Ok(Atom::Block(block));
-        }
-
-        syntax!(self, "Expected expression, found '{}'", self.current_token.value);
+        Ok(match self.token.token_type {
+            TokenType::Number => {
+                let num = self.token.take_value();
+                self.advance();
+                Atom::Number(match num.parse() {
+                    Ok(num) => num,
+                    Err(rust_decimal::Error::ErrorString(msg)) => {
+                        error!(ValueError, start, self.token.start, "{}", msg);
+                    }
+                    Err(rust_decimal::Error::ExceedsMaximumPossibleValue) => {
+                        error!(ValueError, start, self.token.start, "Value too high");
+                    }
+                    Err(rust_decimal::Error::LessThanMinimumPossibleValue) => {
+                        error!(ValueError, start, self.token.start, "Value too low");
+                    }
+                    Err(rust_decimal::Error::ScaleExceedsMaximumPrecision(_)) => {
+                        error!(ValueError, start, self.token.start, "Value too precise");
+                    }
+                    Err(_) => error!(
+                        ValueError,
+                        start, self.token.start, "Failed to parse number"
+                    ),
+                })
+            }
+            TokenType::True => {
+                self.advance();
+                Atom::Bool(true)
+            }
+            TokenType::False => {
+                self.advance();
+                Atom::Bool(true)
+            }
+            TokenType::String => {
+                let str = self.token.take_value();
+                self.advance();
+                Atom::String(str)
+            }
+            TokenType::Null => {
+                self.advance();
+                Atom::Null
+            }
+            TokenType::Identifier => {
+                let name = self.token.take_value();
+                self.advance();
+                Atom::Identifier {
+                    start,
+                    end: self.token.start,
+                    name,
+                }
+            }
+            TokenType::LParen => {
+                self.advance();
+                let expr = self.expression()?;
+                expect!(self, RParen, "')'");
+                Atom::Expr(expr)
+            }
+            TokenType::If => Atom::IfExpr(self.if_expr()?),
+            TokenType::For => Atom::ForExpr(self.for_expr()?),
+            TokenType::While => Atom::WhileExpr(self.while_expr()?),
+            TokenType::Loop => Atom::LoopExpr(self.loop_expr()?),
+            TokenType::Fun => Atom::FunExpr(self.fun_expr()?),
+            TokenType::Class => Atom::ClassExpr(self.class_expr()?),
+            TokenType::Try => Atom::TryExpr(self.try_expr()?),
+            TokenType::LBrace => Atom::BlockExpr(self.block_expr()?),
+            _ => syntax_err!(self, "Expected expression, found '{}'", self.token.value()),
+        })
     }
 
-    fn fun_expression(&mut self) -> Result<FunExpression> {
-        let start_location = loc!(self);
-        self.advance();
+    fn if_expr(&mut self) -> Result<'f, IfExpr<'f>> {
+        let start = self.token.start;
 
-        let params = self.argument_names()?;
+        expect!(self, If, "'if'");
+        expect!(self, LParen, "'('");
+        let cond = self.expression()?;
+        expect!(self, RParen, "')'");
+        let block = self.block()?;
+        let else_block = if of_types!(self, Else) {
+            self.advance();
+            Some(self.block()?)
+        } else {
+            None
+        };
 
+        done!(IfExpr, start, self; cond, block, else_block)
+    }
+
+    fn for_expr(&mut self) -> Result<'f, ForExpr<'f>> {
+        let start = self.token.start;
+
+        expect!(self, For, "'for'");
+        expect!(self, LParen, "'('");
+        let ident = expect_ident!(self);
+        expect!(self, In, "'in'");
+        let iter = self.expression()?;
+        expect!(self, RParen, "')'");
         let block = self.block()?;
 
-        return Ok(FunExpression { start: start_location, end: loc!(self), params, block });
+        done!(ForExpr, start, self; ident, iter, block)
     }
 
-    fn class_expression(&mut self) -> Result<ClassExpression> {
-        let start_location = loc!(self);
-        self.advance();
+    fn while_expr(&mut self) -> Result<'f, WhileExpr<'f>> {
+        let start = self.token.start;
 
-        let block = self.declaration_block()?;
+        expect!(self, While, "'while'");
+        expect!(self, LParen, "'('");
+        let cond = self.expression()?;
+        expect!(self, RParen, "')'");
+        let block = self.block()?;
 
-        return Ok(ClassExpression { start: start_location, end: loc!(self), block });
+        done!(WhileExpr, start, self; cond, block)
     }
 
-    fn arguments(&mut self) -> Result<Vec<Expression>> {
-        expected!(self, LParen, "'('");
-        self.advance();
+    fn loop_expr(&mut self) -> Result<'f, LoopExpr<'f>> {
+        let start = self.token.start;
 
-        let mut args = vec![];
-        if self.current_token.token_type != TokenType::RParen {
-            args.push(self.expression()?);
+        expect!(self, Loop, "'loop'");
+        let block = self.block()?;
 
-            while is_type!(self, Comma) {
+        done!(LoopExpr, start, self; block)
+    }
+
+    fn fun_expr(&mut self) -> Result<'f, FunExpr<'f>> {
+        let start = self.token.start;
+
+        expect!(self, Fun, "'fun'");
+        let args = self.arg_names()?;
+        let block = self.block()?;
+
+        done!(FunExpr, start, self; args, block)
+    }
+
+    fn class_expr(&mut self) -> Result<'f, ClassExpr<'f>> {
+        let start = self.token.start;
+
+        expect!(self, Class, "'class'");
+        let block = self.member_block()?;
+
+        done!(ClassExpr, start, self; block)
+    }
+
+    fn try_expr(&mut self) -> Result<'f, TryExpr<'f>> {
+        let start = self.token.start;
+
+        expect!(self, Try, "'try'");
+        let try_block = self.block()?;
+        expect!(self, Catch, "'catch'");
+        expect!(self, LParen, "'('");
+        let ident = expect_ident!(self);
+        expect!(self, RParen, "')'");
+        let catch_block = self.block()?;
+
+        done!(TryExpr, start, self; try_block, ident, catch_block)
+    }
+
+    fn block_expr(&mut self) -> Result<'f, BlockExpr<'f>> {
+        let start = self.token.start;
+
+        expect!(self, LBrace, "'{'");
+        let mut stmts = Rep::new();
+        let mut ending_semi = false;
+        if !of_types!(self, RBrace, Eof) {
+            stmts.push(self.statement()?);
+            while of_types!(self, Semicolon) {
                 self.advance();
+                if of_types!(self, RBrace, Eof) {
+                    ending_semi = true;
+                    break;
+                }
+                stmts.push(self.statement()?);
+            }
+        }
+        expect!(self, RBrace, "'}'");
 
+        done!(BlockExpr, start, self; stmts, ending_semi)
+    }
+
+    fn member_part(&mut self) -> Result<'f, MemberPart> {
+        Ok(match self.token.token_type {
+            TokenType::Dot => {
+                self.advance();
+                MemberPart::Field(expect_ident!(self))
+            }
+            _ => error!(
+                SyntaxError,
+                self.token.start,
+                self.token.end,
+                "Expected '.', found '{}'",
+                self.token.value(),
+            ),
+        })
+    }
+
+    fn call_part(&mut self) -> Result<'f, CallPart<'f>> {
+        Ok(if of_types!(self, LParen) {
+            CallPart::Args(self.args()?)
+        } else {
+            CallPart::Member(self.member_part()?)
+        })
+    }
+
+    fn args(&mut self) -> Result<'f, Args<'f>> {
+        let mut args = Rep::new();
+        expect!(self, LParen, "'('");
+        if !of_types!(self, RParen) {
+            args.push(self.expression()?);
+            while of_types!(self, Comma) {
+                self.advance();
+                if of_types!(self, RParen) {
+                    break;
+                }
                 args.push(self.expression()?);
             }
         }
-
-        expected!(self, RParen, "')'");
-        self.advance();
-
-        return Ok(args);
+        expect!(self, RParen, "')'");
+        Ok(args)
     }
 
-    fn argument_names(&mut self) -> Result<Vec<String>> {
-        expected!(self, LParen, "'('");
-        self.advance();
-
-        let mut args = vec![];
-        if self.current_token.token_type != TokenType::RParen {
-            expected!(self, Identifier, "identifier");
-            args.push(self.current_token.value.clone());
-            self.advance();
-
-            while is_type!(self, Comma) {
+    fn arg_names(&mut self) -> Result<'f, ArgNames> {
+        let mut args = Rep::new();
+        expect!(self, LParen, "'('");
+        if !of_types!(self, RParen) {
+            args.push(expect_ident!(self));
+            while of_types!(self, Comma) {
                 self.advance();
-
-                expected!(self, Identifier, "identifier");
-                args.push(self.current_token.value.clone());
-                self.advance();
+                if of_types!(self, RParen) {
+                    break;
+                }
+                args.push(expect_ident!(self));
             }
         }
-
-        expected!(self, RParen, "')'");
-        self.advance();
-
-        return Ok(args);
-    }
-
-    fn member_part(&mut self) -> Result<MemberPart> {
-        expected!(self, Dot, "'.'");
-        self.advance();
-
-        expected!(self, Identifier, "identifier");
-        let name = self.current_token.value.clone();
-        self.advance();
-
-        return Ok(MemberPart::Identifier(name));
-    }
-
-    fn call_part(&mut self) -> Result<CallPart> {
-        let start_location = loc!(self);
-        if is_type!(self, Dot) { return Ok(CallPart::Member(self.member_part()?)); }
-        if is_type!(self, LParen) { return Ok(CallPart::Arguments(self.arguments()?)); }
-        self.advance();
-        error!(SyntaxError, start_location, loc!(self), "Expected one of '.' or '(', got '{}'", self.current_token.value);
+        expect!(self, RParen, "')'");
+        Ok(args)
     }
 }

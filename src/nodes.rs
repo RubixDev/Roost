@@ -1,4 +1,4 @@
-use std::{ops::Deref, slice};
+use std::{ops::Deref, slice, fmt::Debug};
 
 use crate::{error::Location, tokens::TokenType};
 use rust_decimal::Decimal;
@@ -21,8 +21,29 @@ macro_rules! node {
 type Identifier = String;
 type Opt<T> = Option<T>;
 
-#[derive(Debug)]
 pub struct Rep<T>(Option<Vec<T>>);
+
+impl<T> Rep<T> {
+    pub fn new() -> Self {
+        Self(None)
+    }
+
+    pub fn push(&mut self, value: T) {
+        if let Some(vec) = &mut self.0 {
+            vec.push(value);
+        } else {
+            self.0 = Some(vec![value]);
+        }
+    }
+
+    pub fn take(&mut self) -> Self {
+        self.0.take().into()
+    }
+
+    pub fn unwrap_or_default(self) -> Vec<T> {
+        self.0.unwrap_or_default()
+    }
+}
 
 impl<T> From<Option<Vec<T>>> for Rep<T> {
     fn from(val: Option<Vec<T>>) -> Self {
@@ -37,6 +58,15 @@ impl<T> Deref for Rep<T> {
         match &self.0 {
             Some(vec) => vec,
             None => &[],
+        }
+    }
+}
+
+impl<T: Debug> Debug for Rep<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.0 {
+            Some(vec) => vec.fmt(f),
+            None => write!(f, "None"),
         }
     }
 }

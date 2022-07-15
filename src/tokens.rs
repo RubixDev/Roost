@@ -1,7 +1,7 @@
 use crate::error::Location;
 use std::fmt::Debug;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TokenType {
     Identifier, // name for variable, function or class
 
@@ -79,10 +79,10 @@ pub enum TokenType {
     Eof,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub struct Token<'f> {
     pub token_type: TokenType,
-    pub value: String,
+    pub value: Option<String>,
     pub start: Location<'f>,
     pub end: Location<'f>,
 }
@@ -96,7 +96,7 @@ impl<'f> Token<'f> {
     ) -> Self {
         Token {
             token_type,
-            value,
+            value: Some(value),
             start,
             end,
         }
@@ -105,10 +105,21 @@ impl<'f> Token<'f> {
     pub fn dummy() -> Self {
         return Token {
             token_type: TokenType::Unknown,
-            value: String::from("Unknown"),
+            value: Some("Unknown".to_string()),
             start: Location::new(""),
             end: Location::new(""),
         };
+    }
+
+    pub fn value(&self) -> &str {
+        match &self.value {
+            Some(value) => value,
+            None => "",
+        }
+    }
+
+    pub fn take_value(&mut self) -> String {
+        self.value.take().unwrap_or_default()
     }
 }
 

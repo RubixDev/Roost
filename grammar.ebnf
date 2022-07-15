@@ -4,8 +4,7 @@
   Author: RubixDev
 *)
 
-Program      = Statements ;
-Statements   = { Statement , ';' } ;
+Program      = { Statement , ';' } ;
 Block        = BlockExpr | Statement ;
 
 (**************************)
@@ -75,7 +74,7 @@ LoopExpr   = 'loop' , Block ;
 FunExpr    = 'fun' , ArgNames , Block ;
 ClassExpr  = 'class' , MemberBlock ;
 TryExpr    = 'try' , Block , 'catch' , '(' , identifier , ')' , Block ;
-BlockExpr  = '{' , Statements , [ Expression ] , '}' ;
+BlockExpr  = '{' , [ Statement , { ';' , Statement } , [ ';' ] ] , '}' ;
 
 (*********************)
 (******* OTHER *******)

@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Display, Debug};
 
 pub type Result<'f, T> = std::result::Result<T, Error<'f>>;
 
@@ -19,7 +19,7 @@ macro_rules! error {
     };
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Location<'f> {
     pub filename: &'f str,
     pub line: usize,
@@ -45,6 +45,12 @@ impl<'f> Location<'f> {
         } else {
             self.column += 1;
         }
+    }
+}
+
+impl<'f> Debug for Location<'f> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}:{}", self.filename, self.line, self.column)
     }
 }
 

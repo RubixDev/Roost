@@ -45,27 +45,27 @@ macro_rules! char_construct {
     (@optional $type:ident) => { Some(TokenType::$type) };
 }
 
-type LexResult<'f, T> = std::result::Result<T, (Error<'f>, Token<'f>)>;
+type LexResult<T> = std::result::Result<T, (Error, Token)>;
 
 #[derive(Debug, Clone)]
-pub struct Lexer<'i, 'f> {
+pub struct Lexer<'i> {
     input: Chars<'i>,
     current_char: Option<char>,
-    location: Location<'f>,
+    location: Location,
 }
 
-impl<'i, 'f> Lexer<'i, 'f> {
-    pub fn new(input: &'i str, filename: &'f str) -> Self {
+impl<'i> Lexer<'i> {
+    pub fn new(input: &'i str) -> Self {
         let mut lexer = Lexer {
             input: input.chars(),
             current_char: None,
-            location: Location::new(filename),
+            location: Location::new(),
         };
         lexer.advance();
         lexer
     }
 
-    pub fn next_token(&mut self) -> LexResult<'f, Token<'f>> {
+    pub fn next_token(&mut self) -> LexResult<Token> {
         while let Some(current_char) = self.current_char {
             match current_char {
                 ' ' | '\t' | '\r' | '\n' => self.advance(),
@@ -143,7 +143,7 @@ impl<'i, 'f> Lexer<'i, 'f> {
         type_with_eq: Option<TokenType>,
         type_double: Option<TokenType>,
         type_double_with_eq: Option<TokenType>,
-    ) -> Token<'f> {
+    ) -> Token {
         let start_location = self.location;
         let char = self.current_char.unwrap();
         self.advance();
@@ -179,7 +179,7 @@ impl<'i, 'f> Lexer<'i, 'f> {
         }
     }
 
-    fn make_string(&mut self) -> LexResult<'f, Token<'f>> {
+    fn make_string(&mut self) -> LexResult<Token> {
         let start_location = self.location;
         let start_quote = self.current_char;
         let mut string = String::new();
@@ -242,10 +242,10 @@ impl<'i, 'f> Lexer<'i, 'f> {
     fn escape_sequence(
         &mut self,
         current_char: &char,
-        start_pos: Location<'f>,
+        start_pos: Location,
         is_hex: bool,
         digits: u8,
-    ) -> LexResult<'f, char> {
+    ) -> LexResult<char> {
         let mut esc = if is_hex {
             String::new()
         } else {
@@ -271,7 +271,7 @@ impl<'i, 'f> Lexer<'i, 'f> {
         }
     }
 
-    fn make_number(&mut self) -> Token<'f> {
+    fn make_number(&mut self) -> Token {
         let start_location = self.location;
         let mut number = String::new();
         number.push(self.current_char.unwrap());
@@ -310,7 +310,7 @@ impl<'i, 'f> Lexer<'i, 'f> {
         Token::new(TokenType::Number, number, start_location, self.location)
     }
 
-    fn make_dot(&mut self) -> LexResult<'f, Token<'f>> {
+    fn make_dot(&mut self) -> LexResult<Token> {
         let start_location = self.location;
         self.advance();
 
@@ -364,7 +364,7 @@ impl<'i, 'f> Lexer<'i, 'f> {
         ));
     }
 
-    fn make_slash(&mut self) -> Option<Token<'f>> {
+    fn make_slash(&mut self) -> Option<Token> {
         let start_location = self.location;
         self.advance();
         match self.current_char {
@@ -406,7 +406,7 @@ impl<'i, 'f> Lexer<'i, 'f> {
         }
     }
 
-    fn make_name(&mut self) -> Token<'f> {
+    fn make_name(&mut self) -> Token {
         let start_location = self.location;
         let mut name = String::from(self.current_char.unwrap());
         self.advance();

@@ -57,7 +57,7 @@ macro_rules! of_types {
 
 macro_rules! simple_expr {
     ($name:ident -> $type:ident : $($tok:ident),+ => $next:ident $kind:tt) => {
-        fn $name(&mut self) -> Result<'f, $type<'f>> {
+        fn $name(&mut self) -> Result<$type> {
             let start = self.token.start;
             simple_expr!(@kind self, start, $type, $($tok),+ | $next, $kind)
         }
@@ -100,14 +100,14 @@ macro_rules! done {
     };
 }
 
-pub struct Parser<'i, 'f> {
-    lexer: Lexer<'i, 'f>,
-    token: Token<'f>,
-    errors: Rep<Error<'f>>,
+pub struct Parser<'i> {
+    lexer: Lexer<'i>,
+    token: Token,
+    errors: Rep<Error>,
 }
 
-impl<'i, 'f> Parser<'i, 'f> {
-    pub fn new(lexer: Lexer<'i, 'f>) -> Self {
+impl<'i> Parser<'i> {
+    pub fn new(lexer: Lexer<'i>) -> Self {
         return Parser {
             lexer,
             token: Token::dummy(),
@@ -115,12 +115,12 @@ impl<'i, 'f> Parser<'i, 'f> {
         };
     }
 
-    pub fn new_parse(lexer: Lexer<'i, 'f>) -> result::Result<Program<'f>, Vec<Error<'f>>> {
+    pub fn new_parse(lexer: Lexer<'i>) -> result::Result<Program, Vec<Error>> {
         let mut parser = Self::new(lexer);
         parser.parse()
     }
 
-    pub fn parse(&mut self) -> result::Result<Program<'f>, Vec<Error<'f>>> {
+    pub fn parse(&mut self) -> result::Result<Program, Vec<Error>> {
         self.advance();
         let statements = match Self::program(self) {
             Ok(statements) => statements,
@@ -156,7 +156,7 @@ impl<'i, 'f> Parser<'i, 'f> {
 
     // ---------------------------------------
 
-    fn program(&mut self) -> Result<'f, Program<'f>> {
+    fn program(&mut self) -> Result<Program> {
         let mut stmts = Rep::new();
         while !of_types!(self, Eof) {
             match self.statement() {
@@ -168,7 +168,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         Ok(stmts)
     }
 
-    fn block(&mut self) -> Result<'f, Block<'f>> {
+    fn block(&mut self) -> Result<Block> {
         if of_types!(self, LBrace) {
             Ok(Block::Multiple(self.block_expr()?))
         } else {
@@ -176,7 +176,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         }
     }
 
-    fn statement(&mut self) -> Result<'f, Statement<'f>> {
+    fn statement(&mut self) -> Result<Statement> {
         Ok(match self.token.token_type {
             TokenType::Var => Statement::Var(self.var_stmt()?),
             TokenType::Fun => Statement::Function(self.function_decl()?),
@@ -188,7 +188,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         })
     }
 
-    fn var_stmt(&mut self) -> Result<'f, VarStmt<'f>> {
+    fn var_stmt(&mut self) -> Result<VarStmt> {
         let start = self.token.start;
 
         expect!(self, Var, "'var'");
@@ -204,7 +204,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         done!(VarStmt, start, self; ident, expr)
     }
 
-    fn function_decl(&mut self) -> Result<'f, FunctionDecl<'f>> {
+    fn function_decl(&mut self) -> Result<FunctionDecl> {
         let start = self.token.start;
 
         expect!(self, Fun, "'fun'");
@@ -215,7 +215,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         done!(FunctionDecl, start, self; ident, args, block)
     }
 
-    fn class_decl(&mut self) -> Result<'f, ClassDecl<'f>> {
+    fn class_decl(&mut self) -> Result<ClassDecl> {
         let start = self.token.start;
 
         expect!(self, Class, "'class'");
@@ -225,7 +225,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         done!(ClassDecl, start, self; ident, block)
     }
 
-    fn break_stmt(&mut self) -> Result<'f, BreakStmt<'f>> {
+    fn break_stmt(&mut self) -> Result<BreakStmt> {
         let start = self.token.start;
 
         expect!(self, Break, "'break'");
@@ -234,14 +234,14 @@ impl<'i, 'f> Parser<'i, 'f> {
         done!(BreakStmt, start, self; expr)
     }
 
-    fn continue_stmt(&mut self) -> Result<'f, ContinueStmt<'f>> {
+    fn continue_stmt(&mut self) -> Result<ContinueStmt> {
         let start = self.token.start;
 
         expect!(self, Continue, "'continue'");
 
         done!(ContinueStmt, start, self;)
     }
-    fn return_stmt(&mut self) -> Result<'f, ReturnStmt<'f>> {
+    fn return_stmt(&mut self) -> Result<ReturnStmt> {
         let start = self.token.start;
 
         expect!(self, Return, "'return'");
@@ -250,7 +250,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         done!(ReturnStmt, start, self; expr)
     }
 
-    fn member(&mut self) -> Result<'f, Member<'f>> {
+    fn member(&mut self) -> Result<Member> {
         let start = self.token.start;
 
         let is_static = of_types!(self, Static);
@@ -266,7 +266,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         done!(Member, start, self; is_static, member_type)
     }
 
-    fn member_block(&mut self) -> Result<'f, MemberBlock<'f>> {
+    fn member_block(&mut self) -> Result<MemberBlock> {
         let start = self.token.start;
 
         expect!(self, LBrace, "'{'");
@@ -282,11 +282,11 @@ impl<'i, 'f> Parser<'i, 'f> {
         done!(MemberBlock, start, self; members)
     }
 
-    fn expression(&mut self) -> Result<'f, Expression<'f>> {
+    fn expression(&mut self) -> Result<Expression> {
         self.range_expr()
     }
 
-    fn range_expr(&mut self) -> Result<'f, RangeExpr<'f>> {
+    fn range_expr(&mut self) -> Result<RangeExpr> {
         let start = self.token.start;
 
         let base = Box::new(self.or_expr()?);
@@ -312,7 +312,7 @@ impl<'i, 'f> Parser<'i, 'f> {
     simple_expr!(add_expr -> AddExpr: Plus, Minus => mul_expr *);
     simple_expr!(mul_expr -> MulExpr: Multiply, Divide, Modulo, IntDivide => unary_expr *);
 
-    fn unary_expr(&mut self) -> Result<'f, UnaryExpr<'f>> {
+    fn unary_expr(&mut self) -> Result<UnaryExpr> {
         let start = self.token.start;
 
         if of_types!(self, Plus, Minus, Not) {
@@ -330,7 +330,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         }
     }
 
-    fn exp_expr(&mut self) -> Result<'f, ExpExpr<'f>> {
+    fn exp_expr(&mut self) -> Result<ExpExpr> {
         let start = self.token.start;
 
         let base = self.assign_expr()?;
@@ -344,7 +344,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         done!(ExpExpr, start, self; base, exponent)
     }
 
-    fn assign_expr(&mut self) -> Result<'f, AssignExpr<'f>> {
+    fn assign_expr(&mut self) -> Result<AssignExpr> {
         let start = self.token.start;
 
         let left = self.call_expr()?;
@@ -374,7 +374,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         done!(AssignExpr, start, self; left, right)
     }
 
-    fn call_expr(&mut self) -> Result<'f, CallExpr<'f>> {
+    fn call_expr(&mut self) -> Result<CallExpr> {
         let start = self.token.start;
 
         let base = self.member_expr()?;
@@ -392,7 +392,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         done!(CallExpr, start, self; base, following)
     }
 
-    fn member_expr(&mut self) -> Result<'f, MemberExpr<'f>> {
+    fn member_expr(&mut self) -> Result<MemberExpr> {
         let start = self.token.start;
 
         let base = self.atom()?;
@@ -404,7 +404,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         done!(MemberExpr, start, self; base, following)
     }
 
-    fn atom(&mut self) -> Result<'f, Atom<'f>> {
+    fn atom(&mut self) -> Result<Atom> {
         let start = self.token.start;
 
         Ok(match self.token.token_type {
@@ -475,7 +475,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         })
     }
 
-    fn if_expr(&mut self) -> Result<'f, IfExpr<'f>> {
+    fn if_expr(&mut self) -> Result<IfExpr> {
         let start = self.token.start;
 
         expect!(self, If, "'if'");
@@ -493,7 +493,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         done!(IfExpr, start, self; cond, block, else_block)
     }
 
-    fn for_expr(&mut self) -> Result<'f, ForExpr<'f>> {
+    fn for_expr(&mut self) -> Result<ForExpr> {
         let start = self.token.start;
 
         expect!(self, For, "'for'");
@@ -507,7 +507,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         done!(ForExpr, start, self; ident, iter, block)
     }
 
-    fn while_expr(&mut self) -> Result<'f, WhileExpr<'f>> {
+    fn while_expr(&mut self) -> Result<WhileExpr> {
         let start = self.token.start;
 
         expect!(self, While, "'while'");
@@ -519,7 +519,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         done!(WhileExpr, start, self; cond, block)
     }
 
-    fn loop_expr(&mut self) -> Result<'f, LoopExpr<'f>> {
+    fn loop_expr(&mut self) -> Result<LoopExpr> {
         let start = self.token.start;
 
         expect!(self, Loop, "'loop'");
@@ -528,7 +528,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         done!(LoopExpr, start, self; block)
     }
 
-    fn fun_expr(&mut self) -> Result<'f, FunExpr<'f>> {
+    fn fun_expr(&mut self) -> Result<FunExpr> {
         let start = self.token.start;
 
         expect!(self, Fun, "'fun'");
@@ -538,7 +538,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         done!(FunExpr, start, self; args, block)
     }
 
-    fn class_expr(&mut self) -> Result<'f, ClassExpr<'f>> {
+    fn class_expr(&mut self) -> Result<ClassExpr> {
         let start = self.token.start;
 
         expect!(self, Class, "'class'");
@@ -547,7 +547,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         done!(ClassExpr, start, self; block)
     }
 
-    fn try_expr(&mut self) -> Result<'f, TryExpr<'f>> {
+    fn try_expr(&mut self) -> Result<TryExpr> {
         let start = self.token.start;
 
         expect!(self, Try, "'try'");
@@ -561,7 +561,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         done!(TryExpr, start, self; try_block, ident, catch_block)
     }
 
-    fn block_expr(&mut self) -> Result<'f, BlockExpr<'f>> {
+    fn block_expr(&mut self) -> Result<BlockExpr> {
         let start = self.token.start;
 
         expect!(self, LBrace, "'{'");
@@ -583,7 +583,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         done!(BlockExpr, start, self; stmts, ending_semi)
     }
 
-    fn member_part(&mut self) -> Result<'f, MemberPart> {
+    fn member_part(&mut self) -> Result<MemberPart> {
         Ok(match self.token.token_type {
             TokenType::Dot => {
                 self.advance();
@@ -599,7 +599,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         })
     }
 
-    fn call_part(&mut self) -> Result<'f, CallPart<'f>> {
+    fn call_part(&mut self) -> Result<CallPart> {
         Ok(if of_types!(self, LParen) {
             CallPart::Args(self.args()?)
         } else {
@@ -607,7 +607,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         })
     }
 
-    fn args(&mut self) -> Result<'f, Args<'f>> {
+    fn args(&mut self) -> Result<Args> {
         let mut args = Rep::new();
         expect!(self, LParen, "'('");
         if !of_types!(self, RParen) {
@@ -624,7 +624,7 @@ impl<'i, 'f> Parser<'i, 'f> {
         Ok(args)
     }
 
-    fn arg_names(&mut self) -> Result<'f, ArgNames> {
+    fn arg_names(&mut self) -> Result<ArgNames> {
         let mut args = Rep::new();
         expect!(self, LParen, "'('");
         if !of_types!(self, RParen) {

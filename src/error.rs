@@ -1,6 +1,6 @@
-use std::fmt::{Display, Debug};
+use std::fmt::Debug;
 
-pub type Result<'f, T> = std::result::Result<T, Error<'f>>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 macro_rules! error_val {
     ($kind:ident, $start:expr, $end:expr, $($arg:tt)*) => {
@@ -20,17 +20,15 @@ macro_rules! error {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-pub struct Location<'f> {
-    pub filename: &'f str,
+pub struct Location {
     pub line: usize,
     pub column: usize,
     pub index: usize,
 }
 
-impl<'f> Location<'f> {
-    pub fn new(filename: &'f str) -> Self {
+impl Location {
+    pub fn new() -> Self {
         Self {
-            filename,
             line: 1,
             column: 1,
             index: 0,
@@ -48,22 +46,22 @@ impl<'f> Location<'f> {
     }
 }
 
-impl<'f> Debug for Location<'f> {
+impl Debug for Location {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}:{}", self.filename, self.line, self.column)
+        write!(f, "{}:{}", self.line, self.column)
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Error<'f> {
+#[derive(Clone)]
+pub struct Error {
     pub kind: ErrorKind,
     pub message: String,
-    pub start: Location<'f>,
-    pub end: Location<'f>,
+    pub start: Location,
+    pub end: Location,
 }
 
-impl<'f> Error<'f> {
-    pub fn new(kind: ErrorKind, message: String, start: Location<'f>, end: Location<'f>) -> Self {
+impl Error {
+    pub fn new(kind: ErrorKind, message: String, start: Location, end: Location) -> Self {
         Self {
             kind,
             message,
@@ -73,12 +71,12 @@ impl<'f> Error<'f> {
     }
 }
 
-impl Display for Error<'_> {
+impl Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{:?} at {}:{}:{}  {}",
-            self.kind, self.start.filename, self.start.line, self.start.column, self.message,
+            "{:?} at {:?}  {}",
+            self.kind, self.start, self.message,
         )
     }
 }

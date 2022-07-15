@@ -6,9 +6,9 @@ use rust_decimal::Decimal;
 macro_rules! node {
     ($name:ident; $($field:ident : $type:ty),* $(,)?) => {
         #[derive(Debug)]
-        pub struct $name<'f> {
-            pub start: Location<'f>,
-            pub end: Location<'f>,
+        pub struct $name {
+            pub start: Location,
+            pub end: Location,
             $(
                 pub $field: $type,
             )*
@@ -82,103 +82,103 @@ impl<'a, T> IntoIterator for &'a Rep<T> {
 
 /////////////////////////////////////////////
 
-pub type Program<'f> = Rep<Statement<'f>>;
+pub type Program = Rep<Statement>;
 
 #[derive(Debug)]
-pub enum Block<'f> {
-    Single(Box<Statement<'f>>),
-    Multiple(BlockExpr<'f>),
+pub enum Block {
+    Single(Box<Statement>),
+    Multiple(BlockExpr),
 }
 
 #[derive(Debug)]
-pub enum Statement<'f> {
-    Var(VarStmt<'f>),
-    Function(FunctionDecl<'f>),
-    Class(ClassDecl<'f>),
-    Break(BreakStmt<'f>),
-    Continue(ContinueStmt<'f>),
-    Return(ReturnStmt<'f>),
-    Expr(Expression<'f>),
+pub enum Statement {
+    Var(VarStmt),
+    Function(FunctionDecl),
+    Class(ClassDecl),
+    Break(BreakStmt),
+    Continue(ContinueStmt),
+    Return(ReturnStmt),
+    Expr(Expression),
 }
-node! { VarStmt; ident: Identifier, expr: Opt<Expression<'f>> }
-node! { FunctionDecl; ident: Identifier, args: ArgNames, block: Block<'f> }
-node! { ClassDecl; ident: Identifier, block: MemberBlock<'f> }
-node! { BreakStmt; expr: Expression<'f> }
+node! { VarStmt; ident: Identifier, expr: Opt<Expression> }
+node! { FunctionDecl; ident: Identifier, args: ArgNames, block: Block }
+node! { ClassDecl; ident: Identifier, block: MemberBlock }
+node! { BreakStmt; expr: Expression }
 node! { ContinueStmt; }
-node! { ReturnStmt; expr: Expression<'f> }
+node! { ReturnStmt; expr: Expression }
 
-node! { Member; is_static: bool, member_type: MemberType<'f> }
+node! { Member; is_static: bool, member_type: MemberType }
 #[derive(Debug)]
-pub enum MemberType<'f> {
-    Attribute(VarStmt<'f>),
-    Method(FunctionDecl<'f>),
+pub enum MemberType {
+    Attribute(VarStmt),
+    Method(FunctionDecl),
 }
-node! { MemberBlock; members: Rep<Member<'f>> }
+node! { MemberBlock; members: Rep<Member> }
 
-pub type Expression<'f> = RangeExpr<'f>;
-node! { RangeExpr; base: Box<OrExpr<'f>>, range: Opt<(TokenType, Box<OrExpr<'f>>)> }
-node! { OrExpr; base: AndExpr<'f>, following: Rep<AndExpr<'f>> }
-node! { AndExpr; base: BitOrExpr<'f>, following: Rep<BitOrExpr<'f>> }
-node! { BitOrExpr; base: BitXorExpr<'f>, following: Rep<BitXorExpr<'f>> }
-node! { BitXorExpr; base: BitAndExpr<'f>, following: Rep<BitAndExpr<'f>> }
-node! { BitAndExpr; base: EqExpr<'f>, following: Rep<EqExpr<'f>> }
-node! { EqExpr; left: RelExpr<'f>, right: Opt<(TokenType, RelExpr<'f>)> }
-node! { RelExpr; left: ShiftExpr<'f>, right: Opt<(TokenType, ShiftExpr<'f>)> }
-node! { ShiftExpr; base: AddExpr<'f>, following: Rep<(TokenType, AddExpr<'f>)> }
-node! { AddExpr; base: MulExpr<'f>, following: Rep<(TokenType, MulExpr<'f>)> }
-node! { MulExpr; base: UnaryExpr<'f>, following: Rep<(TokenType, UnaryExpr<'f>)> }
+pub type Expression = RangeExpr;
+node! { RangeExpr; base: Box<OrExpr>, range: Opt<(TokenType, Box<OrExpr>)> }
+node! { OrExpr; base: AndExpr, following: Rep<AndExpr> }
+node! { AndExpr; base: BitOrExpr, following: Rep<BitOrExpr> }
+node! { BitOrExpr; base: BitXorExpr, following: Rep<BitXorExpr> }
+node! { BitXorExpr; base: BitAndExpr, following: Rep<BitAndExpr> }
+node! { BitAndExpr; base: EqExpr, following: Rep<EqExpr> }
+node! { EqExpr; left: RelExpr, right: Opt<(TokenType, RelExpr)> }
+node! { RelExpr; left: ShiftExpr, right: Opt<(TokenType, ShiftExpr)> }
+node! { ShiftExpr; base: AddExpr, following: Rep<(TokenType, AddExpr)> }
+node! { AddExpr; base: MulExpr, following: Rep<(TokenType, MulExpr)> }
+node! { MulExpr; base: UnaryExpr, following: Rep<(TokenType, UnaryExpr)> }
 #[derive(Debug)]
-pub enum UnaryExpr<'f> {
+pub enum UnaryExpr {
     Unary {
-        start: Location<'f>,
-        end: Location<'f>,
+        start: Location,
+        end: Location,
         operator: TokenType,
-        expr: Box<UnaryExpr<'f>>,
+        expr: Box<UnaryExpr>,
     },
-    Done(Box<ExpExpr<'f>>),
+    Done(Box<ExpExpr>),
 }
-node! { ExpExpr; base: AssignExpr<'f>, exponent: Opt<UnaryExpr<'f>> }
-node! { AssignExpr; left: CallExpr<'f>, right: Opt<(TokenType, Expression<'f>)> }
-node! { CallExpr; base: MemberExpr<'f>, following: Opt<(Args<'f>, Rep<CallPart<'f>>)> }
-node! { MemberExpr; base: Atom<'f>, following: Rep<MemberPart> }
+node! { ExpExpr; base: AssignExpr, exponent: Opt<UnaryExpr> }
+node! { AssignExpr; left: CallExpr, right: Opt<(TokenType, Expression)> }
+node! { CallExpr; base: MemberExpr, following: Opt<(Args, Rep<CallPart>)> }
+node! { MemberExpr; base: Atom, following: Rep<MemberPart> }
 #[derive(Debug)]
-pub enum Atom<'f> {
+pub enum Atom {
     Number(Decimal),
     Bool(bool),
     String(String),
     Null,
     Identifier {
-        start: Location<'f>,
-        end: Location<'f>,
+        start: Location,
+        end: Location,
         name: Identifier,
     },
-    Expr(Expression<'f>),
-    IfExpr(IfExpr<'f>),
-    ForExpr(ForExpr<'f>),
-    WhileExpr(WhileExpr<'f>),
-    LoopExpr(LoopExpr<'f>),
-    FunExpr(FunExpr<'f>),
-    ClassExpr(ClassExpr<'f>),
-    TryExpr(TryExpr<'f>),
-    BlockExpr(BlockExpr<'f>),
+    Expr(Expression),
+    IfExpr(IfExpr),
+    ForExpr(ForExpr),
+    WhileExpr(WhileExpr),
+    LoopExpr(LoopExpr),
+    FunExpr(FunExpr),
+    ClassExpr(ClassExpr),
+    TryExpr(TryExpr),
+    BlockExpr(BlockExpr),
 }
-node! { IfExpr; cond: Expression<'f>, block: Block<'f>, else_block: Opt<Block<'f>> }
-node! { ForExpr; ident: Identifier, iter: Expression<'f>, block: Block<'f> }
-node! { WhileExpr; cond: Expression<'f>, block: Block<'f> }
-node! { LoopExpr; block: Block<'f> }
-node! { FunExpr; args: ArgNames, block: Block<'f> }
-node! { ClassExpr; block: MemberBlock<'f> }
-node! { TryExpr; try_block: Block<'f>, ident: Identifier, catch_block: Block<'f> }
-node! { BlockExpr; stmts: Rep<Statement<'f>>, ending_semi: bool }
+node! { IfExpr; cond: Expression, block: Block, else_block: Opt<Block> }
+node! { ForExpr; ident: Identifier, iter: Expression, block: Block }
+node! { WhileExpr; cond: Expression, block: Block }
+node! { LoopExpr; block: Block }
+node! { FunExpr; args: ArgNames, block: Block }
+node! { ClassExpr; block: MemberBlock }
+node! { TryExpr; try_block: Block, ident: Identifier, catch_block: Block }
+node! { BlockExpr; stmts: Rep<Statement>, ending_semi: bool }
 
 #[derive(Debug)]
 pub enum MemberPart {
     Field(Identifier),
 }
 #[derive(Debug)]
-pub enum CallPart<'f> {
+pub enum CallPart {
     Member(MemberPart),
-    Args(Args<'f>),
+    Args(Args),
 }
-pub type Args<'f> = Rep<Expression<'f>>;
+pub type Args = Rep<Expression>;
 pub type ArgNames = Rep<Identifier>;

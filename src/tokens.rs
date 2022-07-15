@@ -80,19 +80,19 @@ pub enum TokenType {
 }
 
 #[derive(Clone)]
-pub struct Token<'f> {
+pub struct Token {
     pub token_type: TokenType,
     pub value: Option<String>,
-    pub start: Location<'f>,
-    pub end: Location<'f>,
+    pub start: Location,
+    pub end: Location,
 }
 
-impl<'f> Token<'f> {
+impl Token {
     pub fn new(
         token_type: TokenType,
         value: String,
-        start: Location<'f>,
-        end: Location<'f>,
+        start: Location,
+        end: Location,
     ) -> Self {
         Token {
             token_type,
@@ -106,8 +106,8 @@ impl<'f> Token<'f> {
         return Token {
             token_type: TokenType::Unknown,
             value: Some("Unknown".to_string()),
-            start: Location::new(""),
-            end: Location::new(""),
+            start: Location::new(),
+            end: Location::new(),
         };
     }
 
@@ -123,7 +123,7 @@ impl<'f> Token<'f> {
     }
 }
 
-impl Debug for Token<'_> {
+impl Debug for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,

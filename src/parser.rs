@@ -1,4 +1,4 @@
-use std::result;
+use std::{mem, result};
 
 use crate::{
     error::{Error, Result},
@@ -9,20 +9,20 @@ use crate::{
 
 macro_rules! syntax_err {
     ($self:ident, $($arg:tt)*) => {
-        error!(SyntaxError, $self.token.start, $self.token.end, $($arg)*)
+        error!(SyntaxError, $self.curr_tok.start, $self.curr_tok.end, $($arg)*)
     };
 }
 
 macro_rules! expect {
     ($self:ident, $token_type:ident, $name:expr) => {
-        if $self.token.token_type != TokenType::$token_type {
+        if $self.curr_tok.token_type != TokenType::$token_type {
             $self.errors.push(error_val!(
                 SyntaxError,
-                $self.token.start,
-                $self.token.end,
+                $self.curr_tok.start,
+                $self.curr_tok.end,
                 "Expected {}, found '{}'",
                 $name,
-                $self.token.value(),
+                $self.curr_tok.value(),
             ));
         }
         $self.advance();
@@ -31,16 +31,16 @@ macro_rules! expect {
 
 macro_rules! expect_ident {
     ($self:ident) => {{
-        if $self.token.token_type != TokenType::Identifier {
+        if $self.curr_tok.token_type != TokenType::Identifier {
             $self.errors.push(error_val!(
                 SyntaxError,
-                $self.token.start,
-                $self.token.end,
+                $self.curr_tok.start,
+                $self.curr_tok.end,
                 "Expected identifier, found '{}'",
-                $self.token.value(),
+                $self.curr_tok.value(),
             ));
         }
-        let ident = $self.token.value.take().unwrap_or_default();
+        let ident = $self.curr_tok.value.take().unwrap_or_default();
         $self.advance();
         ident
     }};
@@ -48,17 +48,17 @@ macro_rules! expect_ident {
 
 macro_rules! of_types {
     ($self:ident, $type:ident) => {
-        $self.token.token_type == TokenType::$type
+        $self.curr_tok.token_type == TokenType::$type
     };
     ($self:ident, $($type:ident),+ $(,)?) => {
-        [$(TokenType::$type, )*].contains(&$self.token.token_type)
+        [$(TokenType::$type, )*].contains(&$self.curr_tok.token_type)
     };
 }
 
 macro_rules! simple_expr {
     ($name:ident -> $type:ident : $($tok:ident),+ => $next:ident $kind:tt) => {
         fn $name(&mut self) -> Result<$type> {
-            let start = self.token.start;
+            let start = self.curr_tok.start;
             simple_expr!(@kind self, start, $type, $($tok),+ | $next, $kind)
         }
     };
@@ -68,7 +68,7 @@ macro_rules! simple_expr {
         while of_types!($self, $($tok),+) {
             following.push(simple_expr!(@inner $self, $next, $($tok),+));
         }
-        Ok($type { start: $start, end: $self.token.start, base, following })
+        done!($type, $start, $self; base, following)
     }};
     (@kind $self:ident, $start:ident, $type:ident, $($tok:ident),+ | $next:ident, ?) => {{
         let left = $self.$next()?;
@@ -77,14 +77,14 @@ macro_rules! simple_expr {
         } else {
             None
         };
-        Ok($type { start: $start, end: $self.token.start, left, right })
+        done!($type, $start, $self; left, right)
     }};
     (@inner $self:ident, $next:ident, $_:ident) => {{
         $self.advance();
         $self.$next()?
     }};
     (@inner $self:ident, $next:ident, $($_:ident),+) => {{
-        let tok = $self.token.token_type;
+        let tok = $self.curr_tok.token_type;
         $self.advance();
         (tok, $self.$next()?)
     }};
@@ -94,7 +94,7 @@ macro_rules! done {
     ($type:ident, $start:ident, $self:ident; $($tt:tt)*) => {
         Ok($type {
             start: $start,
-            end: $self.token.start,
+            end: $self.prev_tok.end,
             $($tt)*
         })
     };
@@ -102,7 +102,8 @@ macro_rules! done {
 
 pub struct Parser<'i> {
     lexer: Lexer<'i>,
-    token: Token,
+    prev_tok: Token,
+    curr_tok: Token,
     errors: Rep<Error>,
 }
 
@@ -110,7 +111,8 @@ impl<'i> Parser<'i> {
     pub fn new(lexer: Lexer<'i>) -> Self {
         return Parser {
             lexer,
-            token: Token::dummy(),
+            prev_tok: Token::dummy(),
+            curr_tok: Token::dummy(),
             errors: Rep::new(),
         };
     }
@@ -133,8 +135,8 @@ impl<'i> Parser<'i> {
         if !of_types!(self, Eof) {
             self.errors.push(error_val!(
                 SyntaxError,
-                self.token.start,
-                self.token.end,
+                self.curr_tok.start,
+                self.curr_tok.end,
                 "Expected EOF",
             ));
         }
@@ -145,13 +147,14 @@ impl<'i> Parser<'i> {
     }
 
     fn advance(&mut self) {
-        self.token = match self.lexer.next_token() {
+        mem::swap(&mut self.prev_tok, &mut self.curr_tok);
+        self.curr_tok = match self.lexer.next_token() {
             Ok(token) => token,
             Err((error, token)) => {
                 self.errors.push(error);
                 token
             }
-        }
+        };
     }
 
     // ---------------------------------------
@@ -177,7 +180,7 @@ impl<'i> Parser<'i> {
     }
 
     fn statement(&mut self) -> Result<Statement> {
-        Ok(match self.token.token_type {
+        Ok(match self.curr_tok.token_type {
             TokenType::Var => Statement::Var(self.var_stmt()?),
             TokenType::Fun => Statement::Function(self.function_decl()?),
             TokenType::Class => Statement::Class(self.class_decl()?),
@@ -189,7 +192,7 @@ impl<'i> Parser<'i> {
     }
 
     fn var_stmt(&mut self) -> Result<VarStmt> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         expect!(self, Var, "'var'");
         let ident = expect_ident!(self);
@@ -205,7 +208,7 @@ impl<'i> Parser<'i> {
     }
 
     fn function_decl(&mut self) -> Result<FunctionDecl> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         expect!(self, Fun, "'fun'");
         let ident = expect_ident!(self);
@@ -216,7 +219,7 @@ impl<'i> Parser<'i> {
     }
 
     fn class_decl(&mut self) -> Result<ClassDecl> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         expect!(self, Class, "'class'");
         let ident = expect_ident!(self);
@@ -226,7 +229,7 @@ impl<'i> Parser<'i> {
     }
 
     fn break_stmt(&mut self) -> Result<BreakStmt> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         expect!(self, Break, "'break'");
         let expr = self.expression()?;
@@ -235,14 +238,14 @@ impl<'i> Parser<'i> {
     }
 
     fn continue_stmt(&mut self) -> Result<ContinueStmt> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         expect!(self, Continue, "'continue'");
 
         done!(ContinueStmt, start, self;)
     }
     fn return_stmt(&mut self) -> Result<ReturnStmt> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         expect!(self, Return, "'return'");
         let expr = self.expression()?;
@@ -251,7 +254,7 @@ impl<'i> Parser<'i> {
     }
 
     fn member(&mut self) -> Result<Member> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         let is_static = of_types!(self, Static);
         if is_static {
@@ -267,7 +270,7 @@ impl<'i> Parser<'i> {
     }
 
     fn member_block(&mut self) -> Result<MemberBlock> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         expect!(self, LBrace, "'{'");
         let mut members = Rep::new();
@@ -287,11 +290,11 @@ impl<'i> Parser<'i> {
     }
 
     fn range_expr(&mut self) -> Result<RangeExpr> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         let base = Box::new(self.or_expr()?);
         let range = if of_types!(self, Dots, DotsInclusive) {
-            let tok = self.token.token_type;
+            let tok = self.curr_tok.token_type;
             self.advance();
             Some((tok, Box::new(self.or_expr()?)))
         } else {
@@ -313,15 +316,15 @@ impl<'i> Parser<'i> {
     simple_expr!(mul_expr -> MulExpr: Multiply, Divide, Modulo, IntDivide => unary_expr *);
 
     fn unary_expr(&mut self) -> Result<UnaryExpr> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         if of_types!(self, Plus, Minus, Not) {
-            let operator = self.token.token_type;
+            let operator = self.curr_tok.token_type;
             self.advance();
             let expr = Box::new(self.unary_expr()?);
             Ok(UnaryExpr::Unary {
                 start,
-                end: self.token.start,
+                end: self.prev_tok.end,
                 operator,
                 expr,
             })
@@ -331,7 +334,7 @@ impl<'i> Parser<'i> {
     }
 
     fn exp_expr(&mut self) -> Result<ExpExpr> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         let base = self.assign_expr()?;
         let exponent = if of_types!(self, Power) {
@@ -345,7 +348,7 @@ impl<'i> Parser<'i> {
     }
 
     fn assign_expr(&mut self) -> Result<AssignExpr> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         let left = self.call_expr()?;
         let right = if of_types!(
@@ -364,7 +367,7 @@ impl<'i> Parser<'i> {
             BitXorAssign,
             BitOrAssign,
         ) {
-            let tok = self.token.token_type;
+            let tok = self.curr_tok.token_type;
             self.advance();
             Some((tok, self.expression()?))
         } else {
@@ -375,7 +378,7 @@ impl<'i> Parser<'i> {
     }
 
     fn call_expr(&mut self) -> Result<CallExpr> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         let base = self.member_expr()?;
         let following = if of_types!(self, LParen) {
@@ -393,7 +396,7 @@ impl<'i> Parser<'i> {
     }
 
     fn member_expr(&mut self) -> Result<MemberExpr> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         let base = self.atom()?;
         let mut following = Rep::new();
@@ -405,29 +408,29 @@ impl<'i> Parser<'i> {
     }
 
     fn atom(&mut self) -> Result<Atom> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
-        Ok(match self.token.token_type {
+        Ok(match self.curr_tok.token_type {
             TokenType::Number => {
-                let num = self.token.take_value();
+                let num = self.curr_tok.take_value();
                 self.advance();
                 Atom::Number(match num.parse() {
                     Ok(num) => num,
                     Err(rust_decimal::Error::ErrorString(msg)) => {
-                        error!(ValueError, start, self.token.start, "{}", msg);
+                        error!(ValueError, start, self.prev_tok.end, "{}", msg);
                     }
                     Err(rust_decimal::Error::ExceedsMaximumPossibleValue) => {
-                        error!(ValueError, start, self.token.start, "Value too high");
+                        error!(ValueError, start, self.prev_tok.end, "Value too high");
                     }
                     Err(rust_decimal::Error::LessThanMinimumPossibleValue) => {
-                        error!(ValueError, start, self.token.start, "Value too low");
+                        error!(ValueError, start, self.prev_tok.end, "Value too low");
                     }
                     Err(rust_decimal::Error::ScaleExceedsMaximumPrecision(_)) => {
-                        error!(ValueError, start, self.token.start, "Value too precise");
+                        error!(ValueError, start, self.prev_tok.end, "Value too precise");
                     }
                     Err(_) => error!(
                         ValueError,
-                        start, self.token.start, "Failed to parse number"
+                        start, self.prev_tok.end, "Failed to parse number"
                     ),
                 })
             }
@@ -440,7 +443,7 @@ impl<'i> Parser<'i> {
                 Atom::Bool(true)
             }
             TokenType::String => {
-                let str = self.token.take_value();
+                let str = self.curr_tok.take_value();
                 self.advance();
                 Atom::String(str)
             }
@@ -449,11 +452,11 @@ impl<'i> Parser<'i> {
                 Atom::Null
             }
             TokenType::Identifier => {
-                let name = self.token.take_value();
+                let name = self.curr_tok.take_value();
                 self.advance();
                 Atom::Identifier {
                     start,
-                    end: self.token.start,
+                    end: self.prev_tok.end,
                     name,
                 }
             }
@@ -471,12 +474,16 @@ impl<'i> Parser<'i> {
             TokenType::Class => Atom::ClassExpr(self.class_expr()?),
             TokenType::Try => Atom::TryExpr(self.try_expr()?),
             TokenType::LBrace => Atom::BlockExpr(self.block_expr()?),
-            _ => syntax_err!(self, "Expected expression, found '{}'", self.token.value()),
+            _ => syntax_err!(
+                self,
+                "Expected expression, found '{}'",
+                self.curr_tok.value()
+            ),
         })
     }
 
     fn if_expr(&mut self) -> Result<IfExpr> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         expect!(self, If, "'if'");
         expect!(self, LParen, "'('");
@@ -494,7 +501,7 @@ impl<'i> Parser<'i> {
     }
 
     fn for_expr(&mut self) -> Result<ForExpr> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         expect!(self, For, "'for'");
         expect!(self, LParen, "'('");
@@ -508,7 +515,7 @@ impl<'i> Parser<'i> {
     }
 
     fn while_expr(&mut self) -> Result<WhileExpr> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         expect!(self, While, "'while'");
         expect!(self, LParen, "'('");
@@ -520,7 +527,7 @@ impl<'i> Parser<'i> {
     }
 
     fn loop_expr(&mut self) -> Result<LoopExpr> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         expect!(self, Loop, "'loop'");
         let block = self.block()?;
@@ -529,7 +536,7 @@ impl<'i> Parser<'i> {
     }
 
     fn fun_expr(&mut self) -> Result<FunExpr> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         expect!(self, Fun, "'fun'");
         let args = self.arg_names()?;
@@ -539,7 +546,7 @@ impl<'i> Parser<'i> {
     }
 
     fn class_expr(&mut self) -> Result<ClassExpr> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         expect!(self, Class, "'class'");
         let block = self.member_block()?;
@@ -548,7 +555,7 @@ impl<'i> Parser<'i> {
     }
 
     fn try_expr(&mut self) -> Result<TryExpr> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         expect!(self, Try, "'try'");
         let try_block = self.block()?;
@@ -562,7 +569,7 @@ impl<'i> Parser<'i> {
     }
 
     fn block_expr(&mut self) -> Result<BlockExpr> {
-        let start = self.token.start;
+        let start = self.curr_tok.start;
 
         expect!(self, LBrace, "'{'");
         let mut stmts = Rep::new();
@@ -584,17 +591,17 @@ impl<'i> Parser<'i> {
     }
 
     fn member_part(&mut self) -> Result<MemberPart> {
-        Ok(match self.token.token_type {
+        Ok(match self.curr_tok.token_type {
             TokenType::Dot => {
                 self.advance();
                 MemberPart::Field(expect_ident!(self))
             }
             _ => error!(
                 SyntaxError,
-                self.token.start,
-                self.token.end,
+                self.curr_tok.start,
+                self.curr_tok.end,
                 "Expected '.', found '{}'",
-                self.token.value(),
+                self.curr_tok.value(),
             ),
         })
     }

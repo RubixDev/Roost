@@ -88,12 +88,7 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn new(
-        token_type: TokenType,
-        value: String,
-        start: Location,
-        end: Location,
-    ) -> Self {
+    pub fn new(token_type: TokenType, value: String, start: Location, end: Location) -> Self {
         Token {
             token_type,
             value: Some(value),
@@ -103,12 +98,12 @@ impl Token {
     }
 
     pub fn dummy() -> Self {
-        return Token {
+        Token {
             token_type: TokenType::Unknown,
             value: Some("Unknown".to_string()),
             start: Location::new(),
             end: Location::new(),
-        };
+        }
     }
 
     pub fn value(&self) -> &str {

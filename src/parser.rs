@@ -109,12 +109,12 @@ pub struct Parser<'i> {
 
 impl<'i> Parser<'i> {
     pub fn new(lexer: Lexer<'i>) -> Self {
-        return Parser {
+        Self {
             lexer,
             prev_tok: Token::dummy(),
             curr_tok: Token::dummy(),
             errors: Rep::new(),
-        };
+        }
     }
 
     pub fn new_parse(lexer: Lexer<'i>) -> result::Result<Program, Vec<Error>> {

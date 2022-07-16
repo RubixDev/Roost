@@ -46,6 +46,12 @@ impl Location {
     }
 }
 
+impl Default for Location {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Debug for Location {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{}", self.line, self.column)
@@ -73,11 +79,7 @@ impl Error {
 
 impl Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{:?} at {:?}  {}",
-            self.kind, self.start, self.message,
-        )
+        write!(f, "{:?} at {:?}  {}", self.kind, self.start, self.message,)
     }
 }
 

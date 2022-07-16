@@ -1,4 +1,4 @@
-use std::{ops::Deref, slice, fmt::Debug};
+use std::{fmt::Debug, ops::Deref, slice};
 
 use crate::{error::Location, tokens::TokenType};
 use rust_decimal::Decimal;
@@ -42,6 +42,12 @@ impl<T> Rep<T> {
 
     pub fn unwrap_or_default(self) -> Vec<T> {
         self.0.unwrap_or_default()
+    }
+}
+
+impl<T> Default for Rep<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

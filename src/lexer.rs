@@ -115,12 +115,12 @@ impl<'i> Lexer<'i> {
 
         let start_pos = self.location;
         self.location.advance(false);
-        return Ok(Token::new(
+        Ok(Token::new(
             TokenType::Eof,
             "EOF".to_string(),
             start_pos,
             self.location,
-        ));
+        ))
     }
 
     fn advance(&mut self) {
@@ -231,12 +231,12 @@ impl<'i> Lexer<'i> {
         }
         self.advance(); // end quote
 
-        return Ok(Token::new(
+        Ok(Token::new(
             TokenType::String,
             string,
             start_location,
             self.location,
-        ));
+        ))
     }
 
     fn escape_sequence(
@@ -356,12 +356,12 @@ impl<'i> Lexer<'i> {
             ));
         }
 
-        return Ok(Token::new(
+        Ok(Token::new(
             TokenType::Dot,
             ".".to_string(),
             start_location,
             self.location,
-        ));
+        ))
     }
 
     fn make_slash(&mut self) -> Option<Token> {
@@ -370,12 +370,12 @@ impl<'i> Lexer<'i> {
         match self.current_char {
             Some('=') => {
                 self.advance();
-                return Some(Token::new(
+                Some(Token::new(
                     TokenType::DivideAssign,
                     "/=".to_string(),
                     start_location,
                     self.location,
-                ));
+                ))
             }
             Some('/') => {
                 while ![Some('\n'), None].contains(&self.current_char) {
@@ -395,14 +395,12 @@ impl<'i> Lexer<'i> {
                 self.advance();
                 None
             }
-            _ => {
-                return Some(Token::new(
-                    TokenType::Divide,
-                    "/".to_string(),
-                    start_location,
-                    self.location,
-                ));
-            }
+            _ => Some(Token::new(
+                TokenType::Divide,
+                "/".to_string(),
+                start_location,
+                self.location,
+            )),
         }
     }
 

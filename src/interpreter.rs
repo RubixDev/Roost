@@ -9,7 +9,7 @@ use crate::io::Write;
 use crate::{
     error::{Location, Result},
     nodes::*,
-    tokens::TokenType,
+    tokens::TokenKind,
 };
 #[cfg(not(feature = "no_std_io"))]
 use std::io::Write;
@@ -55,7 +55,7 @@ macro_rules! simple_expr {
         for (tok, other) in &$node.following {
             let other = try_visit!($self.$next(other)?);
             let out = match tok {
-                $(TokenType::$tok => $base.borrow().$method(&other.borrow(), &$node.start, &$node.end),)+
+                $(TokenKind::$tok => $base.borrow().$method(&other.borrow(), &$node.start, &$node.end),)+
                 _ => unreachable!(),
             }?
             .wrapped();
@@ -216,8 +216,8 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
         let mut statics: HashMap<&str, _> = HashMap::new();
         let mut non_statics = vec![];
         for member in &node.block.members {
-            match (member.is_static, &member.member_type) {
-                (true, MemberType::Attribute(node)) => {
+            match (member.is_static, &member.kind) {
+                (true, MemberKind::Attribute(node)) => {
                     statics.insert(
                         &node.ident,
                         match &node.expr {
@@ -226,7 +226,7 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
                         },
                     );
                 }
-                (true, MemberType::Method(node)) => {
+                (true, MemberKind::Method(node)) => {
                     statics.insert(
                         &node.ident,
                         Value::Method {
@@ -280,8 +280,8 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
         if let Some((tok, right)) = &node.right {
             let right = try_visit!(self.visit_or_expr(right)?);
             let exclusive = match tok {
-                TokenType::Dots => true,
-                TokenType::DotsInclusive => false,
+                TokenKind::Dots => true,
+                TokenKind::DotsInclusive => false,
                 _ => unreachable!(),
             };
             let range = match (&*left.borrow(), &*right.borrow()) {
@@ -351,8 +351,8 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
         let out = if let Some((tok, right)) = &node.right {
             let right = try_visit!(self.visit_rel_expr(right)?);
             Value::Bool(match tok {
-                TokenType::Equal => left == right,
-                TokenType::NotEqual => left != right,
+                TokenKind::Equal => left == right,
+                TokenKind::NotEqual => left != right,
                 _ => unreachable!(),
             })
             .wrapped()
@@ -367,12 +367,12 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
         let out = if let Some((tok, right)) = &node.right {
             let right = try_visit!(self.visit_shift_expr(right)?);
             match tok {
-                TokenType::LessThan => left.borrow().lt(&right.borrow(), &node.start, &node.end),
-                TokenType::LessThanOrEqual => {
+                TokenKind::LessThan => left.borrow().lt(&right.borrow(), &node.start, &node.end),
+                TokenKind::LessThanOrEqual => {
                     left.borrow().le(&right.borrow(), &node.start, &node.end)
                 }
-                TokenType::GreaterThan => left.borrow().gt(&right.borrow(), &node.start, &node.end),
-                TokenType::GreaterThanOrEqual => {
+                TokenKind::GreaterThan => left.borrow().gt(&right.borrow(), &node.start, &node.end),
+                TokenKind::GreaterThanOrEqual => {
                     left.borrow().ge(&right.borrow(), &node.start, &node.end)
                 }
                 _ => unreachable!(),
@@ -414,13 +414,13 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
             } => {
                 let base = try_visit!(self.visit_unary_expr(expr)?);
                 let out = match operator {
-                    TokenType::Plus => {
+                    TokenKind::Plus => {
                         Value::Number(Decimal::ZERO).add(&base.borrow(), start, end)?
                     }
-                    TokenType::Minus => {
+                    TokenKind::Minus => {
                         Value::Number(Decimal::ZERO).sub(&base.borrow(), start, end)?
                     }
-                    TokenType::Not => Value::Bool(base.borrow().is_false()),
+                    TokenKind::Not => Value::Bool(base.borrow().is_false()),
                     _ => unreachable!(),
                 }
                 .wrapped();
@@ -464,39 +464,39 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
                 );
             }
             let new_value = match tok {
-                TokenType::Assign => right.borrow().clone(),
-                TokenType::MultiplyAssign => {
+                TokenKind::Assign => right.borrow().clone(),
+                TokenKind::MultiplyAssign => {
                     left.borrow().mul(&right.borrow(), &node.start, &node.end)?
                 }
-                TokenType::DivideAssign => {
+                TokenKind::DivideAssign => {
                     left.borrow().div(&right.borrow(), &node.start, &node.end)?
                 }
-                TokenType::IntDivideAssign => {
+                TokenKind::IntDivideAssign => {
                     left.borrow()
                         .div_floor(&right.borrow(), &node.start, &node.end)?
                 }
-                TokenType::ModuloAssign => {
+                TokenKind::ModuloAssign => {
                     left.borrow().rem(&right.borrow(), &node.start, &node.end)?
                 }
-                TokenType::PlusAssign => {
+                TokenKind::PlusAssign => {
                     left.borrow().add(&right.borrow(), &node.start, &node.end)?
                 }
-                TokenType::MinusAssign => {
+                TokenKind::MinusAssign => {
                     left.borrow().sub(&right.borrow(), &node.start, &node.end)?
                 }
-                TokenType::ShiftLeftAssign => {
+                TokenKind::ShiftLeftAssign => {
                     left.borrow().shl(&right.borrow(), &node.start, &node.end)?
                 }
-                TokenType::ShiftRightAssign => {
+                TokenKind::ShiftRightAssign => {
                     left.borrow().shr(&right.borrow(), &node.start, &node.end)?
                 }
-                TokenType::BitAndAssign => {
+                TokenKind::BitAndAssign => {
                     left.borrow().and(&right.borrow(), &node.start, &node.end)?
                 }
-                TokenType::BitXorAssign => {
+                TokenKind::BitXorAssign => {
                     left.borrow().xor(&right.borrow(), &node.start, &node.end)?
                 }
-                TokenType::BitOrAssign => {
+                TokenKind::BitOrAssign => {
                     left.borrow().or(&right.borrow(), &node.start, &node.end)?
                 }
                 _ => unreachable!(),
@@ -610,7 +610,7 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
                 let mut fields: HashMap<&str, _> = HashMap::new();
                 for member in non_statics {
                     match member {
-                        MemberType::Attribute(node) => {
+                        MemberKind::Attribute(node) => {
                             fields.insert(
                                 &node.ident,
                                 match &node.expr {
@@ -619,7 +619,7 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
                                 },
                             );
                         }
-                        MemberType::Method(node) => {
+                        MemberKind::Method(node) => {
                             fields.insert(
                                 &node.ident,
                                 Value::Method {
@@ -756,8 +756,8 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
         let mut statics: HashMap<&str, _> = HashMap::new();
         let mut non_statics = vec![];
         for member in &node.block.members {
-            match (member.is_static, &member.member_type) {
-                (true, MemberType::Attribute(node)) => {
+            match (member.is_static, &member.kind) {
+                (true, MemberKind::Attribute(node)) => {
                     statics.insert(
                         &node.ident,
                         match &node.expr {
@@ -766,7 +766,7 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
                         },
                     );
                 }
-                (true, MemberType::Method(node)) => {
+                (true, MemberKind::Method(node)) => {
                     statics.insert(
                         &node.ident,
                         Value::Method {

@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::{error::Location, tokens::TokenType};
+use crate::{error::Location, tokens::TokenKind};
 use rust_decimal::Decimal;
 
 macro_rules! node {
@@ -35,38 +35,38 @@ node! { BreakStmt; expr: Option<Expression> }
 node! { ContinueStmt; }
 node! { ReturnStmt; expr: Option<Expression> }
 
-node! { Member; is_static: bool, member_type: MemberType }
+node! { Member; is_static: bool, kind: MemberKind }
 #[derive(Debug, PartialEq, Clone)]
-pub enum MemberType {
+pub enum MemberKind {
     Attribute(VarStmt),
     Method(FunctionDecl),
 }
 node! { MemberBlock; members: Vec<Member> }
 
 pub type Expression = RangeExpr;
-node! { RangeExpr; left: Box<OrExpr>, right: Option<(TokenType, Box<OrExpr>)> }
+node! { RangeExpr; left: Box<OrExpr>, right: Option<(TokenKind, Box<OrExpr>)> }
 node! { OrExpr; base: AndExpr, following: Vec<AndExpr> }
 node! { AndExpr; base: BitOrExpr, following: Vec<BitOrExpr> }
 node! { BitOrExpr; base: BitXorExpr, following: Vec<BitXorExpr> }
 node! { BitXorExpr; base: BitAndExpr, following: Vec<BitAndExpr> }
 node! { BitAndExpr; base: EqExpr, following: Vec<EqExpr> }
-node! { EqExpr; left: RelExpr, right: Option<(TokenType, RelExpr)> }
-node! { RelExpr; left: ShiftExpr, right: Option<(TokenType, ShiftExpr)> }
-node! { ShiftExpr; base: AddExpr, following: Vec<(TokenType, AddExpr)> }
-node! { AddExpr; base: MulExpr, following: Vec<(TokenType, MulExpr)> }
-node! { MulExpr; base: UnaryExpr, following: Vec<(TokenType, UnaryExpr)> }
+node! { EqExpr; left: RelExpr, right: Option<(TokenKind, RelExpr)> }
+node! { RelExpr; left: ShiftExpr, right: Option<(TokenKind, ShiftExpr)> }
+node! { ShiftExpr; base: AddExpr, following: Vec<(TokenKind, AddExpr)> }
+node! { AddExpr; base: MulExpr, following: Vec<(TokenKind, MulExpr)> }
+node! { MulExpr; base: UnaryExpr, following: Vec<(TokenKind, UnaryExpr)> }
 #[derive(Debug, PartialEq, Clone)]
 pub enum UnaryExpr {
     Unary {
         start: Location,
         end: Location,
-        operator: TokenType,
+        operator: TokenKind,
         expr: Box<UnaryExpr>,
     },
     Done(Box<ExpExpr>),
 }
 node! { ExpExpr; base: AssignExpr, exponent: Option<UnaryExpr> }
-node! { AssignExpr; left: CallExpr, right: Option<(TokenType, Expression)> }
+node! { AssignExpr; left: CallExpr, right: Option<(TokenKind, Expression)> }
 node! { CallExpr; base: MemberExpr, following: Vec<CallPart> }
 node! { MemberExpr; base: Atom, following: Vec<MemberPart> }
 #[derive(Debug, PartialEq, Clone)]

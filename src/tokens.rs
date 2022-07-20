@@ -2,7 +2,7 @@ use crate::error::Location;
 use std::fmt::Debug;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum TokenType {
+pub enum TokenKind {
     Identifier, // name for variable, function or class
 
     LParen, // '('
@@ -81,16 +81,16 @@ pub enum TokenType {
 
 #[derive(Clone)]
 pub struct Token {
-    pub token_type: TokenType,
+    pub kind: TokenKind,
     pub value: Option<String>,
     pub start: Location,
     pub end: Location,
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, value: String, start: Location, end: Location) -> Self {
+    pub fn new(kind: TokenKind, value: String, start: Location, end: Location) -> Self {
         Token {
-            token_type,
+            kind,
             value: Some(value),
             start,
             end,
@@ -99,7 +99,7 @@ impl Token {
 
     pub fn dummy() -> Self {
         Token {
-            token_type: TokenType::Unknown,
+            kind: TokenKind::Unknown,
             value: Some("Unknown".to_string()),
             start: Location::new(),
             end: Location::new(),
@@ -123,7 +123,7 @@ impl Debug for Token {
         write!(
             f,
             "( {:?} | {:?} | {}:{}..{}:{} )",
-            self.token_type,
+            self.kind,
             self.value,
             self.start.line,
             self.start.column,

@@ -1,12 +1,12 @@
 use std::{io, process};
 
-use roost::{interpreter::Interpreter, lexer::Lexer, parser::Parser, tokens::TokenType};
+use roost::{interpreter::Interpreter, lexer::Lexer, parser::Parser, tokens::TokenKind};
 
 fn main() {
     let mut l = Lexer::new(r#"< > <= >= << >> <<= >>= . .. ..= .3"#);
     while let Ok(token) = l.next_token() {
         println!("{token:?}");
-        if let TokenType::Eof = token.token_type {
+        if let TokenKind::Eof = token.kind {
             break;
         }
     }

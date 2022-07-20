@@ -8,7 +8,7 @@ pub mod types;
 
 use crate::{
     error::{Location, Result},
-    nodes::{Block, MemberType},
+    nodes::{Block, MemberKind},
 };
 use rust_decimal::Decimal;
 use std::{
@@ -41,7 +41,7 @@ pub enum Value<'tree> {
     BuiltIn(BuiltIn<'tree>),
     Class {
         statics: HashMap<&'tree str, WrappedValue<'tree>>,
-        non_statics: Vec<&'tree MemberType>,
+        non_statics: Vec<&'tree MemberKind>,
     },
     Object(HashMap<&'tree str, WrappedValue<'tree>>),
     Null,

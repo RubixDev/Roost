@@ -1,6 +1,6 @@
 use crate::{
     error::{Error, Location},
-    tokens::{Token, TokenType},
+    tokens::{Token, TokenKind},
 };
 use std::str::{self, Chars};
 
@@ -23,7 +23,7 @@ macro_rules! lex_error {
         return Err((
             error_val!(SyntaxError, $start, $self.location, $($arg)*),
             Token::new(
-                TokenType::Unknown,
+                TokenKind::Unknown,
                 "Unknown".to_string(),
                 $start,
                 $self.location,
@@ -33,16 +33,16 @@ macro_rules! lex_error {
 }
 
 macro_rules! char_construct {
-    ($self:ident, $type_single:ident, $type_with_eq:tt, $type_double:tt, $type_double_with_eq:tt $(,)?) => {
+    ($self:ident, $kind_single:ident, $kind_with_eq:tt, $kind_double:tt, $kind_double_with_eq:tt $(,)?) => {
         return Ok($self.make_char_construct(
-            TokenType::$type_single,
-            char_construct!(@optional $type_with_eq),
-            char_construct!(@optional $type_double),
-            char_construct!(@optional $type_double_with_eq),
+            TokenKind::$kind_single,
+            char_construct!(@optional $kind_with_eq),
+            char_construct!(@optional $kind_double),
+            char_construct!(@optional $kind_double_with_eq),
         ))
     };
     (@optional _) => { None };
-    (@optional $type:ident) => { Some(TokenType::$type) };
+    (@optional $kind:ident) => { Some(TokenKind::$kind) };
 }
 
 type LexResult<T> = std::result::Result<T, (Error, Token)>;
@@ -116,7 +116,7 @@ impl<'i> Lexer<'i> {
         let start_pos = self.location;
         self.location.advance(false);
         Ok(Token::new(
-            TokenType::Eof,
+            TokenKind::Eof,
             "EOF".to_string(),
             start_pos,
             self.location,
@@ -139,18 +139,18 @@ impl<'i> Lexer<'i> {
 
     fn make_char_construct(
         &mut self,
-        type_single: TokenType,
-        type_with_eq: Option<TokenType>,
-        type_double: Option<TokenType>,
-        type_double_with_eq: Option<TokenType>,
+        kind_single: TokenKind,
+        kind_with_eq: Option<TokenKind>,
+        kind_double: Option<TokenKind>,
+        kind_double_with_eq: Option<TokenKind>,
     ) -> Token {
         let start_location = self.location;
         let char = self.current_char.unwrap();
         self.advance();
         match (
-            type_with_eq,
-            &type_double,
-            &type_double_with_eq,
+            kind_with_eq,
+            &kind_double,
+            &kind_double_with_eq,
             self.current_char,
         ) {
             (Some(ty), .., Some('=')) => {
@@ -159,7 +159,7 @@ impl<'i> Lexer<'i> {
             }
             (_, Some(_), _, Some(c)) | (_, _, Some(_), Some(c)) if c == char => {
                 self.advance();
-                match (type_double, type_double_with_eq, self.current_char) {
+                match (kind_double, kind_double_with_eq, self.current_char) {
                     (_, Some(ty), Some('=')) => {
                         self.advance();
                         Token::new(ty, format!("{char}{char}="), start_location, self.location)
@@ -168,14 +168,14 @@ impl<'i> Lexer<'i> {
                         Token::new(ty, format!("{char}{char}"), start_location, self.location)
                     }
                     // can panic when all this is true:
-                    // - `type_double` is `None`
-                    // - `type_double_with_eq` is `Some(_)`
+                    // - `kind_double` is `None`
+                    // - `kind_double_with_eq` is `Some(_)`
                     // - `self.current_char` is not `Some('=')`
                     // but we never call this function that way
                     _ => unreachable!(),
                 }
             }
-            _ => Token::new(type_single, char.to_string(), start_location, self.location),
+            _ => Token::new(kind_single, char.to_string(), start_location, self.location),
         }
     }
 
@@ -232,7 +232,7 @@ impl<'i> Lexer<'i> {
         self.advance(); // end quote
 
         Ok(Token::new(
-            TokenType::String,
+            TokenKind::String,
             string,
             start_location,
             self.location,
@@ -307,7 +307,7 @@ impl<'i> Lexer<'i> {
             }
         }
 
-        Token::new(TokenType::Number, number, start_location, self.location)
+        Token::new(TokenKind::Number, number, start_location, self.location)
     }
 
     fn make_dot(&mut self) -> LexResult<Token> {
@@ -330,7 +330,7 @@ impl<'i> Lexer<'i> {
             }
 
             return Ok(Token::new(
-                TokenType::Number,
+                TokenKind::Number,
                 number,
                 start_location,
                 self.location,
@@ -342,14 +342,14 @@ impl<'i> Lexer<'i> {
             if self.current_char == Some('=') {
                 self.advance();
                 return Ok(Token::new(
-                    TokenType::DotsInclusive,
+                    TokenKind::DotsInclusive,
                     "..=".to_string(),
                     start_location,
                     self.location,
                 ));
             }
             return Ok(Token::new(
-                TokenType::Dots,
+                TokenKind::Dots,
                 "..".to_string(),
                 start_location,
                 self.location,
@@ -357,7 +357,7 @@ impl<'i> Lexer<'i> {
         }
 
         Ok(Token::new(
-            TokenType::Dot,
+            TokenKind::Dot,
             ".".to_string(),
             start_location,
             self.location,
@@ -371,7 +371,7 @@ impl<'i> Lexer<'i> {
             Some('=') => {
                 self.advance();
                 Some(Token::new(
-                    TokenType::DivideAssign,
+                    TokenKind::DivideAssign,
                     "/=".to_string(),
                     start_location,
                     self.location,
@@ -396,7 +396,7 @@ impl<'i> Lexer<'i> {
                 None
             }
             _ => Some(Token::new(
-                TokenType::Divide,
+                TokenKind::Divide,
                 "/".to_string(),
                 start_location,
                 self.location,
@@ -417,27 +417,27 @@ impl<'i> Lexer<'i> {
             self.advance();
         }
 
-        let token_type = match name.as_str() {
-            "var" => TokenType::Var,
-            "true" => TokenType::True,
-            "false" => TokenType::False,
-            "null" => TokenType::Null,
-            "if" => TokenType::If,
-            "else" => TokenType::Else,
-            "fun" => TokenType::Fun,
-            "static" => TokenType::Static,
-            "class" => TokenType::Class,
-            "loop" => TokenType::Loop,
-            "while" => TokenType::While,
-            "for" => TokenType::For,
-            "in" => TokenType::In,
-            "return" => TokenType::Return,
-            "break" => TokenType::Break,
-            "continue" => TokenType::Continue,
-            "try" => TokenType::Try,
-            "catch" => TokenType::Catch,
-            _ => TokenType::Identifier,
+        let kind = match name.as_str() {
+            "var" => TokenKind::Var,
+            "true" => TokenKind::True,
+            "false" => TokenKind::False,
+            "null" => TokenKind::Null,
+            "if" => TokenKind::If,
+            "else" => TokenKind::Else,
+            "fun" => TokenKind::Fun,
+            "static" => TokenKind::Static,
+            "class" => TokenKind::Class,
+            "loop" => TokenKind::Loop,
+            "while" => TokenKind::While,
+            "for" => TokenKind::For,
+            "in" => TokenKind::In,
+            "return" => TokenKind::Return,
+            "break" => TokenKind::Break,
+            "continue" => TokenKind::Continue,
+            "try" => TokenKind::Try,
+            "catch" => TokenKind::Catch,
+            _ => TokenKind::Identifier,
         };
-        Token::new(token_type, name, start_location, self.location)
+        Token::new(kind, name, start_location, self.location)
     }
 }

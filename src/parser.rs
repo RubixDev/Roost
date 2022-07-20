@@ -347,7 +347,7 @@ impl<'i> Parser<'i> {
     simple_expr!(rel_expr -> RelExpr: LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual => shift_expr ?);
     simple_expr!(shift_expr -> ShiftExpr: ShiftLeft, ShiftRight => add_expr *);
     simple_expr!(add_expr -> AddExpr: Plus, Minus => mul_expr *);
-    simple_expr!(mul_expr -> MulExpr: Multiply, Divide, Modulo, IntDivide => unary_expr *);
+    simple_expr!(mul_expr -> MulExpr: Star, Slash, Rem, Backslash => unary_expr *);
 
     fn unary_expr(&mut self) -> Result<UnaryExpr> {
         let start = self.curr_tok.start;
@@ -371,7 +371,7 @@ impl<'i> Parser<'i> {
         let start = self.curr_tok.start;
 
         let base = self.assign_expr()?;
-        let exponent = if of_kinds!(self, Power) {
+        let exponent = if of_kinds!(self, Pow) {
             self.advance();
             Some(self.unary_expr()?)
         } else {
@@ -388,10 +388,10 @@ impl<'i> Parser<'i> {
         let right = if of_kinds!(
             self,
             Assign,
-            MultiplyAssign,
-            DivideAssign,
-            IntDivideAssign,
-            ModuloAssign,
+            StarAssign,
+            SlashAssign,
+            BackslashAssign,
+            RemAssign,
             PlusAssign,
             MinusAssign,
             ShiftLeftAssign,

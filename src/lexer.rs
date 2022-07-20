@@ -76,7 +76,7 @@ impl<'i> Lexer<'i> {
                         return Ok(token);
                     }
                 }
-                '*' => char_construct!(self, Multiply, MultiplyAssign, Power, PowerAssign),
+                '*' => char_construct!(self, Star, StarAssign, Pow, PowAssign),
                 '(' => char_construct!(self, LParen, _, _, _),
                 ')' => char_construct!(self, RParen, _, _, _),
                 '{' => char_construct!(self, LBrace, _, _, _),
@@ -97,8 +97,8 @@ impl<'i> Lexer<'i> {
                 ),
                 '+' => char_construct!(self, Plus, PlusAssign, _, _),
                 '-' => char_construct!(self, Minus, MinusAssign, _, _),
-                '%' => char_construct!(self, Modulo, ModuloAssign, _, _),
-                '\\' => char_construct!(self, IntDivide, IntDivideAssign, _, _),
+                '%' => char_construct!(self, Rem, RemAssign, _, _),
+                '\\' => char_construct!(self, Backslash, BackslashAssign, _, _),
                 _ => {
                     if DIGITS.contains(&current_char) {
                         return Ok(self.make_number());
@@ -371,7 +371,7 @@ impl<'i> Lexer<'i> {
             Some('=') => {
                 self.advance();
                 Some(Token::new(
-                    TokenKind::DivideAssign,
+                    TokenKind::SlashAssign,
                     "/=".to_string(),
                     start_location,
                     self.location,
@@ -396,7 +396,7 @@ impl<'i> Lexer<'i> {
                 None
             }
             _ => Some(Token::new(
-                TokenKind::Divide,
+                TokenKind::Slash,
                 "/".to_string(),
                 start_location,
                 self.location,

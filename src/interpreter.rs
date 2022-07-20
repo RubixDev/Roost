@@ -398,10 +398,10 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
 
     simple_expr!(
         visit_mul_expr: MulExpr, visit_unary_expr;
-        Multiply => mul,
-        Divide => div,
-        Modulo => rem,
-        IntDivide => div_floor,
+        Star => mul,
+        Slash => div,
+        Rem => rem,
+        Backslash => div_floor,
     );
 
     fn visit_unary_expr(&mut self, node: &'tree UnaryExpr) -> Result<RuntimeResult<'tree>> {
@@ -465,17 +465,17 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
             }
             let new_value = match tok {
                 TokenKind::Assign => right.borrow().clone(),
-                TokenKind::MultiplyAssign => {
+                TokenKind::StarAssign => {
                     left.borrow().mul(&right.borrow(), &node.start, &node.end)?
                 }
-                TokenKind::DivideAssign => {
+                TokenKind::SlashAssign => {
                     left.borrow().div(&right.borrow(), &node.start, &node.end)?
                 }
-                TokenKind::IntDivideAssign => {
+                TokenKind::BackslashAssign => {
                     left.borrow()
                         .div_floor(&right.borrow(), &node.start, &node.end)?
                 }
-                TokenKind::ModuloAssign => {
+                TokenKind::RemAssign => {
                     left.borrow().rem(&right.borrow(), &node.start, &node.end)?
                 }
                 TokenKind::PlusAssign => {

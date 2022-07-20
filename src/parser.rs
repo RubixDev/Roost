@@ -239,7 +239,7 @@ impl<'i> Parser<'i> {
 
         expect!(self, Fun, "'fun'");
         let ident = expect_ident!(self);
-        let args = self.arg_names()?;
+        let args = self.params()?;
         let block = self.block()?;
 
         done!(FunctionDecl, start, self; ident, args, block)
@@ -569,7 +569,7 @@ impl<'i> Parser<'i> {
         let start = self.curr_tok.start;
 
         expect!(self, Fun, "'fun'");
-        let args = self.arg_names()?;
+        let args = self.params()?;
         let block = self.block()?;
 
         done!(FunExpr, start, self; args, block)
@@ -653,7 +653,7 @@ impl<'i> Parser<'i> {
         Ok(args)
     }
 
-    fn arg_names(&mut self) -> Result<ArgNames> {
+    fn params(&mut self) -> Result<Params> {
         let mut args = vec![];
         expect!(self, LParen, "'('");
         if !of_types!(self, RParen) {

@@ -20,7 +20,7 @@ Statement    = VarStmt
              | ReturnStmt
              | Expression ;
 VarStmt      = 'var' , identifier , [ '=' , Expression ] ;
-FunctionDecl = 'fun' , identifier , ArgNames , Block ;
+FunctionDecl = 'fun' , identifier , Params , Block ;
 ClassDecl    = 'class' , identifier , MemberBlock ;
 BreakStmt    = 'break' , [ Expression ] ;
 ContinueStmt = 'continue' ;
@@ -73,7 +73,7 @@ IfExpr     = 'if' , '(' , Expression , ')' , Block , [ 'else' , Block ] ;
 ForExpr    = 'for' , '(' , identifier , 'in' , Expression , ')' , Block ;
 WhileExpr  = 'while' , '(' , Expression , ')' , Block ;
 LoopExpr   = 'loop' , Block ;
-FunExpr    = 'fun' , ArgNames , Block ;
+FunExpr    = 'fun' , Params , Block ;
 ClassExpr  = 'class' , MemberBlock ;
 TryExpr    = 'try' , Block , 'catch' , '(' , identifier , ')' , Block ;
 BlockExpr  = '{' , Statements , '}' ;
@@ -84,7 +84,7 @@ BlockExpr  = '{' , Statements , '}' ;
 MemberPart = '.' , identifier ;
 CallPart   = MemberPart | Args ;
 Args       = '(' , [ Expression , { ',' , Expression } , [ ',' ] ] , ')' ;
-ArgNames   = '(' , [ identifier , { ',' , identifier } , [ ',' ] ] , ')' ;
+Params     = '(' , [ identifier , { ',' , identifier } , [ ',' ] ] , ')' ;
 
 (**********************************)
 (******* NONTERMINAL TOKENS *******)

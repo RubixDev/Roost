@@ -29,7 +29,7 @@ pub enum Statement {
     Expr(Expression),
 }
 node! { VarStmt; ident: String, expr: Option<Expression> }
-node! { FunctionDecl; ident: String, args: ArgNames, block: Block }
+node! { FunctionDecl; ident: String, args: Params, block: Block }
 node! { ClassDecl; ident: String, block: MemberBlock }
 node! { BreakStmt; expr: Option<Expression> }
 node! { ContinueStmt; }
@@ -94,7 +94,7 @@ node! { IfExpr; cond: Expression, block: Block, else_block: Option<Block> }
 node! { ForExpr; ident: String, iter: Expression, block: Block }
 node! { WhileExpr; cond: Expression, block: Block }
 node! { LoopExpr; block: Block }
-node! { FunExpr; args: ArgNames, block: Block }
+node! { FunExpr; args: Params, block: Block }
 node! { ClassExpr; block: MemberBlock }
 node! { TryExpr; try_block: Block, ident: String, catch_block: Block }
 pub type BlockExpr = Block;
@@ -109,4 +109,4 @@ pub enum CallPart {
     Args(Args),
 }
 pub type Args = Vec<Expression>;
-pub type ArgNames = Vec<String>;
+pub type Params = Vec<String>;

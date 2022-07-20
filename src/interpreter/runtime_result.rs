@@ -1,62 +1,47 @@
-use super::value::Value;
+use super::value::{Value, WrappedValue};
 
-#[derive(Debug)]
-pub struct RuntimeResult {
+#[derive(Debug, Default)]
+pub struct RuntimeResult<'tree> {
     pub should_continue: bool,
-    pub should_break: bool,
-    pub return_value: Option<Value>,
-    pub parent_value: Option<Value>,
-    pub value: Option<Value>,
+    pub break_value: Option<WrappedValue<'tree>>,
+    pub return_value: Option<WrappedValue<'tree>>,
+    pub value: Option<WrappedValue<'tree>>,
 }
 
-impl RuntimeResult {
-    pub fn new() -> RuntimeResult {
-        return RuntimeResult {
-            should_continue: false,
-            should_break: false,
-            return_value: None,
-            parent_value: None,
-            value: None,
-        };
+impl<'tree> RuntimeResult<'tree> {
+    pub fn new(value: Option<WrappedValue<'tree>>) -> Self {
+        Self {
+            value,
+            ..Default::default()
+        }
     }
 
-    pub fn success(&mut self, value: Option<Value>) {
-        self.reset();
-        self.value = value;
+    pub fn success_continue() -> Self {
+        Self {
+            should_continue: true,
+            ..Default::default()
+        }
     }
 
-    pub fn success_continue(&mut self) {
-        self.reset();
-        self.should_continue = true;
+    pub fn success_break(value: WrappedValue<'tree>) -> Self {
+        Self {
+            break_value: Some(value),
+            ..Default::default()
+        }
     }
 
-    pub fn success_break(&mut self) {
-        self.reset();
-        self.should_break = true;
-    }
-
-    pub fn success_return(&mut self, value: Option<Value>) {
-        self.reset();
-        self.return_value = value;
-    }
-
-    pub fn register(&mut self, result: RuntimeResult) {
-        self.should_continue = result.should_continue;
-        self.should_break    = result.should_break;
-        self.return_value    = result.return_value;
-        self.parent_value    = result.parent_value;
-        self.value           = result.value;
+    pub fn success_return(value: WrappedValue<'tree>) -> Self {
+        Self {
+            return_value: Some(value),
+            ..Default::default()
+        }
     }
 
     pub fn should_return(&self) -> bool {
-        return self.should_continue || self.should_break || self.return_value != None;
+        self.should_continue || self.break_value.is_some() || self.return_value.is_some()
     }
 
-    fn reset(&mut self) {
-        self.should_continue = false;
-        self.should_break    = false;
-        self.return_value    = None;
-        self.parent_value    = self.value.clone();
-        self.value           = None;
+    pub fn take_value(self) -> WrappedValue<'tree> {
+        self.value.unwrap_or_else(|| Value::Null.wrapped())
     }
 }

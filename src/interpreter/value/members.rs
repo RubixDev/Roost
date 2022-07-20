@@ -1,67 +1,97 @@
 mod built_in;
 
-use rust_decimal::Decimal;
-use super::{Value, types::type_of, BuiltIn};
-use crate::error::{Result, Location};
+use std::rc::Rc;
 
-pub trait Members {
-    fn get_member(&self, name: &String, start_loc: Location, end_loc: Location) -> Result<Value>;
-    fn get_shared_member(&self, name: &String, start_loc: Location, end_loc: Location) -> Result<Value>;
-    fn set_member(&self, name: &String, new_val: Value, start_loc: Location, end_loc: Location) -> Result<Value>;
-}
+use crate::error::{Location, Result};
 
-impl Members for Value {
-    fn get_member(&self, name: &String, start_loc: Location, end_loc: Location) -> Result<Value> {
-        return Ok(match self {
-            Value::Object(members) => match members.get(name) {
-                Some(value) => value.clone(),
-                None => self.get_shared_member(name, start_loc, end_loc)?,
+use super::{types, BuiltIn, Value, WrappedValue};
+
+impl<'tree> Value<'tree> {
+    pub fn get_field(
+        this: &WrappedValue<'tree>,
+        name: &str,
+        start: &Location,
+        end: &Location,
+    ) -> Result<WrappedValue<'tree>> {
+        Ok(match &*this.borrow() {
+            Value::Object(fields)
+            | Value::Class {
+                statics: fields, ..
+            } => match fields.get(name) {
+                Some(field) => Rc::clone(field),
+                None => Self::get_common_field(this, name, start, end)?,
             },
-            Value::Class(members) => match members.get(name) {
-                Some(value) => match value {
-                    Value::Function(true, _, _) => value.clone(),
-                    _ => self.get_shared_member(name, start_loc, end_loc)?,
-                },
-                None => self.get_shared_member(name, start_loc, end_loc)?,
+            Value::String(val) => match name {
+                "length" => Value::Number(val.len().into()).wrapped(),
+                "toInt" => {
+                    Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::str_to_int)).wrapped()
+                }
+                "toNumber" => {
+                    Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::str_to_number))
+                        .wrapped()
+                }
+                "toBool" => Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::str_to_bool))
+                    .wrapped(),
+                "toBoolStrict" => Value::BuiltIn(BuiltIn::Method(
+                    Rc::clone(this),
+                    built_in::str_to_bool_strict,
+                ))
+                .wrapped(),
+                "toRange" => {
+                    Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::str_to_range))
+                        .wrapped()
+                }
+                "toUppercase" => {
+                    Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::str_to_uppercase))
+                        .wrapped()
+                }
+                "toLowercase" => {
+                    Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::str_to_lowercase))
+                        .wrapped()
+                }
+                _ => Self::get_common_field(this, name, start, end)?,
             },
-            Value::String(val) => match name.as_str() {
-                "length"       => Value::Number(Decimal::from(val.len())),
-                "toInt"        => Value::BuiltIn(BuiltIn::Method(built_in::str_to_int)),
-                "toDecimal"    => Value::BuiltIn(BuiltIn::Method(built_in::str_to_decimal)),
-                "toBool"       => Value::BuiltIn(BuiltIn::Method(built_in::str_to_bool)),
-                "toBoolStrict" => Value::BuiltIn(BuiltIn::Method(built_in::str_to_bool_strict)),
-                "toRange"      => Value::BuiltIn(BuiltIn::Method(built_in::str_to_range)),
-                "toUppercase"  => Value::BuiltIn(BuiltIn::Method(built_in::str_to_uppercase)),
-                "toLowercase"  => Value::BuiltIn(BuiltIn::Method(built_in::str_to_lowercase)),
-                _ => self.get_shared_member(name, start_loc, end_loc)?,
+            Value::Number(_) => match name {
+                "toInt" => {
+                    Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::num_to_int)).wrapped()
+                }
+                "floor" => {
+                    Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::num_floor)).wrapped()
+                }
+                "ceil" => {
+                    Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::num_ceil)).wrapped()
+                }
+                "round" => {
+                    Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::num_round)).wrapped()
+                }
+                _ => Self::get_common_field(this, name, start, end)?,
             },
-            Value::Number(_) => match name.as_str() {
-                "toInt" => Value::BuiltIn(BuiltIn::Method(built_in::num_to_int)),
-                "floor" => Value::BuiltIn(BuiltIn::Method(built_in::num_floor)),
-                "ceil"  => Value::BuiltIn(BuiltIn::Method(built_in::num_ceil)),
-                "round" => Value::BuiltIn(BuiltIn::Method(built_in::num_round)),
-                _ => self.get_shared_member(name, start_loc, end_loc)?,
-            },
-            _ => self.get_shared_member(name, start_loc, end_loc)?,
-        });
+            _ => Self::get_common_field(this, name, start, end)?,
+        })
     }
 
-    fn get_shared_member(&self, name: &String, start_loc: Location, end_loc: Location) -> Result<Value> {
-        return Ok(match name.as_str() {
-            "toString" => Value::BuiltIn(BuiltIn::Method(built_in::to_string)),
-            "toBool" => Value::BuiltIn(BuiltIn::Method(built_in::to_bool)),
-            _ => error!(ReferenceError, start_loc, end_loc, "Type {} has no member called {}", type_of(self), name),
-        });
-    }
-
-    fn set_member(&self, name: &String, new_val: Value, start_loc: Location, end_loc: Location) -> Result<Value> {
-        return Ok(match self {
-            Value::Object(members) => if members.contains_key(name) {
-                let mut new_members = members.clone();
-                new_members.insert(name.clone(), new_val);
-                Value::Object(new_members)
-            } else { error!(ReferenceError, start_loc, end_loc, "Object has no member called {}", name); },
-            _ => error!(TypeError, start_loc, end_loc, "Cannot assign to member {}", name),
+    fn get_common_field(
+        this: &WrappedValue<'tree>,
+        name: &str,
+        start: &Location,
+        end: &Location,
+    ) -> Result<WrappedValue<'tree>> {
+        Ok(match name {
+            "toString" => {
+                Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::to_string)).wrapped()
+            }
+            "toBool" => {
+                Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::to_bool)).wrapped()
+            }
+            "clone" => Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::clone)).wrapped(),
+            _ => error!(
+                ReferenceError,
+                *start,
+                *end,
+                "Type '{}' has no member called '{}'",
+                types::type_of(&this.borrow()),
+                name,
+            ),
         })
     }
 }

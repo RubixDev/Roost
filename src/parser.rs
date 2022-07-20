@@ -64,7 +64,7 @@ macro_rules! simple_expr {
     };
     (@kind $self:ident, $start:ident, $type:ident, $($tok:ident),+ | $next:ident, *) => {{
         let base = $self.$next()?;
-        let mut following = Rep::new();
+        let mut following = vec![];
         while of_types!($self, $($tok),+) {
             following.push(simple_expr!(@inner $self, $next, $($tok),+));
         }
@@ -104,7 +104,7 @@ pub struct Parser<'i> {
     lexer: Lexer<'i>,
     prev_tok: Token,
     curr_tok: Token,
-    errors: Rep<Error>,
+    errors: Vec<Error>,
 }
 
 impl<'i> Parser<'i> {
@@ -113,7 +113,7 @@ impl<'i> Parser<'i> {
             lexer,
             prev_tok: Token::dummy(),
             curr_tok: Token::dummy(),
-            errors: Rep::new(),
+            errors: vec![],
         }
     }
 
@@ -128,7 +128,7 @@ impl<'i> Parser<'i> {
             Ok(statements) => statements,
             Err(error) => {
                 self.errors.push(error);
-                return Err(self.errors.take().unwrap_or_default());
+                return Err(mem::take(&mut self.errors));
             }
         };
 
@@ -141,7 +141,7 @@ impl<'i> Parser<'i> {
             ));
         }
         if !self.errors.is_empty() {
-            return Err(self.errors.take().unwrap_or_default());
+            return Err(mem::take(&mut self.errors));
         }
         Ok(statements)
     }
@@ -160,22 +160,49 @@ impl<'i> Parser<'i> {
     // ---------------------------------------
 
     fn program(&mut self) -> Result<Program> {
-        let mut stmts = Rep::new();
-        while !of_types!(self, Eof) {
-            match self.statement() {
-                Ok(stmt) => stmts.push(stmt),
-                Err(e) => self.errors.push(e),
+        self.statements()
+    }
+
+    fn statements(&mut self) -> Result<Statements> {
+        let start = self.curr_tok.start;
+
+        let mut stmts = vec![];
+        let mut ending_semi = false;
+        if !of_types!(self, RBrace, Eof) {
+            stmts.push(self.statement()?);
+            while of_types!(self, Semicolon) {
+                self.advance();
+                if of_types!(self, RBrace, Eof) {
+                    ending_semi = true;
+                    break;
+                }
+                stmts.push(self.statement()?);
             }
-            expect!(self, Semicolon, "';'");
         }
-        Ok(stmts)
+
+        done!(Statements, start, self; stmts, ending_semi)
     }
 
     fn block(&mut self) -> Result<Block> {
         if of_types!(self, LBrace) {
-            Ok(Block::Multiple(self.block_expr()?))
+            Ok(self.block_expr()?)
         } else {
-            Ok(Block::Single(Box::new(self.statement()?)))
+            let stmt = self.statement()?;
+            let (start, end) = match &stmt {
+                Statement::Var(node) => (node.start, node.end),
+                Statement::Function(node) => (node.start, node.end),
+                Statement::Class(node) => (node.start, node.end),
+                Statement::Break(node) => (node.start, node.end),
+                Statement::Continue(node) => (node.start, node.end),
+                Statement::Return(node) => (node.start, node.end),
+                Statement::Expr(node) => (node.start, node.end),
+            };
+            Ok(Block {
+                start,
+                end,
+                stmts: vec![stmt],
+                ending_semi: false,
+            })
         }
     }
 
@@ -232,7 +259,11 @@ impl<'i> Parser<'i> {
         let start = self.curr_tok.start;
 
         expect!(self, Break, "'break'");
-        let expr = self.expression()?;
+        let expr = if !of_types!(self, Eof, Semicolon, RBrace) {
+            Some(self.expression()?)
+        } else {
+            None
+        };
 
         done!(BreakStmt, start, self; expr)
     }
@@ -248,7 +279,11 @@ impl<'i> Parser<'i> {
         let start = self.curr_tok.start;
 
         expect!(self, Return, "'return'");
-        let expr = self.expression()?;
+        let expr = if !of_types!(self, Eof, Semicolon, RBrace) {
+            Some(self.expression()?)
+        } else {
+            None
+        };
 
         done!(ReturnStmt, start, self; expr)
     }
@@ -273,18 +308,17 @@ impl<'i> Parser<'i> {
         let start = self.curr_tok.start;
 
         expect!(self, LBrace, "'{'");
-        let mut members = Rep::new();
+        let mut members = vec![];
         while !of_types!(self, RBrace, Eof) {
-            match self.member() {
-                Ok(member) => members.push(member),
-                Err(e) => self.errors.push(e),
-            }
+            members.push(self.member()?);
+            expect!(self, Semicolon, "';'");
         }
         expect!(self, RBrace, "'}'");
 
         done!(MemberBlock, start, self; members)
     }
 
+    #[inline]
     fn expression(&mut self) -> Result<Expression> {
         self.range_expr()
     }
@@ -292,8 +326,8 @@ impl<'i> Parser<'i> {
     fn range_expr(&mut self) -> Result<RangeExpr> {
         let start = self.curr_tok.start;
 
-        let base = Box::new(self.or_expr()?);
-        let range = if of_types!(self, Dots, DotsInclusive) {
+        let left = Box::new(self.or_expr()?);
+        let right = if of_types!(self, Dots, DotsInclusive) {
             let tok = self.curr_tok.token_type;
             self.advance();
             Some((tok, Box::new(self.or_expr()?)))
@@ -301,7 +335,7 @@ impl<'i> Parser<'i> {
             None
         };
 
-        done!(RangeExpr, start, self; base, range)
+        done!(RangeExpr, start, self; left, right)
     }
 
     simple_expr!(or_expr -> OrExpr: Or => and_expr *);
@@ -354,7 +388,6 @@ impl<'i> Parser<'i> {
         let right = if of_types!(
             self,
             Assign,
-            PlusAssign,
             MultiplyAssign,
             DivideAssign,
             IntDivideAssign,
@@ -381,16 +414,13 @@ impl<'i> Parser<'i> {
         let start = self.curr_tok.start;
 
         let base = self.member_expr()?;
-        let following = if of_types!(self, LParen) {
-            let args = self.args()?;
-            let mut parts = Rep::new();
+        let mut following = vec![];
+        if of_types!(self, LParen) {
+            following.push(CallPart::Args(self.args()?));
             while of_types!(self, LParen, Dot) {
-                parts.push(self.call_part()?);
+                following.push(self.call_part()?);
             }
-            Some((args, parts))
-        } else {
-            None
-        };
+        }
 
         done!(CallExpr, start, self; base, following)
     }
@@ -399,7 +429,7 @@ impl<'i> Parser<'i> {
         let start = self.curr_tok.start;
 
         let base = self.atom()?;
-        let mut following = Rep::new();
+        let mut following = vec![];
         while of_types!(self, Dot) {
             following.push(self.member_part()?);
         }
@@ -572,22 +602,14 @@ impl<'i> Parser<'i> {
         let start = self.curr_tok.start;
 
         expect!(self, LBrace, "'{'");
-        let mut stmts = Rep::new();
-        let mut ending_semi = false;
-        if !of_types!(self, RBrace, Eof) {
-            stmts.push(self.statement()?);
-            while of_types!(self, Semicolon) {
-                self.advance();
-                if of_types!(self, RBrace, Eof) {
-                    ending_semi = true;
-                    break;
-                }
-                stmts.push(self.statement()?);
-            }
-        }
+        let stmts = self.statements()?;
         expect!(self, RBrace, "'}'");
 
-        done!(BlockExpr, start, self; stmts, ending_semi)
+        Ok(BlockExpr {
+            start,
+            end: self.prev_tok.end,
+            ..stmts
+        })
     }
 
     fn member_part(&mut self) -> Result<MemberPart> {
@@ -615,7 +637,7 @@ impl<'i> Parser<'i> {
     }
 
     fn args(&mut self) -> Result<Args> {
-        let mut args = Rep::new();
+        let mut args = vec![];
         expect!(self, LParen, "'('");
         if !of_types!(self, RParen) {
             args.push(self.expression()?);
@@ -632,7 +654,7 @@ impl<'i> Parser<'i> {
     }
 
     fn arg_names(&mut self) -> Result<ArgNames> {
-        let mut args = Rep::new();
+        let mut args = vec![];
         expect!(self, LParen, "'('");
         if !of_types!(self, RParen) {
             args.push(expect_ident!(self));

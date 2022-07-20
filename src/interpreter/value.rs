@@ -1,66 +1,118 @@
-pub mod types;
-pub mod calculative_operations;
+pub mod bitwise_operations;
+pub mod iterator;
+pub mod mathematical_operations;
+pub mod members;
 pub mod relational_operations;
 pub mod truth;
-pub mod iterator;
-pub mod members;
+pub mod types;
 
-use std::{fmt::{Display, Debug}, collections::HashMap};
+use crate::{
+    error::{Location, Result},
+    nodes::{Block, MemberType},
+};
 use rust_decimal::Decimal;
-use crate::{nodes::Statements, error::{Result, Location}};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    fmt::{Debug, Display},
+    rc::Rc,
+};
+
+pub type WrappedValue<'tree> = Rc<RefCell<Value<'tree>>>;
 
 #[derive(PartialEq, Clone)]
-pub enum Value {
+pub enum Value<'tree> {
     Number(Decimal),
     Bool(bool),
     String(String),
-    Range(Decimal, Decimal),
-    Function(bool, Vec<String>, Statements),
-    BuiltIn(BuiltIn),
-    Class(HashMap<String, Value>),
-    Object(HashMap<String, Value>),
+    Range {
+        start: i128,
+        end: i128,
+    },
+    Function {
+        args: &'tree [String],
+        block: &'tree Block,
+    },
+    Method {
+        this: WrappedValue<'tree>,
+        args: &'tree [String],
+        block: &'tree Block,
+    },
+    BuiltIn(BuiltIn<'tree>),
+    Class {
+        statics: HashMap<&'tree str, WrappedValue<'tree>>,
+        non_statics: Vec<&'tree MemberType>,
+    },
+    Object(HashMap<&'tree str, WrappedValue<'tree>>),
     Null,
 }
-#[derive(PartialEq, Clone)]
-pub enum BuiltIn {
-    Special(SpecialBuiltIn),
-    Function(fn (args: Vec<Value>, start_loc: Location, end_loc: Location) -> Result<Value>),
-    Method(fn (self_: Value, args: Vec<Value>, start_loc: Location, end_loc: Location) -> Result<Value>),
+
+impl<'tree> Value<'tree> {
+    pub fn wrapped(self) -> WrappedValue<'tree> {
+        Rc::new(RefCell::new(self))
+    }
 }
-#[derive(PartialEq, Clone)]
-pub enum SpecialBuiltIn {
+
+#[derive(Clone)]
+pub enum BuiltIn<'tree> {
+    Function(
+        fn(
+            args: Vec<WrappedValue<'tree>>,
+            start: &Location,
+            end: &Location,
+        ) -> Result<Value<'tree>>,
+    ),
+    Method(
+        WrappedValue<'tree>,
+        fn(
+            this: &WrappedValue<'tree>,
+            args: Vec<WrappedValue<'tree>>,
+            start: &Location,
+            end: &Location,
+        ) -> Result<Value<'tree>>,
+    ),
     Print(bool),
     Exit,
 }
 
-impl Display for Value {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match self {
-            Value::Number(value)     => value.to_string(),
-            Value::Bool(value)       => value.to_string(),
-            Value::String(value)     => value.to_string(),
-            Value::Range(start, end) => format!("{}..={}", start, end),
-            Value::Function(_, _, _) => String::from("<function>"),
-            Value::BuiltIn(_)        => String::from("<built-in>"),
-            Value::Class(_)          => String::from("<class>"),
-            Value::Object(_)         => String::from("<object>"),
-            Value::Null              => String::from("null"),
-        })
+impl PartialEq for BuiltIn<'_> {
+    fn eq(&self, _other: &Self) -> bool {
+        false
     }
 }
 
-impl Debug for Value {
+impl Display for Value<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match self {
-            Value::Number(value)     => format!("\x1b[33m{}\x1b[0m", value),
-            Value::Bool(value)       => format!("\x1b[34m{}\x1b[0m", value),
-            Value::String(value)     => format!("\x1b[32m'{}'\x1b[0m", value),
-            Value::Range(start, end) => format!("\x1b[33m{}\x1b[0m..=\x1b[33m{}\x1b[0m", start, end),
-            Value::Function(_, _, _) => String::from("\x1b[90m<function>\x1b[0m"),
-            Value::BuiltIn(_)        => String::from("\x1b[90m<built-in>\x1b[0m"),
-            Value::Class(_)          => String::from("\x1b[90m<class>\x1b[0m"),
-            Value::Object(_)         => String::from("\x1b[90m<object>\x1b[0m"),
-            Value::Null              => String::from("\x1b[90mnull\x1b[0m"),
-        })
+        match self {
+            Value::Number(value) => Display::fmt(&value, f),
+            Value::Bool(value) => Display::fmt(&value, f),
+            Value::String(value) => Display::fmt(&value, f),
+            Value::Range { start, end } => write!(f, "{start}..={end}"),
+            Value::Function { .. } | Value::Method { .. } | Value::BuiltIn(..) => {
+                write!(f, "<function>")
+            }
+            Value::Class { .. } => write!(f, "<class>"),
+            Value::Object(..) => write!(f, "<object>"),
+            Value::Null => write!(f, "null"),
+        }
+    }
+}
+
+impl Debug for Value<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Number(value) => write!(f, "\x1b[33m{value}\x1b[0m"),
+            Value::Bool(value) => write!(f, "\x1b[34m{value}\x1b[0m"),
+            Value::String(value) => write!(f, "\x1b[32m'{value}'\x1b[0m"),
+            Value::Range { start, end } => {
+                write!(f, "\x1b[33m{start}\x1b[0m..=\x1b[33m{end}\x1b[0m")
+            }
+            Value::Function { .. } | Value::Method { .. } | Value::BuiltIn(..) => {
+                write!(f, "\x1b[90m<function>\x1b[0m")
+            }
+            Value::Class { .. } => write!(f, "\x1b[90m<class>\x1b[0m"),
+            Value::Object(..) => write!(f, "\x1b[90m<object>\x1b[0m"),
+            Value::Null => write!(f, "\x1b[90mnull\x1b[0m"),
+        }
     }
 }

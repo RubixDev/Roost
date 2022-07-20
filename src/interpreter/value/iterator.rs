@@ -1,45 +1,71 @@
-use rust_decimal::{prelude::{ToPrimitive, FromPrimitive}, Decimal};
-use super::{Value, types::type_of};
-use crate::error::{Result, Location};
+use std::{marker::PhantomData, ops::RangeInclusive, str::Chars};
 
-pub trait ToIterator where Self: Sized {
-    fn to_iter(&self, start_loc: Location, end_loc: Location) -> Result<Iterator>;
-}
+use crate::error::{Location, Result};
 
-impl ToIterator for Value {
-    fn to_iter(&self, start_loc: Location, end_loc: Location) -> Result<Iterator> {
+use super::{types, Value};
+
+impl<'tree> Value<'tree> {
+    pub fn to_iter(
+        &self,
+        start: &Location,
+        end: &Location,
+    ) -> Result<Box<dyn Iterator<Item = Value<'tree>> + '_>> {
         match self {
-            Value::String(value) => { return Ok(Iterator::from(value)); },
-            Value::Range(start, end) => {
-                let range = start.min(end).to_i128().unwrap()..=start.max(end).to_i128().unwrap();
-                let mut vec: Vec<_> = range.map(|it| Value::Number(Decimal::from_i128(it).unwrap())).collect();
-                if start > end { vec.reverse(); }
-                return Ok(Iterator::new(vec));
-            },
-            _ => error!(TypeError, start_loc, end_loc, "Cannot iterate over type {}", type_of(self)),
+            Value::String(val) => Ok(Box::new(StringIterator::new(val))),
+            Value::Range { start, end } => Ok(Box::new(RangeIterator::new(*start..=*end))),
+            _ => error!(
+                TypeError,
+                *start,
+                *end,
+                "Cannot iterate over type '{}'",
+                types::type_of(self)
+            ),
         }
     }
 }
 
-pub struct Iterator {
-    items: Vec<Value>,
-    index: usize,
+struct StringIterator<'src, 'tree> {
+    inner: Chars<'src>,
+    _tree: PhantomData<&'tree ()>,
 }
 
-impl Iterator {
-    pub fn new(items: Vec<Value>) -> Iterator {
-        Iterator { items, index: 0 }
-    }
-
-    pub fn next(&mut self) -> Option<&Value> {
-        let out = self.items.get(self.index);
-        self.index += 1;
-        return out;
+impl<'src, 'tree> StringIterator<'src, 'tree> {
+    fn new(string: &'src str) -> Self {
+        Self {
+            inner: string.chars(),
+            _tree: PhantomData,
+        }
     }
 }
 
-impl From<&String> for Iterator {
-    fn from(str: &String) -> Self {
-        Iterator::new(str.chars().map(|it| Value::String(it.to_string())).collect())
+impl<'src, 'tree> Iterator for StringIterator<'src, 'tree> {
+    type Item = Value<'tree>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner
+            .next()
+            .map(|char| Value::String(char.to_string()))
+    }
+}
+
+struct RangeIterator<'tree> {
+    inner: RangeInclusive<i128>,
+    _tree: PhantomData<&'tree ()>,
+}
+
+impl<'tree> RangeIterator<'tree> {
+    fn new(range: RangeInclusive<i128>) -> Self {
+        Self {
+            inner: range,
+            _tree: PhantomData,
+        }
+    }
+}
+
+impl<'tree> Iterator for RangeIterator<'tree> {
+    type Item = Value<'tree>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|num| Value::Number(num.into()))
     }
 }

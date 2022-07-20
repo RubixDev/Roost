@@ -1,51 +1,27 @@
-use super::{Value, types::type_of};
-use crate::error::{Result, Location};
+use super::{types, Value};
+use crate::error::{Location, Result};
 
-pub trait RelationalOperations {
-    fn less_than(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value>;
-    fn greater_than(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value>;
-    fn less_than_or_equal(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value>;
-    fn greater_than_or_equal(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value>;
+macro_rules! rel_op {
+    ($name:ident, $op:tt) => {
+        pub fn $name(&self, other: &Self, start: &Location, end: &Location) -> Result<Self> {
+            Ok(match (self, other) {
+                (Value::Number(left), Value::Number(right)) => Value::Bool(left $op right),
+                _ => error!(
+                    TypeError,
+                    *start,
+                    *end,
+                    "Cannot compare {} with {}",
+                    types::type_of(self),
+                    types::type_of(other)
+                ),
+            })
+        }
+    };
 }
 
-impl RelationalOperations for Value {
-    fn less_than(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value> {
-        match self {
-            Value::Number(val1) => match other {
-                Value::Number(val2) => { return Ok(Value::Bool(val1 < val2)); },
-                _ => error!(TypeError, start_loc, end_loc, "Cannot compare {} with {}", type_of(self), type_of(other)),
-            },
-            _ => error!(TypeError, start_loc, end_loc, "Cannot compare {} with {}", type_of(self), type_of(other)),
-        }
-    }
-
-    fn greater_than(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value> {
-        match self {
-            Value::Number(val1) => match other {
-                Value::Number(val2) => { return Ok(Value::Bool(val1 > val2)); },
-                _ => error!(TypeError, start_loc, end_loc, "Cannot compare {} with {}", type_of(self), type_of(other)),
-            },
-            _ => error!(TypeError, start_loc, end_loc, "Cannot compare {} with {}", type_of(self), type_of(other)),
-        }
-    }
-
-    fn less_than_or_equal(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value> {
-        match self {
-            Value::Number(val1) => match other {
-                Value::Number(val2) => { return Ok(Value::Bool(val1 <= val2)); },
-                _ => error!(TypeError, start_loc, end_loc, "Cannot compare {} with {}", type_of(self), type_of(other)),
-            },
-            _ => error!(TypeError, start_loc, end_loc, "Cannot compare {} with {}", type_of(self), type_of(other)),
-        }
-    }
-
-    fn greater_than_or_equal(&self, other: &Value, start_loc: Location, end_loc: Location) -> Result<Value> {
-        match self {
-            Value::Number(val1) => match other {
-                Value::Number(val2) => { return Ok(Value::Bool(val1 >= val2)); },
-                _ => error!(TypeError, start_loc, end_loc, "Cannot compare {} with {}", type_of(self), type_of(other)),
-            },
-            _ => error!(TypeError, start_loc, end_loc, "Cannot compare {} with {}", type_of(self), type_of(other)),
-        }
-    }
+impl Value<'_> {
+    rel_op!(lt, <);
+    rel_op!(le, <=);
+    rel_op!(gt, >);
+    rel_op!(ge, >=);
 }

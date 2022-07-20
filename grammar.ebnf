@@ -4,7 +4,9 @@
   Author: RubixDev
 *)
 
-Program      = { Statement , ';' } ;
+Program      = Statements ;
+(* The end of <Statements> is indicated by a following `Eof` or `LBrace` token *)
+Statements   = [ Statement , { ';' , Statement } , [ ';' ] ] ;
 Block        = BlockExpr | Statement ;
 
 (**************************)
@@ -28,7 +30,7 @@ ReturnStmt   = 'return' , [ Expression ] ;
 (******* CLASS MEMBERS *******)
 (*****************************)
 Member = [ 'static' ] , ( FunctionDecl | VarStmt ) ;
-MemberBlock = '{' , { Member } , '}' ;
+MemberBlock = '{' , { Member , ';' } , '}' ;
 
 (***************************)
 (******* EXPRESSIONS *******)
@@ -74,7 +76,7 @@ LoopExpr   = 'loop' , Block ;
 FunExpr    = 'fun' , ArgNames , Block ;
 ClassExpr  = 'class' , MemberBlock ;
 TryExpr    = 'try' , Block , 'catch' , '(' , identifier , ')' , Block ;
-BlockExpr  = '{' , [ Statement , { ';' , Statement } , [ ';' ] ] , '}' ;
+BlockExpr  = '{' , Statements , '}' ;
 
 (*********************)
 (******* OTHER *******)

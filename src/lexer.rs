@@ -434,6 +434,8 @@ impl<'i> Lexer<'i> {
             "return" => TokenType::Return,
             "break" => TokenType::Break,
             "continue" => TokenType::Continue,
+            "try" => TokenType::Try,
+            "catch" => TokenType::Catch,
             _ => TokenType::Identifier,
         };
         Token::new(token_type, name, start_location, self.location)

@@ -1,80 +1,99 @@
-#[cfg(not(feature = "no_std_io"))]
-use std::io::Write;
+use rust_decimal::prelude::ToPrimitive;
+
+use crate::error::{Location, Result};
 #[cfg(feature = "no_std_io")]
 use crate::io::Write;
-use rust_decimal::prelude::ToPrimitive;
-use super::{value::Value, Exit};
-use crate::error::{Result, Location};
+#[cfg(not(feature = "no_std_io"))]
+use std::io::Write;
+
+use super::value::{types, Value, WrappedValue};
 
 #[cfg(not(feature = "no_std_io"))]
-pub fn print<T: Write>(args: Vec<Value>, stdout: &mut T, start_loc: Location, end_loc: Location, newline: bool) -> Result<Value> {
-    let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
-    match write!(stdout, "{}{}", args.join(" "), if newline { "\n" } else { "" }) {
-        Ok(_) => {},
-        Err(e) => {
-            error!(SystemError, start_loc, end_loc, "Failed while writing to stdout: {}", e);
-        },
-    };
-    return Ok(Value::Null);
+pub fn print<'tree>(
+    args: Vec<WrappedValue<'tree>>,
+    stdout: &mut impl Write,
+    start: &Location,
+    end: &Location,
+    newline: bool,
+) -> Result<Value<'tree>> {
+    let args: Vec<String> = args.iter().map(|arg| arg.borrow().to_string()).collect();
+    if let Err(e) = write!(
+        stdout,
+        "{}{}",
+        args.join(" "),
+        if newline { "\n" } else { "" }
+    ) {
+        error!(
+            SystemError,
+            *start, *end, "Failed to write to stdout: {}", e
+        );
+    }
+    Ok(Value::Null)
 }
 
 #[cfg(feature = "no_std_io")]
-pub fn print<T: Write>(args: Vec<Value>, stdout: &mut T, _: Location, _: Location, newline: bool) -> Result<Value> {
-    let args: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
-    stdout.write(format!("{}{}", args.join(" "), if newline { "\n" } else { "" }));
-    return Ok(Value::Null);
+pub fn print<'tree>(
+    args: Vec<WrappedValue<'tree>>,
+    stdout: &mut impl Write,
+    start: &Location,
+    end: &Location,
+    newline: bool,
+) -> Result<Value<'tree>> {
+    let args: Vec<String> = args.iter().map(|arg| arg.borrow().to_string()).collect();
+    stdout.write(format!(
+        "{}{}",
+        args.join(" "),
+        if newline { "\n" } else { "" }
+    ));
+    Ok(Value::Null)
 }
 
-pub fn type_of(args: Vec<Value>, start_loc: Location, end_loc: Location) -> Result<Value> {
+pub fn exit<'tree>(
+    args: Vec<WrappedValue<'tree>>,
+    callback: impl FnOnce(i32),
+    start: &Location,
+    end: &Location,
+) -> Result<Value<'tree>> {
     if args.len() != 1 {
         error!(
             TypeError,
-            start_loc,
-            end_loc,
-            "Function 'typeOf' takes 1 argument, however {} were supplied",
-            args.len(),
-        );
-    }
-
-    return Ok(Value::String(super::value::types::type_of(&args[0]).to_string()));
-}
-
-pub fn exit<T: Exit>(args: Vec<Value>, exit: &mut T, start_loc: Location, end_loc: Location) -> Result<Value> {
-    if args.len() != 1 {
-        error!(
-            TypeError,
-            start_loc,
-            end_loc,
+            *start,
+            *end,
             "Function 'exit' takes 1 argument, however {} were supplied",
             args.len(),
         );
     }
-    match args[0] {
-        Value::Number(num) => {
-            if !num.fract().is_zero() {
-                error!(
-                    ValueError,
-                    start_loc,
-                    end_loc,
-                    "Exit code has to be an integer",
-                )
-            }
-            match num.to_i32() {
-                Some(num) => exit.exit(num),
-                _ => error!(
-                    ValueError,
-                    start_loc,
-                    end_loc,
-                    "Exit code is too high or too low",
-                )
-            }
-        },
-        _ => error!(
+    if let Value::Number(num) = &*args[0].borrow() {
+        if !num.fract().is_zero() {
+            error!(ValueError, *start, *end, "Exit code has to be an integer");
+        }
+        if let Some(num) = num.to_i32() {
+            callback(num)
+        } else {
+            error!(ValueError, *start, *end, "Exit code is too high or too low");
+        }
+    } else {
+        error!(
             TypeError,
-            start_loc,
-            end_loc,
-            "First argument of function 'exit' has to be of type number",
-        ),
+            *start, *end, "First argument of function 'exit' has to be of type 'number'",
+        );
     }
-    return Ok(Value::Null);
+    Ok(Value::Null)
+}
+
+pub fn type_of<'tree>(
+    args: Vec<WrappedValue<'tree>>,
+    start: &Location,
+    end: &Location,
+) -> Result<Value<'tree>> {
+    if args.len() != 1 {
+        error!(
+            TypeError,
+            *start,
+            *end,
+            "Function 'typeOf' takes 1 argument, however {} were supplied",
+            args.len(),
+        );
+    }
+    Ok(Value::String(types::type_of(&args[0].borrow()).to_string()))
 }

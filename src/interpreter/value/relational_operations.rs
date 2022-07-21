@@ -1,15 +1,14 @@
 use super::{types, Value};
-use crate::error::{Location, Result};
+use crate::error::{Result, Span};
 
 macro_rules! rel_op {
     ($name:ident, $op:tt) => {
-        pub fn $name(&self, other: &Self, start: &Location, end: &Location) -> Result<Self> {
+        pub fn $name(&self, other: &Self, span: Span) -> Result<Self> {
             Ok(match (self, other) {
                 (Value::Number(left), Value::Number(right)) => Value::Bool(left $op right),
                 _ => error!(
                     TypeError,
-                    *start,
-                    *end,
+                    span,
                     "Cannot compare {} with {}",
                     types::type_of(self),
                     types::type_of(other)

@@ -1,14 +1,13 @@
 use std::fmt::Debug;
 
-use crate::{error::Location, tokens::TokenKind};
+use crate::{error::Span, tokens::TokenKind};
 use rust_decimal::Decimal;
 
 macro_rules! node {
     ($name:ident; $($field:ident : $type:ty),* $(,)?) => {
         #[derive(Debug, PartialEq, Clone)]
         pub struct $name {
-            pub start: Location,
-            pub end: Location,
+            pub span: Span,
             $(pub $field: $type,)*
         }
     };
@@ -58,8 +57,7 @@ node! { MulExpr; base: UnaryExpr, following: Vec<(TokenKind, UnaryExpr)> }
 #[derive(Debug, PartialEq, Clone)]
 pub enum UnaryExpr {
     Unary {
-        start: Location,
-        end: Location,
+        span: Span,
         operator: TokenKind,
         expr: Box<UnaryExpr>,
     },
@@ -75,11 +73,7 @@ pub enum Atom {
     Bool(bool),
     String(String),
     Null,
-    Identifier {
-        start: Location,
-        end: Location,
-        name: String,
-    },
+    Identifier { span: Span, name: String },
     Expr(Expression),
     IfExpr(IfExpr),
     ForExpr(ForExpr),

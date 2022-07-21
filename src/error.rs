@@ -3,19 +3,21 @@ use std::fmt::Debug;
 pub type Result<T> = std::result::Result<T, Error>;
 
 macro_rules! error_val {
-    ($kind:ident, $start:expr, $end:expr, $($arg:tt)*) => {
+    ($kind:ident, ($start:expr, $end:expr), $($arg:tt)*) => {
+        error_val!($kind, $crate::error::Span::new($start, $end), $($arg)*)
+    };
+    ($kind:ident, $span:expr, $($arg:tt)*) => {
         $crate::error::Error::new(
             $crate::error::ErrorKind::$kind,
             format!($($arg)*),
-            $start,
-            $end,
+            $span,
         )
     };
 }
 
 macro_rules! error {
-    ($kind:ident, $start:expr, $end:expr, $($arg:tt)*) => {
-        return Err(error_val!($kind, $start, $end, $($arg)*))
+    ($($arg:tt)*) => {
+        return Err(error_val!($($arg)*))
     };
 }
 
@@ -58,28 +60,44 @@ impl Debug for Location {
     }
 }
 
-#[derive(Clone)]
-pub struct Error {
-    pub kind: ErrorKind,
-    pub message: String,
+#[derive(Clone, Copy, PartialEq, Default)]
+pub struct Span {
     pub start: Location,
     pub end: Location,
 }
 
+impl Span {
+    pub fn new(start: Location, end: Location) -> Self {
+        Self { start, end }
+    }
+}
+
+impl Debug for Span {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}..{:?}", self.start, self.end)
+    }
+}
+
+#[derive(Clone)]
+pub struct Error {
+    pub kind: ErrorKind,
+    pub message: String,
+    pub span: Span,
+}
+
 impl Error {
-    pub fn new(kind: ErrorKind, message: String, start: Location, end: Location) -> Self {
+    pub fn new(kind: ErrorKind, message: String, span: Span) -> Self {
         Self {
             kind,
             message,
-            start,
-            end,
+            span,
         }
     }
 }
 
 impl Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?} at {:?}  {}", self.kind, self.start, self.message,)
+        write!(f, "{:?} at {:?}  {}", self.kind, self.span, self.message,)
     }
 }
 

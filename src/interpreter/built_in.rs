@@ -1,6 +1,6 @@
 use rust_decimal::prelude::ToPrimitive;
 
-use crate::error::{Location, Result};
+use crate::error::{Result, Span};
 #[cfg(feature = "no_std_io")]
 use crate::io::Write;
 #[cfg(not(feature = "no_std_io"))]
@@ -12,8 +12,7 @@ use super::value::{types, Value, WrappedValue};
 pub fn print<'tree>(
     args: Vec<WrappedValue<'tree>>,
     stdout: &mut impl Write,
-    start: &Location,
-    end: &Location,
+    span: Span,
     newline: bool,
 ) -> Result<Value<'tree>> {
     let args: Vec<String> = args.iter().map(|arg| arg.borrow().to_string()).collect();
@@ -23,10 +22,7 @@ pub fn print<'tree>(
         args.join(" "),
         if newline { "\n" } else { "" }
     ) {
-        error!(
-            SystemError,
-            *start, *end, "Failed to write to stdout: {}", e
-        );
+        error!(SystemError, span, "Failed to write to stdout: {}", e,);
     }
     Ok(Value::Null)
 }
@@ -35,8 +31,7 @@ pub fn print<'tree>(
 pub fn print<'tree>(
     args: Vec<WrappedValue<'tree>>,
     stdout: &mut impl Write,
-    start: &Location,
-    end: &Location,
+    _span: Span,
     newline: bool,
 ) -> Result<Value<'tree>> {
     let args: Vec<String> = args.iter().map(|arg| arg.borrow().to_string()).collect();
@@ -48,49 +43,38 @@ pub fn print<'tree>(
     Ok(Value::Null)
 }
 
-pub fn exit<'tree>(
-    args: Vec<WrappedValue<'tree>>,
-    callback: impl FnOnce(i32),
-    start: &Location,
-    end: &Location,
-) -> Result<Value<'tree>> {
+pub fn exit(args: Vec<WrappedValue>, callback: impl FnOnce(i32), span: Span) -> Result<Value> {
     if args.len() != 1 {
         error!(
             TypeError,
-            *start,
-            *end,
+            span,
             "Function 'exit' takes 1 argument, however {} were supplied",
             args.len(),
         );
     }
     if let Value::Number(num) = &*args[0].borrow() {
         if !num.fract().is_zero() {
-            error!(ValueError, *start, *end, "Exit code has to be an integer");
+            error!(ValueError, span, "Exit code has to be an integer");
         }
         if let Some(num) = num.to_i32() {
             callback(num)
         } else {
-            error!(ValueError, *start, *end, "Exit code is too high or too low");
+            error!(ValueError, span, "Exit code is too high or too low");
         }
     } else {
         error!(
             TypeError,
-            *start, *end, "First argument of function 'exit' has to be of type 'number'",
+            span, "First argument of function 'exit' has to be of type 'number'",
         );
     }
     Ok(Value::Null)
 }
 
-pub fn type_of<'tree>(
-    args: Vec<WrappedValue<'tree>>,
-    start: &Location,
-    end: &Location,
-) -> Result<Value<'tree>> {
+pub fn type_of(args: Vec<WrappedValue>, span: Span) -> Result<Value> {
     if args.len() != 1 {
         error!(
             TypeError,
-            *start,
-            *end,
+            span,
             "Function 'typeOf' takes 1 argument, however {} were supplied",
             args.len(),
         );
@@ -98,37 +82,27 @@ pub fn type_of<'tree>(
     Ok(Value::String(types::type_of(&args[0].borrow()).to_string()))
 }
 
-pub fn assert<'tree>(
-    args: Vec<WrappedValue<'tree>>,
-    start: &Location,
-    end: &Location,
-) -> Result<Value<'tree>> {
+pub fn assert(args: Vec<WrappedValue>, span: Span) -> Result<Value> {
     if args.len() != 1 {
         error!(
             TypeError,
-            *start,
-            *end,
+            span,
             "Function 'assert' takes 1 argument, however {} were supplied",
             args.len(),
         );
     }
     if args[0].borrow().is_false() {
-        error!(RuntimeError, *start, *end, "Assertion failed",);
+        error!(RuntimeError, span, "Assertion failed",);
     }
     Ok(Value::Null)
 }
 
-pub fn throw<'tree>(
-    args: Vec<WrappedValue<'tree>>,
-    start: &Location,
-    end: &Location,
-) -> Result<Value<'tree>> {
+pub fn throw(args: Vec<WrappedValue>, span: Span) -> Result<Value> {
     // TODO: minimize repition of these checks with macros
     if args.len() != 1 {
         error!(
             TypeError,
-            *start,
-            *end,
+            span,
             "Function 'throw' takes 1 argument, however {} were supplied",
             args.len(),
         );
@@ -138,8 +112,8 @@ pub fn throw<'tree>(
         Value::String(str) => str,
         _ => error!(
             TypeError,
-            *start, *end, "First argument of function 'throw' has to be of type 'string'",
+            span, "First argument of function 'throw' has to be of type 'string'",
         ),
     };
-    error!(RuntimeError, *start, *end, "{str}",)
+    error!(RuntimeError, span, "{str}",)
 }

@@ -7,7 +7,7 @@ pub mod truth;
 pub mod types;
 
 use crate::{
-    error::{Location, Result},
+    error::{Result, Span},
     nodes::{Block, MemberKind},
 };
 use rust_decimal::Decimal;
@@ -55,20 +55,13 @@ impl<'tree> Value<'tree> {
 
 #[derive(Clone)]
 pub enum BuiltIn<'tree> {
-    Function(
-        fn(
-            args: Vec<WrappedValue<'tree>>,
-            start: &Location,
-            end: &Location,
-        ) -> Result<Value<'tree>>,
-    ),
+    Function(fn(args: Vec<WrappedValue<'tree>>, span: Span) -> Result<Value<'tree>>),
     Method(
         WrappedValue<'tree>,
         fn(
             this: &WrappedValue<'tree>,
             args: Vec<WrappedValue<'tree>>,
-            start: &Location,
-            end: &Location,
+            span: Span,
         ) -> Result<Value<'tree>>,
     ),
     Print(bool),

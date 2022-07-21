@@ -1,22 +1,17 @@
 use std::{marker::PhantomData, ops::RangeInclusive, str::Chars};
 
-use crate::error::{Location, Result};
+use crate::error::{Result, Span};
 
 use super::{types, Value};
 
 impl<'tree> Value<'tree> {
-    pub fn to_iter(
-        &self,
-        start: &Location,
-        end: &Location,
-    ) -> Result<Box<dyn Iterator<Item = Value<'tree>> + '_>> {
+    pub fn to_iter(&self, span: Span) -> Result<Box<dyn Iterator<Item = Value<'tree>> + '_>> {
         match self {
             Value::String(val) => Ok(Box::new(StringIterator::new(val))),
             Value::Range { start, end } => Ok(Box::new(RangeIterator::new(*start..=*end))),
             _ => error!(
                 TypeError,
-                *start,
-                *end,
+                span,
                 "Cannot iterate over type '{}'",
                 types::type_of(self)
             ),

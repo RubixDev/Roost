@@ -1,7 +1,7 @@
 use std::{mem, result};
 
 use crate::{
-    error::{Error, Result},
+    error::{Error, Result, Span},
     lexer::Lexer,
     nodes::*,
     tokens::{Token, TokenKind},
@@ -9,7 +9,7 @@ use crate::{
 
 macro_rules! syntax_err {
     ($self:ident, $($arg:tt)*) => {
-        error!(SyntaxError, $self.curr_tok.start, $self.curr_tok.end, $($arg)*)
+        error!(SyntaxError, $self.curr_tok.span, $($arg)*)
     };
 }
 
@@ -18,8 +18,7 @@ macro_rules! expect {
         if !of_kinds!($self, $kind) {
             $self.errors.push(error_val!(
                 SyntaxError,
-                $self.curr_tok.start,
-                $self.curr_tok.end,
+                $self.curr_tok.span,
                 "Expected {}, found '{}'",
                 $name,
                 $self.curr_tok.value(),
@@ -34,8 +33,7 @@ macro_rules! expect_ident {
         if !of_kinds!($self, Identifier) {
             $self.errors.push(error_val!(
                 SyntaxError,
-                $self.curr_tok.start,
-                $self.curr_tok.end,
+                $self.curr_tok.span,
                 "Expected identifier, found '{}'",
                 $self.curr_tok.value(),
             ));
@@ -53,8 +51,7 @@ macro_rules! expect_eol {
         } else if $self.prev_tok.kind != TokenKind::Eol {
             $self.errors.push(error_val!(
                 SyntaxError,
-                $self.curr_tok.start,
-                $self.curr_tok.end,
+                $self.curr_tok.span,
                 "Expected ';' or line break, found '{}'",
                 $self.curr_tok.value(),
             ));
@@ -86,7 +83,7 @@ macro_rules! of_kinds {
 macro_rules! simple_expr {
     ($name:ident -> $type:ident : $($tok:ident),+ => $next:ident $kind:tt) => {
         fn $name(&mut self, expects_stmt: bool) -> Result<$type> {
-            let start = self.curr_tok.start;
+            let start = self.curr_tok.span.start;
             simple_expr!(@kind self, start, expects_stmt, $type, $($tok),+ | $next, $kind)
         }
     };
@@ -121,8 +118,7 @@ macro_rules! simple_expr {
 macro_rules! done {
     ($type:ident, $start:ident, $self:ident; $($tt:tt)*) => {
         Ok($type {
-            start: $start,
-            end: $self.prev_tok.end,
+            span: Span::new($start, $self.prev_tok.span.end),
             $($tt)*
         })
     };
@@ -161,12 +157,8 @@ impl<'i> Parser<'i> {
         };
 
         if !of_kinds!(self, Eof) {
-            self.errors.push(error_val!(
-                SyntaxError,
-                self.curr_tok.start,
-                self.curr_tok.end,
-                "Expected EOF",
-            ));
+            self.errors
+                .push(error_val!(SyntaxError, self.curr_tok.span, "Expected EOF",));
         }
         if !self.errors.is_empty() {
             return Err(mem::take(&mut self.errors));
@@ -193,7 +185,7 @@ impl<'i> Parser<'i> {
     }
 
     fn statements(&mut self) -> Result<Statements> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         let mut stmts = vec![];
         if !of_kinds!(self, RBrace, Eof) {
@@ -217,18 +209,17 @@ impl<'i> Parser<'i> {
             Ok(self.block_expr()?)
         } else {
             let stmt = self.statement()?;
-            let (start, end) = match &stmt {
-                Statement::Var(node) => (node.start, node.end),
-                Statement::Function(node) => (node.start, node.end),
-                Statement::Class(node) => (node.start, node.end),
-                Statement::Break(node) => (node.start, node.end),
-                Statement::Continue(node) => (node.start, node.end),
-                Statement::Return(node) => (node.start, node.end),
-                Statement::Expr(node) => (node.start, node.end),
+            let span = match &stmt {
+                Statement::Var(node) => node.span,
+                Statement::Function(node) => node.span,
+                Statement::Class(node) => node.span,
+                Statement::Break(node) => node.span,
+                Statement::Continue(node) => node.span,
+                Statement::Return(node) => node.span,
+                Statement::Expr(node) => node.span,
             };
             Ok(Block {
-                start,
-                end,
+                span,
                 stmts: vec![stmt],
             })
         }
@@ -247,7 +238,7 @@ impl<'i> Parser<'i> {
     }
 
     fn var_stmt(&mut self) -> Result<VarStmt> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         expect!(self, Var, "'var'");
         let ident = expect_ident!(self);
@@ -263,7 +254,7 @@ impl<'i> Parser<'i> {
     }
 
     fn function_decl(&mut self) -> Result<FunctionDecl> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         expect!(self, Fun, "'fun'");
         let ident = expect_ident!(self);
@@ -274,7 +265,7 @@ impl<'i> Parser<'i> {
     }
 
     fn class_decl(&mut self) -> Result<ClassDecl> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         expect!(self, Class, "'class'");
         let ident = expect_ident!(self);
@@ -284,7 +275,7 @@ impl<'i> Parser<'i> {
     }
 
     fn break_stmt(&mut self) -> Result<BreakStmt> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         expect!(self, Break, "'break'");
         let expr = if !of_kinds!(self, Eof, Eol, RBrace) {
@@ -297,14 +288,14 @@ impl<'i> Parser<'i> {
     }
 
     fn continue_stmt(&mut self) -> Result<ContinueStmt> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         expect!(self, Continue, "'continue'");
 
         done!(ContinueStmt, start, self;)
     }
     fn return_stmt(&mut self) -> Result<ReturnStmt> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         expect!(self, Return, "'return'");
         let expr = if !of_kinds!(self, Eof, Eol, RBrace) {
@@ -317,7 +308,7 @@ impl<'i> Parser<'i> {
     }
 
     fn member(&mut self) -> Result<Member> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         let is_static = of_kinds!(self, Static);
         if is_static {
@@ -333,7 +324,7 @@ impl<'i> Parser<'i> {
     }
 
     fn member_block(&mut self) -> Result<MemberBlock> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         expect!(self, LBrace, "'{'");
         let mut members = vec![];
@@ -352,7 +343,7 @@ impl<'i> Parser<'i> {
     }
 
     fn range_expr(&mut self, expects_stmt: bool) -> Result<RangeExpr> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         let left = Box::new(self.or_expr(expects_stmt)?);
         let right = if of_kinds!(self, Dots, DotsInclusive) {
@@ -378,15 +369,14 @@ impl<'i> Parser<'i> {
     simple_expr!(mul_expr -> MulExpr: Star, Slash, Rem, Backslash => unary_expr *);
 
     fn unary_expr(&mut self, expects_stmt: bool) -> Result<UnaryExpr> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         if of_kinds!(self, Plus, Minus, Not) {
             let operator = self.curr_tok.kind;
             self.advance();
             let expr = Box::new(self.unary_expr(false)?);
             Ok(UnaryExpr::Unary {
-                start,
-                end: self.prev_tok.end,
+                span: Span::new(start, self.prev_tok.span.end),
                 operator,
                 expr,
             })
@@ -396,7 +386,7 @@ impl<'i> Parser<'i> {
     }
 
     fn exp_expr(&mut self, expects_stmt: bool) -> Result<ExpExpr> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         let base = self.assign_expr(expects_stmt)?;
         let exponent = if of_kinds!(self, Pow) {
@@ -410,7 +400,7 @@ impl<'i> Parser<'i> {
     }
 
     fn assign_expr(&mut self, expects_stmt: bool) -> Result<AssignExpr> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         let left = self.call_expr(expects_stmt)?;
         let right = if of_kinds!(
@@ -439,7 +429,7 @@ impl<'i> Parser<'i> {
     }
 
     fn call_expr(&mut self, expects_stmt: bool) -> Result<CallExpr> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         let base = self.member_expr(expects_stmt)?;
         let mut following = vec![];
@@ -454,7 +444,7 @@ impl<'i> Parser<'i> {
     }
 
     fn member_expr(&mut self, expects_stmt: bool) -> Result<MemberExpr> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         let base = self.atom(expects_stmt)?;
         let mut following = vec![];
@@ -466,7 +456,7 @@ impl<'i> Parser<'i> {
     }
 
     fn atom(&mut self, expects_stmt: bool) -> Result<Atom> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         Ok(match self.curr_tok.kind {
             TokenKind::Number => {
@@ -475,20 +465,29 @@ impl<'i> Parser<'i> {
                 Atom::Number(match num.parse() {
                     Ok(num) => num,
                     Err(rust_decimal::Error::ErrorString(msg)) => {
-                        error!(ValueError, start, self.prev_tok.end, "{}", msg);
+                        error!(ValueError, (start, self.prev_tok.span.end), "{}", msg);
                     }
                     Err(rust_decimal::Error::ExceedsMaximumPossibleValue) => {
-                        error!(ValueError, start, self.prev_tok.end, "Value too high");
+                        error!(
+                            ValueError,
+                            (start, self.prev_tok.span.end),
+                            "Value too high"
+                        );
                     }
                     Err(rust_decimal::Error::LessThanMinimumPossibleValue) => {
-                        error!(ValueError, start, self.prev_tok.end, "Value too low");
+                        error!(ValueError, (start, self.prev_tok.span.end), "Value too low");
                     }
                     Err(rust_decimal::Error::ScaleExceedsMaximumPrecision(_)) => {
-                        error!(ValueError, start, self.prev_tok.end, "Value too precise");
+                        error!(
+                            ValueError,
+                            (start, self.prev_tok.span.end),
+                            "Value too precise"
+                        );
                     }
                     Err(_) => error!(
                         ValueError,
-                        start, self.prev_tok.end, "Failed to parse number"
+                        (start, self.prev_tok.span.end),
+                        "Failed to parse number"
                     ),
                 })
             }
@@ -513,8 +512,7 @@ impl<'i> Parser<'i> {
                 let name = self.curr_tok.take_value();
                 self.advance();
                 Atom::Identifier {
-                    start,
-                    end: self.prev_tok.end,
+                    span: Span::new(start, self.prev_tok.span.end),
                     name,
                 }
             }
@@ -546,7 +544,7 @@ impl<'i> Parser<'i> {
     }
 
     fn if_expr(&mut self) -> Result<IfExpr> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         expect!(self, If, "'if'");
         expect!(self, LParen, "'('");
@@ -564,7 +562,7 @@ impl<'i> Parser<'i> {
     }
 
     fn for_expr(&mut self) -> Result<ForExpr> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         expect!(self, For, "'for'");
         expect!(self, LParen, "'('");
@@ -578,7 +576,7 @@ impl<'i> Parser<'i> {
     }
 
     fn while_expr(&mut self) -> Result<WhileExpr> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         expect!(self, While, "'while'");
         expect!(self, LParen, "'('");
@@ -590,7 +588,7 @@ impl<'i> Parser<'i> {
     }
 
     fn loop_expr(&mut self) -> Result<LoopExpr> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         expect!(self, Loop, "'loop'");
         let block = self.block()?;
@@ -599,7 +597,7 @@ impl<'i> Parser<'i> {
     }
 
     fn fun_expr(&mut self) -> Result<FunExpr> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         expect!(self, Fun, "'fun'");
         let args = self.params()?;
@@ -609,7 +607,7 @@ impl<'i> Parser<'i> {
     }
 
     fn class_expr(&mut self) -> Result<ClassExpr> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         expect!(self, Class, "'class'");
         let block = self.member_block()?;
@@ -618,7 +616,7 @@ impl<'i> Parser<'i> {
     }
 
     fn try_expr(&mut self) -> Result<TryExpr> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         expect!(self, Try, "'try'");
         let try_block = self.block()?;
@@ -632,15 +630,14 @@ impl<'i> Parser<'i> {
     }
 
     fn block_expr(&mut self) -> Result<BlockExpr> {
-        let start = self.curr_tok.start;
+        let start = self.curr_tok.span.start;
 
         expect!(self, LBrace, "'{'");
         let stmts = self.statements()?;
         expect!(self, RBrace, "'}'");
 
         Ok(BlockExpr {
-            start,
-            end: self.prev_tok.end,
+            span: Span::new(start, self.prev_tok.span.end),
             ..stmts
         })
     }
@@ -653,8 +650,7 @@ impl<'i> Parser<'i> {
             }
             _ => error!(
                 SyntaxError,
-                self.curr_tok.start,
-                self.curr_tok.end,
+                self.curr_tok.span,
                 "Expected '.', found '{}'",
                 self.curr_tok.value(),
             ),

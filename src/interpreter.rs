@@ -7,7 +7,7 @@ use rust_decimal::{prelude::ToPrimitive, Decimal};
 #[cfg(feature = "no_std_io")]
 use crate::io::Write;
 use crate::{
-    error::{Location, Result},
+    error::{Result, Span},
     nodes::*,
     tokens::TokenKind,
 };
@@ -46,7 +46,7 @@ macro_rules! simple_expr {
             let other = try_visit!($self.$next(other)?);
             let out = $base
                 .borrow()
-                .$method(&other.borrow(), &$node.start, &$node.end)?
+                .$method(&other.borrow(), $node.span)?
                 .wrapped();
             $base = out;
         }
@@ -55,7 +55,7 @@ macro_rules! simple_expr {
         for (tok, other) in &$node.following {
             let other = try_visit!($self.$next(other)?);
             let out = match tok {
-                $(TokenKind::$tok => $base.borrow().$method(&other.borrow(), &$node.start, &$node.end),)+
+                $(TokenKind::$tok => $base.borrow().$method(&other.borrow(), $node.span),)+
                 _ => unreachable!(),
             }?
             .wrapped();
@@ -127,11 +127,7 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
         self.scopes.last_mut().unwrap().insert(name, value);
     }
 
-    fn get_var(
-        &self,
-        name: &str,
-        (start, end): (&Location, &Location),
-    ) -> Result<(&WrappedValue<'tree>, usize)> {
+    fn get_var(&self, name: &str, span: Span) -> Result<(&WrappedValue<'tree>, usize)> {
         for (idx, scope) in self.scopes.iter().enumerate().rev() {
             if let Some(var) = scope.get(name) {
                 return Ok((var, idx));
@@ -139,7 +135,7 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
         }
         error!(
             ReferenceError,
-            *start, *end, "Variable with name '{}' not found", name
+            span, "Variable with name '{}' not found", name,
         );
     }
 
@@ -293,10 +289,7 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
             let range = match (&*left.borrow(), &*right.borrow()) {
                 (Value::Number(start), Value::Number(end)) => {
                     if !start.fract().is_zero() || !end.fract().is_zero() {
-                        error!(
-                            ValueError,
-                            node.start, node.end, "Range bounds have to be integers"
-                        );
+                        error!(ValueError, node.span, "Range bounds have to be integers",);
                     }
                     let start = start.to_i128().unwrap();
                     let end = end.to_i128().unwrap();
@@ -305,7 +298,7 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
                 }
                 _ => error!(
                     TypeError,
-                    node.start, node.end, "Range bounds have to be of type 'number'"
+                    node.span, "Range bounds have to be of type 'number'",
                 ),
             };
             left = range;
@@ -373,14 +366,10 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
         let out = if let Some((tok, right)) = &node.right {
             let right = try_visit!(self.visit_shift_expr(right)?);
             match tok {
-                TokenKind::LessThan => left.borrow().lt(&right.borrow(), &node.start, &node.end),
-                TokenKind::LessThanOrEqual => {
-                    left.borrow().le(&right.borrow(), &node.start, &node.end)
-                }
-                TokenKind::GreaterThan => left.borrow().gt(&right.borrow(), &node.start, &node.end),
-                TokenKind::GreaterThanOrEqual => {
-                    left.borrow().ge(&right.borrow(), &node.start, &node.end)
-                }
+                TokenKind::LessThan => left.borrow().lt(&right.borrow(), node.span),
+                TokenKind::LessThanOrEqual => left.borrow().le(&right.borrow(), node.span),
+                TokenKind::GreaterThan => left.borrow().gt(&right.borrow(), node.span),
+                TokenKind::GreaterThanOrEqual => left.borrow().ge(&right.borrow(), node.span),
                 _ => unreachable!(),
             }?
             .wrapped()
@@ -413,19 +402,14 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
     fn visit_unary_expr(&mut self, node: &'tree UnaryExpr) -> Result<RuntimeResult<'tree>> {
         match node {
             UnaryExpr::Unary {
-                start,
-                end,
+                span,
                 operator,
                 expr,
             } => {
                 let base = try_visit!(self.visit_unary_expr(expr)?);
                 let out = match operator {
-                    TokenKind::Plus => {
-                        Value::Number(Decimal::ZERO).add(&base.borrow(), start, end)?
-                    }
-                    TokenKind::Minus => {
-                        Value::Number(Decimal::ZERO).sub(&base.borrow(), start, end)?
-                    }
+                    TokenKind::Plus => Value::Number(Decimal::ZERO).add(&base.borrow(), *span)?,
+                    TokenKind::Minus => Value::Number(Decimal::ZERO).sub(&base.borrow(), *span)?,
                     TokenKind::Not => Value::Bool(base.borrow().is_false()),
                     _ => unreachable!(),
                 }
@@ -440,10 +424,7 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
         let mut base = try_visit!(self.visit_assign_expr(&node.base)?);
         if let Some(exponent) = &node.exponent {
             let exponent = try_visit!(self.visit_unary_expr(exponent)?);
-            let out = base
-                .borrow()
-                .pow(&exponent.borrow(), &node.start, &node.end)?
-                .wrapped();
+            let out = base.borrow().pow(&exponent.borrow(), node.span)?.wrapped();
             base = out;
         }
         Ok(RuntimeResult::new(Some(base)))
@@ -454,57 +435,31 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
         if let Some((tok, right)) = &node.right {
             let left_type = types::type_of(&left.borrow());
             if let Type::Class | Type::Object | Type::Range = left_type {
-                error!(
-                    TypeError,
-                    node.start, node.end, "Cannot reassign type '{}'", left_type,
-                );
+                error!(TypeError, node.span, "Cannot reassign type '{}'", left_type,);
             }
             let right = try_visit!(self.visit_expression(right)?);
             let right_type = types::type_of(&right.borrow());
             if left_type != right_type && left_type != Type::Null && right_type != Type::Null {
                 error!(
                     TypeError,
-                    node.start,
-                    node.end,
-                    "Cannot change type by reassigning, create a new variable instead",
+                    node.span, "Cannot change type by reassigning, create a new variable instead",
                 );
             }
             let new_value = match tok {
                 TokenKind::Assign => right.borrow().clone(),
-                TokenKind::StarAssign => {
-                    left.borrow().mul(&right.borrow(), &node.start, &node.end)?
-                }
-                TokenKind::SlashAssign => {
-                    left.borrow().div(&right.borrow(), &node.start, &node.end)?
-                }
+                TokenKind::StarAssign => left.borrow().mul(&right.borrow(), node.span)?,
+                TokenKind::SlashAssign => left.borrow().div(&right.borrow(), node.span)?,
                 TokenKind::BackslashAssign => {
-                    left.borrow()
-                        .div_floor(&right.borrow(), &node.start, &node.end)?
+                    left.borrow().div_floor(&right.borrow(), node.span)?
                 }
-                TokenKind::RemAssign => {
-                    left.borrow().rem(&right.borrow(), &node.start, &node.end)?
-                }
-                TokenKind::PlusAssign => {
-                    left.borrow().add(&right.borrow(), &node.start, &node.end)?
-                }
-                TokenKind::MinusAssign => {
-                    left.borrow().sub(&right.borrow(), &node.start, &node.end)?
-                }
-                TokenKind::ShiftLeftAssign => {
-                    left.borrow().shl(&right.borrow(), &node.start, &node.end)?
-                }
-                TokenKind::ShiftRightAssign => {
-                    left.borrow().shr(&right.borrow(), &node.start, &node.end)?
-                }
-                TokenKind::BitAndAssign => {
-                    left.borrow().and(&right.borrow(), &node.start, &node.end)?
-                }
-                TokenKind::BitXorAssign => {
-                    left.borrow().xor(&right.borrow(), &node.start, &node.end)?
-                }
-                TokenKind::BitOrAssign => {
-                    left.borrow().or(&right.borrow(), &node.start, &node.end)?
-                }
+                TokenKind::RemAssign => left.borrow().rem(&right.borrow(), node.span)?,
+                TokenKind::PlusAssign => left.borrow().add(&right.borrow(), node.span)?,
+                TokenKind::MinusAssign => left.borrow().sub(&right.borrow(), node.span)?,
+                TokenKind::ShiftLeftAssign => left.borrow().shl(&right.borrow(), node.span)?,
+                TokenKind::ShiftRightAssign => left.borrow().shr(&right.borrow(), node.span)?,
+                TokenKind::BitAndAssign => left.borrow().and(&right.borrow(), node.span)?,
+                TokenKind::BitXorAssign => left.borrow().xor(&right.borrow(), node.span)?,
+                TokenKind::BitOrAssign => left.borrow().or(&right.borrow(), node.span)?,
                 _ => unreachable!(),
             };
             *left.borrow_mut() = new_value;
@@ -516,9 +471,9 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
         let mut base = try_visit!(self.visit_member_expr(&node.base)?);
         for part in &node.following {
             let out = match part {
-                CallPart::Args(args) => self.call_value(&base, args, &node.start, &node.end)?,
+                CallPart::Args(args) => self.call_value(&base, args, node.span)?,
                 CallPart::Member(MemberPart::Field(ident)) => {
-                    Value::get_field(&base, ident, &node.start, &node.end)?
+                    Value::get_field(&base, ident, node.span)?
                 }
             };
             base = out;
@@ -530,8 +485,7 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
         &mut self,
         value: &WrappedValue<'tree>,
         call_args: &'tree Args,
-        start: &Location,
-        end: &Location,
+        span: Span,
     ) -> Result<WrappedValue<'tree>> {
         match &*value.borrow() {
             // TODO: dedup code
@@ -539,11 +493,10 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
                 if args.len() != call_args.len() {
                     error!(
                         TypeError,
-                        *start,
-                        *end,
+                        span,
                         "Function takes {} arguments, however {} were supllied",
                         args.len(),
-                        call_args.len()
+                        call_args.len(),
                     );
                 }
                 self.push_scope();
@@ -563,11 +516,10 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
                 if args.len() != call_args.len() {
                     error!(
                         TypeError,
-                        *start,
-                        *end,
+                        span,
                         "Function takes {} arguments, however {} were supllied",
                         args.len(),
-                        call_args.len()
+                        call_args.len(),
                     );
                 }
                 self.push_scope();
@@ -591,14 +543,12 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
                 }
 
                 let out = match func {
-                    BuiltIn::Function(func) => func(args, start, end),
-                    BuiltIn::Method(this, func) => func(this, args, start, end),
+                    BuiltIn::Function(func) => func(args, span),
+                    BuiltIn::Method(this, func) => func(this, args, span),
                     BuiltIn::Print(newline) => {
-                        built_in::print(args, &mut self.stdout, start, end, *newline)
+                        built_in::print(args, &mut self.stdout, span, *newline)
                     }
-                    BuiltIn::Exit => {
-                        built_in::exit(args, self.exit_callback.take().unwrap(), start, end)
-                    }
+                    BuiltIn::Exit => built_in::exit(args, self.exit_callback.take().unwrap(), span),
                 }?;
                 Ok(out.wrapped())
             }
@@ -606,8 +556,7 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
                 if !call_args.is_empty() {
                     error!(
                         TypeError,
-                        *start,
-                        *end,
+                        span,
                         "Class constructors take no arguments, however {} were supplied",
                         call_args.len(),
                     );
@@ -643,8 +592,7 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
             }
             _ => error!(
                 TypeError,
-                *start,
-                *end,
+                span,
                 "Type '{}' is not callable",
                 types::type_of(&value.borrow()),
             ),
@@ -655,7 +603,7 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
         let mut base = try_visit!(self.visit_atom(&node.base)?);
         for part in &node.following {
             let out = match part {
-                MemberPart::Field(ident) => Value::get_field(&base, ident, &node.start, &node.end)?,
+                MemberPart::Field(ident) => Value::get_field(&base, ident, node.span)?,
             };
             base = out;
         }
@@ -668,7 +616,7 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
             Atom::Bool(val) => Value::Bool(*val).wrapped(),
             Atom::String(val) => Value::String(val.clone()).wrapped(),
             Atom::Null => Value::Null.wrapped(),
-            Atom::Identifier { start, end, name } => Rc::clone(self.get_var(name, (start, end))?.0),
+            Atom::Identifier { span, name } => Rc::clone(self.get_var(name, *span)?.0),
             Atom::Expr(node) => try_visit!(self.visit_expression(node)?),
             Atom::IfExpr(node) => try_visit!(self.visit_if_expr(node)?),
             Atom::ForExpr(node) => try_visit!(self.visit_for_expr(node)?),
@@ -697,7 +645,7 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
     fn visit_for_expr(&mut self, node: &'tree ForExpr) -> Result<RuntimeResult<'tree>> {
         let iter = try_visit!(self.visit_expression(&node.iter)?);
         let iter = iter.borrow();
-        let iter = iter.to_iter(&node.start, &node.end)?;
+        let iter = iter.to_iter(node.span)?;
         let mut out = Value::Null.wrapped();
         for item in iter {
             self.push_scope();
@@ -802,14 +750,7 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
             self.add_var(
                 &node.ident,
                 // TODO: special error type
-                Value::String(format!(
-                    "{kind:?} at {line}:{column}  {msg}",
-                    kind = e.kind,
-                    line = e.start.line,
-                    column = e.start.column,
-                    msg = e.message,
-                ))
-                .wrapped(),
+                Value::String(format!("{e:?}")).wrapped(),
             );
             let out = try_visit!(self.visit_block(&node.catch_block, false)?);
             self.pop_scope();

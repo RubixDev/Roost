@@ -1,4 +1,4 @@
-use crate::error::Location;
+use crate::error::Span;
 use std::fmt::Debug;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -84,17 +84,15 @@ pub enum TokenKind {
 pub struct Token {
     pub kind: TokenKind,
     pub value: Option<String>,
-    pub start: Location,
-    pub end: Location,
+    pub span: Span,
 }
 
 impl Token {
-    pub fn new(kind: TokenKind, value: String, start: Location, end: Location) -> Self {
+    pub fn new(kind: TokenKind, value: String, span: Span) -> Self {
         Token {
             kind,
             value: Some(value),
-            start,
-            end,
+            span,
         }
     }
 
@@ -102,8 +100,7 @@ impl Token {
         Token {
             kind: TokenKind::Unknown,
             value: Some("Unknown".to_string()),
-            start: Location::new(),
-            end: Location::new(),
+            span: Span::default(),
         }
     }
 
@@ -123,13 +120,10 @@ impl Debug for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "( {:?} | {:?} | {}:{}..{}:{} )",
+            "( {:?} | {:?} | {:?} )",
             self.kind,
             self.value(),
-            self.start.line,
-            self.start.column,
-            self.end.line,
-            self.end.column
+            self.span,
         )
     }
 }

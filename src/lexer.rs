@@ -1,5 +1,5 @@
 use crate::{
-    error::{Error, Location},
+    error::{Error, Location, Span},
     tokens::{Token, TokenKind},
 };
 use std::str::{self, Chars};
@@ -21,12 +21,11 @@ const ESCAPE_CHAR: [char; 10] = ['\\', '\'', '"', 'a', 'b', 'f', 'n', 'r', 't', 
 macro_rules! lex_error {
     ($self:ident, $start:ident, $($arg:tt)*) => {
         return Err((
-            error_val!(SyntaxError, $start, $self.location, $($arg)*),
+            error_val!(SyntaxError, ($start, $self.location), $($arg)*),
             Token::new(
                 TokenKind::Unknown,
                 "Unknown".to_string(),
-                $start,
-                $self.location,
+                Span::new($start, $self.location),
             ),
         ))
     };
@@ -75,8 +74,7 @@ impl<'i> Lexer<'i> {
                     return Ok(Token::new(
                         TokenKind::Eol,
                         "LF".to_string(),
-                        start,
-                        self.location,
+                        Span::new(start, self.location),
                     ));
                 }
                 '"' | '\'' => return self.make_string(),
@@ -123,13 +121,12 @@ impl<'i> Lexer<'i> {
             }
         }
 
-        let start_pos = self.location;
+        let start = self.location;
         self.location.advance(false);
         Ok(Token::new(
             TokenKind::Eof,
             "EOF".to_string(),
-            start_pos,
-            self.location,
+            Span::new(start, self.location),
         ))
     }
 
@@ -154,7 +151,7 @@ impl<'i> Lexer<'i> {
         kind_double: Option<TokenKind>,
         kind_double_with_eq: Option<TokenKind>,
     ) -> Token {
-        let start_location = self.location;
+        let start = self.location;
         let char = self.current_char.unwrap();
         self.advance();
         match (
@@ -165,17 +162,21 @@ impl<'i> Lexer<'i> {
         ) {
             (Some(ty), .., Some('=')) => {
                 self.advance();
-                Token::new(ty, char.to_string() + "=", start_location, self.location)
+                Token::new(ty, char.to_string() + "=", Span::new(start, self.location))
             }
             (_, Some(_), _, Some(c)) | (_, _, Some(_), Some(c)) if c == char => {
                 self.advance();
                 match (kind_double, kind_double_with_eq, self.current_char) {
                     (_, Some(ty), Some('=')) => {
                         self.advance();
-                        Token::new(ty, format!("{char}{char}="), start_location, self.location)
+                        Token::new(
+                            ty,
+                            format!("{char}{char}="),
+                            Span::new(start, self.location),
+                        )
                     }
                     (Some(ty), ..) => {
-                        Token::new(ty, format!("{char}{char}"), start_location, self.location)
+                        Token::new(ty, format!("{char}{char}"), Span::new(start, self.location))
                     }
                     // can panic when all this is true:
                     // - `kind_double` is `None`
@@ -185,12 +186,16 @@ impl<'i> Lexer<'i> {
                     _ => unreachable!(),
                 }
             }
-            _ => Token::new(kind_single, char.to_string(), start_location, self.location),
+            _ => Token::new(
+                kind_single,
+                char.to_string(),
+                Span::new(start, self.location),
+            ),
         }
     }
 
     fn make_string(&mut self) -> LexResult<Token> {
-        let start_location = self.location;
+        let start = self.location;
         let start_quote = self.current_char;
         let mut string = String::new();
 
@@ -244,8 +249,7 @@ impl<'i> Lexer<'i> {
         Ok(Token::new(
             TokenKind::String,
             string,
-            start_location,
-            self.location,
+            Span::new(start, self.location),
         ))
     }
 
@@ -282,7 +286,7 @@ impl<'i> Lexer<'i> {
     }
 
     fn make_number(&mut self) -> Token {
-        let start_location = self.location;
+        let start = self.location;
         let mut number = String::new();
         number.push(self.current_char.unwrap());
         self.advance();
@@ -317,11 +321,11 @@ impl<'i> Lexer<'i> {
             }
         }
 
-        Token::new(TokenKind::Number, number, start_location, self.location)
+        Token::new(TokenKind::Number, number, Span::new(start, self.location))
     }
 
     fn make_dot(&mut self) -> LexResult<Token> {
-        let start_location = self.location;
+        let start = self.location;
         self.advance();
 
         if self.current_char != None && DIGITS.contains(&self.current_char.unwrap()) {
@@ -342,8 +346,7 @@ impl<'i> Lexer<'i> {
             return Ok(Token::new(
                 TokenKind::Number,
                 number,
-                start_location,
-                self.location,
+                Span::new(start, self.location),
             ));
         }
 
@@ -354,28 +357,25 @@ impl<'i> Lexer<'i> {
                 return Ok(Token::new(
                     TokenKind::DotsInclusive,
                     "..=".to_string(),
-                    start_location,
-                    self.location,
+                    Span::new(start, self.location),
                 ));
             }
             return Ok(Token::new(
                 TokenKind::Dots,
                 "..".to_string(),
-                start_location,
-                self.location,
+                Span::new(start, self.location),
             ));
         }
 
         Ok(Token::new(
             TokenKind::Dot,
             ".".to_string(),
-            start_location,
-            self.location,
+            Span::new(start, self.location),
         ))
     }
 
     fn make_slash(&mut self) -> Option<Token> {
-        let start_location = self.location;
+        let start = self.location;
         self.advance();
         match self.current_char {
             Some('=') => {
@@ -383,8 +383,7 @@ impl<'i> Lexer<'i> {
                 Some(Token::new(
                     TokenKind::SlashAssign,
                     "/=".to_string(),
-                    start_location,
-                    self.location,
+                    Span::new(start, self.location),
                 ))
             }
             Some('/') => {
@@ -408,14 +407,13 @@ impl<'i> Lexer<'i> {
             _ => Some(Token::new(
                 TokenKind::Slash,
                 "/".to_string(),
-                start_location,
-                self.location,
+                Span::new(start, self.location),
             )),
         }
     }
 
     fn make_name(&mut self) -> Token {
-        let start_location = self.location;
+        let start = self.location;
         let mut name = String::from(self.current_char.unwrap());
         self.advance();
 
@@ -448,6 +446,6 @@ impl<'i> Lexer<'i> {
             "catch" => TokenKind::Catch,
             _ => TokenKind::Identifier,
         };
-        Token::new(kind, name, start_location, self.location)
+        Token::new(kind, name, Span::new(start, self.location))
     }
 }

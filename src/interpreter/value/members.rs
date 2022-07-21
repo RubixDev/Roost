@@ -2,7 +2,7 @@ mod built_in;
 
 use std::rc::Rc;
 
-use crate::error::{Location, Result};
+use crate::error::{Result, Span};
 
 use super::{types, BuiltIn, Value, WrappedValue};
 
@@ -10,8 +10,7 @@ impl<'tree> Value<'tree> {
     pub fn get_field(
         this: &WrappedValue<'tree>,
         name: &str,
-        start: &Location,
-        end: &Location,
+        span: Span,
     ) -> Result<WrappedValue<'tree>> {
         Ok(match &*this.borrow() {
             Value::Object(fields)
@@ -19,7 +18,7 @@ impl<'tree> Value<'tree> {
                 statics: fields, ..
             } => match fields.get(name) {
                 Some(field) => Rc::clone(field),
-                None => Self::get_common_field(this, name, start, end)?,
+                None => Self::get_common_field(this, name, span)?,
             },
             Value::String(val) => match name {
                 "length" => Value::Number(val.len().into()).wrapped(),
@@ -49,7 +48,7 @@ impl<'tree> Value<'tree> {
                     Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::str_to_lowercase))
                         .wrapped()
                 }
-                _ => Self::get_common_field(this, name, start, end)?,
+                _ => Self::get_common_field(this, name, span)?,
             },
             Value::Number(_) => match name {
                 "toInt" => {
@@ -64,17 +63,16 @@ impl<'tree> Value<'tree> {
                 "round" => {
                     Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::num_round)).wrapped()
                 }
-                _ => Self::get_common_field(this, name, start, end)?,
+                _ => Self::get_common_field(this, name, span)?,
             },
-            _ => Self::get_common_field(this, name, start, end)?,
+            _ => Self::get_common_field(this, name, span)?,
         })
     }
 
     fn get_common_field(
         this: &WrappedValue<'tree>,
         name: &str,
-        start: &Location,
-        end: &Location,
+        span: Span,
     ) -> Result<WrappedValue<'tree>> {
         Ok(match name {
             "toString" => {
@@ -86,8 +84,7 @@ impl<'tree> Value<'tree> {
             "clone" => Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::clone)).wrapped(),
             _ => error!(
                 ReferenceError,
-                *start,
-                *end,
+                span,
                 "Type '{}' has no member called '{}'",
                 types::type_of(&this.borrow()),
                 name,

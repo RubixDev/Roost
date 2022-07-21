@@ -76,6 +76,7 @@ pub enum TokenKind {
 
     Unknown,
     Eol,
+    Semicolon,
     Eof,
 }
 

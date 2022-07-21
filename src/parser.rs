@@ -14,12 +14,7 @@ macro_rules! syntax_err {
 }
 
 macro_rules! expect {
-    ($self:ident, Eol, $name:expr) => { expect!(@common $self, Eol, $name) };
     ($self:ident, $kind:ident, $name:expr) => {
-        expect!(@common $self, $kind, $name);
-        $self.advance();
-    };
-    (@common $self:ident, $kind:ident, $name:expr) => {
         if !of_kinds!($self, $kind) {
             $self.errors.push(error_val!(
                 SyntaxError,
@@ -30,6 +25,7 @@ macro_rules! expect {
                 $self.curr_tok.value(),
             ));
         }
+        $self.advance();
     };
 }
 
@@ -50,10 +46,27 @@ macro_rules! expect_ident {
     }};
 }
 
+macro_rules! expect_eol {
+    ($self:ident) => {
+        if of_kinds!($self, Semicolon) {
+            $self.advance();
+        } else if $self.prev_tok.kind != TokenKind::Eol {
+            $self.errors.push(error_val!(
+                SyntaxError,
+                $self.curr_tok.start,
+                $self.curr_tok.end,
+                "Expected ';' or line break, found '{}'",
+                $self.curr_tok.value(),
+            ));
+        }
+    };
+}
+
 macro_rules! of_kinds {
-    ($self:ident, Eol) => {{
+    ($self:ident, Eol, Semicolon) => {{
         of_kinds!(@skip $self);
         $self.prev_tok.kind == TokenKind::Eol
+            || $self.curr_tok.kind == TokenKind::Semicolon
     }};
     ($self:ident, $kind:ident) => {{
         of_kinds!(@skip $self);
@@ -185,7 +198,10 @@ impl<'i> Parser<'i> {
         let mut stmts = vec![];
         if !of_kinds!(self, RBrace, Eof) {
             stmts.push(self.statement()?);
-            while of_kinds!(self, Eol) {
+            while of_kinds!(self, Eol, Semicolon) {
+                if self.curr_tok.kind == TokenKind::Semicolon {
+                    self.advance();
+                }
                 if of_kinds!(self, RBrace, Eof) {
                     break;
                 }
@@ -323,7 +339,7 @@ impl<'i> Parser<'i> {
         let mut members = vec![];
         while !of_kinds!(self, RBrace, Eof) {
             members.push(self.member()?);
-            expect!(self, Eol, "';' or line break");
+            expect_eol!(self);
         }
         expect!(self, RBrace, "'}'");
 

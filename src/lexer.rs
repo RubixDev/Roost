@@ -69,6 +69,16 @@ impl<'i> Lexer<'i> {
         while let Some(current_char) = self.current_char {
             match current_char {
                 ' ' | '\t' | '\r' => self.advance(),
+                '\n' => {
+                    let start = self.location;
+                    self.advance();
+                    return Ok(Token::new(
+                        TokenKind::Eol,
+                        "LF".to_string(),
+                        start,
+                        self.location,
+                    ));
+                }
                 '"' | '\'' => return self.make_string(),
                 '.' => return self.make_dot(),
                 '/' => {
@@ -82,7 +92,7 @@ impl<'i> Lexer<'i> {
                 '{' => char_construct!(self, LBrace, _, _, _),
                 '}' => char_construct!(self, RBrace, _, _, _),
                 ',' => char_construct!(self, Comma, _, _, _),
-                ';' | '\n' => char_construct!(self, Eol, _, _, _),
+                ';' => char_construct!(self, Semicolon, _, _, _),
                 '|' => char_construct!(self, BitOr, BitOrAssign, Or, _),
                 '&' => char_construct!(self, BitAnd, BitAndAssign, And, _),
                 '=' => char_construct!(self, Assign, Equal, _, _),

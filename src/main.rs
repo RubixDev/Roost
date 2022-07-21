@@ -17,17 +17,17 @@ fn main() {
 
     let l = Lexer::new(
         r#"
-        println('asd')
+        printl('asd')
         fun lel(a, b) {
-            println(a)
+            printl(a)
             a + b
         }
         var lal = fun(a, b) {
-            println(b)
+            printl(b)
             a - b
         }
-        println(lel(3, 5))
-        println(lal(3, 5))
+        printl(lel(3, 5))
+        printl(lal(3, 5))
 
         class Test {
             static var staticVar1
@@ -36,13 +36,13 @@ fn main() {
             var attribute2 = 84
 
             static fun staticFun() {
-                println(this.staticVar1, Test.staticVar2)
-                try this.attribute1 catch (err) println(err)
+                printl(this.staticVar1, Test.staticVar2)
+                try this.attribute1 catch (err) printl(err)
             }
 
             fun method() {
-                println(this.attribute1, this.attribute2)
-                try this.staticVar1 catch (err) println(err)
+                printl(this.attribute1, this.attribute2)
+                try this.staticVar1 catch (err) printl(err)
             }
 
             fun setter(new) {
@@ -57,9 +57,9 @@ fn main() {
         Test.staticFun()
         var test = Test()
         test.method()
-        println(test.attribute1, test.getter())
+        printl(test.attribute1, test.getter())
         test.setter(42)
-        println(test.attribute1, test.getter())
+        printl(test.attribute1, test.getter())
 
         try a catch (err) err
         "#,

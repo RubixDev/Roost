@@ -78,7 +78,7 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
             program,
             scopes: vec![HashMap::from([
                 ("print", Value::BuiltIn(BuiltIn::Print(false)).wrapped()),
-                ("println", Value::BuiltIn(BuiltIn::Print(true)).wrapped()),
+                ("printl", Value::BuiltIn(BuiltIn::Print(true)).wrapped()),
                 (
                     "typeOf",
                     Value::BuiltIn(BuiltIn::Function(built_in::type_of)).wrapped(),

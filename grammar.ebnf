@@ -6,7 +6,7 @@
 
 Program      = Statements ;
 (* The end of <Statements> is indicated by a following `Eof` or `LBrace` token *)
-Statements   = [ Statement , { ';' , Statement } , [ ';' ] ] ;
+Statements   = [ Statement , { EOL , Statement } , [ EOL ] ] ;
 Block        = BlockExpr | Statement ;
 
 (**************************)
@@ -30,7 +30,7 @@ ReturnStmt   = 'return' , [ Expression ] ;
 (******* CLASS MEMBERS *******)
 (*****************************)
 Member = [ 'static' ] , ( FunctionDecl | VarStmt ) ;
-MemberBlock = '{' , { Member , ';' } , '}' ;
+MemberBlock = '{' , { Member , EOL } , '}' ;
 
 (***************************)
 (******* EXPRESSIONS *******)
@@ -118,3 +118,10 @@ HEX         = DIGIT
             | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' ;
 CHAR        = ? any character included in the Unicode character set ? ;
 ESCAPE_CHAR = '\' | "'" | '"' | 'a' | 'b' | 'f' | 'n' | 'r' | 't' | 'v' ;
+(*
+  <EOL>: End Of Line
+  Note: Line break characters (LF) are treated like spaces throughout the
+  parsing process but, unlike the other space characters (' ', '\t', and '\r'),
+  are accepted in place of semicolons.
+*)
+EOL         = ';' | ? line feed ? ;

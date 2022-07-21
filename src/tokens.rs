@@ -75,7 +75,7 @@ pub enum TokenKind {
     Catch,
 
     Unknown,
-    Semicolon,
+    Eol,
     Eof,
 }
 
@@ -124,7 +124,7 @@ impl Debug for Token {
             f,
             "( {:?} | {:?} | {}:{}..{}:{} )",
             self.kind,
-            self.value,
+            self.value(),
             self.start.line,
             self.start.column,
             self.end.line,

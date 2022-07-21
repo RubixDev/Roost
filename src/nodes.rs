@@ -15,7 +15,7 @@ macro_rules! node {
 }
 
 pub type Program = Statements;
-node! { Statements; stmts: Vec<Statement>, ending_semi: bool }
+node! { Statements; stmts: Vec<Statement> }
 pub type Block = Statements;
 
 #[derive(Debug, PartialEq, Clone)]

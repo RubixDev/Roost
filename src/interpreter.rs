@@ -164,13 +164,11 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
         if new_scope {
             self.pop_scope();
         }
-        Ok(
-            if (result.value.is_none() || node.ending_semi) && !result.should_return() {
-                RuntimeResult::new(Some(Value::Null.wrapped()))
-            } else {
-                result
-            },
-        )
+        Ok(if result.value.is_none() && !result.should_return() {
+            RuntimeResult::new(Some(Value::Null.wrapped()))
+        } else {
+            result
+        })
     }
 
     #[inline]

@@ -14,8 +14,13 @@ macro_rules! syntax_err {
 }
 
 macro_rules! expect {
+    ($self:ident, Eol, $name:expr) => { expect!(@common $self, Eol, $name) };
     ($self:ident, $kind:ident, $name:expr) => {
-        if $self.curr_tok.kind != TokenKind::$kind {
+        expect!(@common $self, $kind, $name);
+        $self.advance();
+    };
+    (@common $self:ident, $kind:ident, $name:expr) => {
+        if !of_kinds!($self, $kind) {
             $self.errors.push(error_val!(
                 SyntaxError,
                 $self.curr_tok.start,
@@ -25,13 +30,12 @@ macro_rules! expect {
                 $self.curr_tok.value(),
             ));
         }
-        $self.advance();
     };
 }
 
 macro_rules! expect_ident {
     ($self:ident) => {{
-        if $self.curr_tok.kind != TokenKind::Identifier {
+        if !of_kinds!($self, Identifier) {
             $self.errors.push(error_val!(
                 SyntaxError,
                 $self.curr_tok.start,
@@ -47,11 +51,22 @@ macro_rules! expect_ident {
 }
 
 macro_rules! of_kinds {
-    ($self:ident, $kind:ident) => {
+    ($self:ident, Eol) => {{
+        of_kinds!(@skip $self);
+        $self.prev_tok.kind == TokenKind::Eol
+    }};
+    ($self:ident, $kind:ident) => {{
+        of_kinds!(@skip $self);
         $self.curr_tok.kind == TokenKind::$kind
-    };
-    ($self:ident, $($kind:ident),+ $(,)?) => {
+    }};
+    ($self:ident, $($kind:ident),+ $(,)?) => {{
+        of_kinds!(@skip $self);
         [$(TokenKind::$kind, )*].contains(&$self.curr_tok.kind)
+    }};
+    (@skip $self:ident) => {
+        while $self.curr_tok.kind == TokenKind::Eol {
+            $self.advance();
+        }
     };
 }
 
@@ -159,6 +174,7 @@ impl<'i> Parser<'i> {
 
     // ---------------------------------------
 
+    #[inline]
     fn program(&mut self) -> Result<Program> {
         self.statements()
     }
@@ -167,20 +183,17 @@ impl<'i> Parser<'i> {
         let start = self.curr_tok.start;
 
         let mut stmts = vec![];
-        let mut ending_semi = false;
         if !of_kinds!(self, RBrace, Eof) {
             stmts.push(self.statement()?);
-            while of_kinds!(self, Semicolon) {
-                self.advance();
+            while of_kinds!(self, Eol) {
                 if of_kinds!(self, RBrace, Eof) {
-                    ending_semi = true;
                     break;
                 }
                 stmts.push(self.statement()?);
             }
         }
 
-        done!(Statements, start, self; stmts, ending_semi)
+        done!(Statements, start, self; stmts)
     }
 
     fn block(&mut self) -> Result<Block> {
@@ -201,7 +214,6 @@ impl<'i> Parser<'i> {
                 start,
                 end,
                 stmts: vec![stmt],
-                ending_semi: false,
             })
         }
     }
@@ -259,7 +271,7 @@ impl<'i> Parser<'i> {
         let start = self.curr_tok.start;
 
         expect!(self, Break, "'break'");
-        let expr = if !of_kinds!(self, Eof, Semicolon, RBrace) {
+        let expr = if !of_kinds!(self, Eof, Eol, RBrace) {
             Some(self.expression()?)
         } else {
             None
@@ -279,7 +291,7 @@ impl<'i> Parser<'i> {
         let start = self.curr_tok.start;
 
         expect!(self, Return, "'return'");
-        let expr = if !of_kinds!(self, Eof, Semicolon, RBrace) {
+        let expr = if !of_kinds!(self, Eof, Eol, RBrace) {
             Some(self.expression()?)
         } else {
             None
@@ -311,7 +323,7 @@ impl<'i> Parser<'i> {
         let mut members = vec![];
         while !of_kinds!(self, RBrace, Eof) {
             members.push(self.member()?);
-            expect!(self, Semicolon, "';'");
+            expect!(self, Eol, "';' or line break");
         }
         expect!(self, RBrace, "'}'");
 

@@ -17,49 +17,49 @@ fn main() {
 
     let l = Lexer::new(
         r#"
-        println('asd');
+        println('asd')
         fun lel(a, b) {
-            println(a);
+            println(a)
             a + b
-        };
+        }
         var lal = fun(a, b) {
-            println(b);
+            println(b)
             a - b
-        };
-        println(lel(3, 5));
-        println(lal(3, 5));
+        }
+        println(lel(3, 5))
+        println(lal(3, 5))
 
         class Test {
-            static var staticVar1;
-            static var staticVar2 = 42;
-            var attribute1;
-            var attribute2 = 84;
+            static var staticVar1
+            static var staticVar2 = 42
+            var attribute1
+            var attribute2 = 84
 
             static fun staticFun() {
-                println(this.staticVar1, Test.staticVar2);
-                try this.attribute1 catch (err) println(err);
-            };
+                println(this.staticVar1, Test.staticVar2)
+                try this.attribute1 catch (err) println(err)
+            }
 
             fun method() {
-                println(this.attribute1, this.attribute2);
-                try this.staticVar1 catch (err) println(err);
-            };
+                println(this.attribute1, this.attribute2)
+                try this.staticVar1 catch (err) println(err)
+            }
 
             fun setter(new) {
-                this.attribute1 = new;
-            };
+                this.attribute1 = new
+            }
 
             fun getter() {
                 this.attribute1
-            };
-        };
+            }
+        }
 
-        Test.staticFun();
-        var test = Test();
-        test.method();
-        println(test.attribute1, test.getter());
-        test.setter(42);
-        println(test.attribute1, test.getter());
+        Test.staticFun()
+        var test = Test()
+        test.method()
+        println(test.attribute1, test.getter())
+        test.setter(42)
+        println(test.attribute1, test.getter())
 
         try a catch (err) err
         "#,

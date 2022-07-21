@@ -72,21 +72,21 @@ macro_rules! of_kinds {
 
 macro_rules! simple_expr {
     ($name:ident -> $type:ident : $($tok:ident),+ => $next:ident $kind:tt) => {
-        fn $name(&mut self) -> Result<$type> {
+        fn $name(&mut self, expects_stmt: bool) -> Result<$type> {
             let start = self.curr_tok.start;
-            simple_expr!(@kind self, start, $type, $($tok),+ | $next, $kind)
+            simple_expr!(@kind self, start, expects_stmt, $type, $($tok),+ | $next, $kind)
         }
     };
-    (@kind $self:ident, $start:ident, $type:ident, $($tok:ident),+ | $next:ident, *) => {{
-        let base = $self.$next()?;
+    (@kind $self:ident, $start:ident, $expects_stmt:ident, $type:ident, $($tok:ident),+ | $next:ident, *) => {{
+        let base = $self.$next($expects_stmt)?;
         let mut following = vec![];
         while of_kinds!($self, $($tok),+) {
             following.push(simple_expr!(@inner $self, $next, $($tok),+));
         }
         done!($type, $start, $self; base, following)
     }};
-    (@kind $self:ident, $start:ident, $type:ident, $($tok:ident),+ | $next:ident, ?) => {{
-        let left = $self.$next()?;
+    (@kind $self:ident, $start:ident, $expects_stmt:ident, $type:ident, $($tok:ident),+ | $next:ident, ?) => {{
+        let left = $self.$next($expects_stmt)?;
         let right = if of_kinds!($self, $($tok),+) {
             Some(simple_expr!(@inner $self, $next, $($tok),+))
         } else {
@@ -96,12 +96,12 @@ macro_rules! simple_expr {
     }};
     (@inner $self:ident, $next:ident, $_:ident) => {{
         $self.advance();
-        $self.$next()?
+        $self.$next(false)?
     }};
     (@inner $self:ident, $next:ident, $($_:ident),+) => {{
         let tok = $self.curr_tok.kind;
         $self.advance();
-        (tok, $self.$next()?)
+        (tok, $self.$next(false)?)
     }};
 }
 
@@ -226,7 +226,7 @@ impl<'i> Parser<'i> {
             TokenKind::Break => Statement::Break(self.break_stmt()?),
             TokenKind::Continue => Statement::Continue(self.continue_stmt()?),
             TokenKind::Return => Statement::Return(self.return_stmt()?),
-            _ => Statement::Expr(self.expression()?),
+            _ => Statement::Expr(self.expression(true)?),
         })
     }
 
@@ -238,7 +238,7 @@ impl<'i> Parser<'i> {
 
         let expr = if of_kinds!(self, Assign) {
             self.advance();
-            Some(self.expression()?)
+            Some(self.expression(false)?)
         } else {
             None
         };
@@ -272,7 +272,7 @@ impl<'i> Parser<'i> {
 
         expect!(self, Break, "'break'");
         let expr = if !of_kinds!(self, Eof, Eol, RBrace) {
-            Some(self.expression()?)
+            Some(self.expression(false)?)
         } else {
             None
         };
@@ -292,7 +292,7 @@ impl<'i> Parser<'i> {
 
         expect!(self, Return, "'return'");
         let expr = if !of_kinds!(self, Eof, Eol, RBrace) {
-            Some(self.expression()?)
+            Some(self.expression(false)?)
         } else {
             None
         };
@@ -331,18 +331,18 @@ impl<'i> Parser<'i> {
     }
 
     #[inline]
-    fn expression(&mut self) -> Result<Expression> {
-        self.range_expr()
+    fn expression(&mut self, expects_stmt: bool) -> Result<Expression> {
+        self.range_expr(expects_stmt)
     }
 
-    fn range_expr(&mut self) -> Result<RangeExpr> {
+    fn range_expr(&mut self, expects_stmt: bool) -> Result<RangeExpr> {
         let start = self.curr_tok.start;
 
-        let left = Box::new(self.or_expr()?);
+        let left = Box::new(self.or_expr(expects_stmt)?);
         let right = if of_kinds!(self, Dots, DotsInclusive) {
             let tok = self.curr_tok.kind;
             self.advance();
-            Some((tok, Box::new(self.or_expr()?)))
+            Some((tok, Box::new(self.or_expr(false)?)))
         } else {
             None
         };
@@ -361,13 +361,13 @@ impl<'i> Parser<'i> {
     simple_expr!(add_expr -> AddExpr: Plus, Minus => mul_expr *);
     simple_expr!(mul_expr -> MulExpr: Star, Slash, Rem, Backslash => unary_expr *);
 
-    fn unary_expr(&mut self) -> Result<UnaryExpr> {
+    fn unary_expr(&mut self, expects_stmt: bool) -> Result<UnaryExpr> {
         let start = self.curr_tok.start;
 
         if of_kinds!(self, Plus, Minus, Not) {
             let operator = self.curr_tok.kind;
             self.advance();
-            let expr = Box::new(self.unary_expr()?);
+            let expr = Box::new(self.unary_expr(false)?);
             Ok(UnaryExpr::Unary {
                 start,
                 end: self.prev_tok.end,
@@ -375,17 +375,17 @@ impl<'i> Parser<'i> {
                 expr,
             })
         } else {
-            Ok(UnaryExpr::Done(Box::new(self.exp_expr()?)))
+            Ok(UnaryExpr::Done(Box::new(self.exp_expr(expects_stmt)?)))
         }
     }
 
-    fn exp_expr(&mut self) -> Result<ExpExpr> {
+    fn exp_expr(&mut self, expects_stmt: bool) -> Result<ExpExpr> {
         let start = self.curr_tok.start;
 
-        let base = self.assign_expr()?;
+        let base = self.assign_expr(expects_stmt)?;
         let exponent = if of_kinds!(self, Pow) {
             self.advance();
-            Some(self.unary_expr()?)
+            Some(self.unary_expr(false)?)
         } else {
             None
         };
@@ -393,10 +393,10 @@ impl<'i> Parser<'i> {
         done!(ExpExpr, start, self; base, exponent)
     }
 
-    fn assign_expr(&mut self) -> Result<AssignExpr> {
+    fn assign_expr(&mut self, expects_stmt: bool) -> Result<AssignExpr> {
         let start = self.curr_tok.start;
 
-        let left = self.call_expr()?;
+        let left = self.call_expr(expects_stmt)?;
         let right = if of_kinds!(
             self,
             Assign,
@@ -414,7 +414,7 @@ impl<'i> Parser<'i> {
         ) {
             let tok = self.curr_tok.kind;
             self.advance();
-            Some((tok, self.expression()?))
+            Some((tok, self.expression(false)?))
         } else {
             None
         };
@@ -422,10 +422,10 @@ impl<'i> Parser<'i> {
         done!(AssignExpr, start, self; left, right)
     }
 
-    fn call_expr(&mut self) -> Result<CallExpr> {
+    fn call_expr(&mut self, expects_stmt: bool) -> Result<CallExpr> {
         let start = self.curr_tok.start;
 
-        let base = self.member_expr()?;
+        let base = self.member_expr(expects_stmt)?;
         let mut following = vec![];
         if of_kinds!(self, LParen) {
             following.push(CallPart::Args(self.args()?));
@@ -437,10 +437,10 @@ impl<'i> Parser<'i> {
         done!(CallExpr, start, self; base, following)
     }
 
-    fn member_expr(&mut self) -> Result<MemberExpr> {
+    fn member_expr(&mut self, expects_stmt: bool) -> Result<MemberExpr> {
         let start = self.curr_tok.start;
 
-        let base = self.atom()?;
+        let base = self.atom(expects_stmt)?;
         let mut following = vec![];
         while of_kinds!(self, Dot) {
             following.push(self.member_part()?);
@@ -449,7 +449,7 @@ impl<'i> Parser<'i> {
         done!(MemberExpr, start, self; base, following)
     }
 
-    fn atom(&mut self) -> Result<Atom> {
+    fn atom(&mut self, expects_stmt: bool) -> Result<Atom> {
         let start = self.curr_tok.start;
 
         Ok(match self.curr_tok.kind {
@@ -504,7 +504,7 @@ impl<'i> Parser<'i> {
             }
             TokenKind::LParen => {
                 self.advance();
-                let expr = self.expression()?;
+                let expr = self.expression(false)?;
                 expect!(self, RParen, "')'");
                 Atom::Expr(expr)
             }
@@ -518,8 +518,13 @@ impl<'i> Parser<'i> {
             TokenKind::LBrace => Atom::BlockExpr(self.block_expr()?),
             _ => syntax_err!(
                 self,
-                "Expected expression, found '{}'",
-                self.curr_tok.value()
+                "Expected {}, found '{}'",
+                if expects_stmt {
+                    "statement"
+                } else {
+                    "expression"
+                },
+                self.curr_tok.value(),
             ),
         })
     }
@@ -529,7 +534,7 @@ impl<'i> Parser<'i> {
 
         expect!(self, If, "'if'");
         expect!(self, LParen, "'('");
-        let cond = self.expression()?;
+        let cond = self.expression(false)?;
         expect!(self, RParen, "')'");
         let block = self.block()?;
         let else_block = if of_kinds!(self, Else) {
@@ -549,7 +554,7 @@ impl<'i> Parser<'i> {
         expect!(self, LParen, "'('");
         let ident = expect_ident!(self);
         expect!(self, In, "'in'");
-        let iter = self.expression()?;
+        let iter = self.expression(false)?;
         expect!(self, RParen, "')'");
         let block = self.block()?;
 
@@ -561,7 +566,7 @@ impl<'i> Parser<'i> {
 
         expect!(self, While, "'while'");
         expect!(self, LParen, "'('");
-        let cond = self.expression()?;
+        let cond = self.expression(false)?;
         expect!(self, RParen, "')'");
         let block = self.block()?;
 
@@ -652,13 +657,13 @@ impl<'i> Parser<'i> {
         let mut args = vec![];
         expect!(self, LParen, "'('");
         if !of_kinds!(self, RParen) {
-            args.push(self.expression()?);
+            args.push(self.expression(false)?);
             while of_kinds!(self, Comma) {
                 self.advance();
                 if of_kinds!(self, RParen) {
                     break;
                 }
-                args.push(self.expression()?);
+                args.push(self.expression(false)?);
             }
         }
         expect!(self, RParen, "')'");

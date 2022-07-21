@@ -97,3 +97,49 @@ pub fn type_of<'tree>(
     }
     Ok(Value::String(types::type_of(&args[0].borrow()).to_string()))
 }
+
+pub fn assert<'tree>(
+    args: Vec<WrappedValue<'tree>>,
+    start: &Location,
+    end: &Location,
+) -> Result<Value<'tree>> {
+    if args.len() != 1 {
+        error!(
+            TypeError,
+            *start,
+            *end,
+            "Function 'assert' takes 1 argument, however {} were supplied",
+            args.len(),
+        );
+    }
+    if args[0].borrow().is_false() {
+        error!(RuntimeError, *start, *end, "Assertion failed",);
+    }
+    Ok(Value::Null)
+}
+
+pub fn throw<'tree>(
+    args: Vec<WrappedValue<'tree>>,
+    start: &Location,
+    end: &Location,
+) -> Result<Value<'tree>> {
+    // TODO: minimize repition of these checks with macros
+    if args.len() != 1 {
+        error!(
+            TypeError,
+            *start,
+            *end,
+            "Function 'throw' takes 1 argument, however {} were supplied",
+            args.len(),
+        );
+    }
+    let borrow = args[0].borrow();
+    let str = match &*borrow {
+        Value::String(str) => str,
+        _ => error!(
+            TypeError,
+            *start, *end, "First argument of function 'throw' has to be of type 'string'",
+        ),
+    };
+    error!(RuntimeError, *start, *end, "{str}",)
+}

@@ -83,6 +83,14 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
                     "typeOf",
                     Value::BuiltIn(BuiltIn::Function(built_in::type_of)).wrapped(),
                 ),
+                (
+                    "assert",
+                    Value::BuiltIn(BuiltIn::Function(built_in::assert)).wrapped(),
+                ),
+                (
+                    "throw",
+                    Value::BuiltIn(BuiltIn::Function(built_in::throw)).wrapped(),
+                ),
                 ("exit", Value::BuiltIn(BuiltIn::Exit).wrapped()),
                 ("answer", Value::Number(42.into()).wrapped()),
             ])],

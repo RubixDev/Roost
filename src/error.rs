@@ -93,4 +93,5 @@ pub enum ErrorKind {
     DivisionByZeroError,
     OverflowError,
     SystemError,
+    RuntimeError,
 }

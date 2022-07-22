@@ -744,7 +744,6 @@ where
         Ok(RuntimeResult::new(Some(out)))
     }
 
-    // TODO: dedup code
     fn visit_class_expr(&mut self, node: &'tree ClassExpr) -> Result<RuntimeResult<'tree>> {
         let class = Value::Null.wrapped();
         let mut statics: HashMap<&str, _> = HashMap::new();

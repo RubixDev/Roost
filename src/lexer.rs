@@ -2,7 +2,10 @@ use crate::{
     error::{Error, Location, Span},
     tokens::{Token, TokenKind},
 };
-use std::str::{self, Chars};
+use std::{
+    mem,
+    str::{self, Chars},
+};
 
 const DIGITS: [char; 10] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 const OCTAL_DIGITS: [char; 8] = ['0', '1', '2', '3', '4', '5', '6', '7'];
@@ -49,7 +52,8 @@ type LexResult<T> = std::result::Result<T, (Error, Token)>;
 #[derive(Debug, Clone)]
 pub struct Lexer<'i> {
     input: Chars<'i>,
-    current_char: Option<char>,
+    curr_char: Option<char>,
+    next_char: Option<char>,
     location: Location,
 }
 
@@ -57,16 +61,18 @@ impl<'i> Lexer<'i> {
     pub fn new(input: &'i str) -> Self {
         let mut lexer = Lexer {
             input: input.chars(),
-            current_char: None,
+            curr_char: None,
+            next_char: None,
             location: Location::new(),
         };
+        lexer.advance();
         lexer.advance();
         lexer
     }
 
     pub fn next_token(&mut self) -> LexResult<Token> {
-        while let Some(current_char) = self.current_char {
-            match current_char {
+        while let Some(curr_char) = self.curr_char {
+            match curr_char {
                 ' ' | '\t' | '\r' => self.advance(),
                 '\n' => {
                     let start = self.location;
@@ -108,14 +114,14 @@ impl<'i> Lexer<'i> {
                 '%' => char_construct!(self, Rem, RemAssign, _, _),
                 '\\' => char_construct!(self, Backslash, BackslashAssign, _, _),
                 _ => {
-                    if DIGITS.contains(&current_char) {
+                    if DIGITS.contains(&curr_char) {
                         return Ok(self.make_number());
-                    } else if LETTERS.contains(&current_char) {
+                    } else if LETTERS.contains(&curr_char) {
                         return Ok(self.make_name());
                     } else {
                         let start_pos = self.location;
                         self.advance();
-                        lex_error!(self, start_pos, "Illegal character '{}'", current_char);
+                        lex_error!(self, start_pos, "Illegal character '{}'", curr_char);
                     }
                 }
             }
@@ -131,15 +137,11 @@ impl<'i> Lexer<'i> {
     }
 
     fn advance(&mut self) {
-        if let Some(current_char) = self.current_char {
-            self.location.advance(current_char == '\n')
+        if let Some(curr_char) = self.curr_char {
+            self.location.advance(curr_char == '\n');
         }
-        self.current_char = self.input.next();
-    }
-
-    // TODO: try to remove clone here
-    fn next_char(&self) -> Option<char> {
-        self.input.clone().next()
+        mem::swap(&mut self.curr_char, &mut self.next_char);
+        self.next_char = self.input.next();
     }
 
     // ----------------------------------------
@@ -152,13 +154,13 @@ impl<'i> Lexer<'i> {
         kind_double_with_eq: Option<TokenKind>,
     ) -> Token {
         let start = self.location;
-        let char = self.current_char.unwrap();
+        let char = self.curr_char.unwrap();
         self.advance();
         match (
             kind_with_eq,
             &kind_double,
             &kind_double_with_eq,
-            self.current_char,
+            self.curr_char,
         ) {
             (Some(ty), .., Some('=')) => {
                 self.advance();
@@ -166,7 +168,7 @@ impl<'i> Lexer<'i> {
             }
             (_, Some(_), _, Some(c)) | (_, _, Some(_), Some(c)) if c == char => {
                 self.advance();
-                match (kind_double, kind_double_with_eq, self.current_char) {
+                match (kind_double, kind_double_with_eq, self.curr_char) {
                     (_, Some(ty), Some('=')) => {
                         self.advance();
                         Token::new(
@@ -181,7 +183,7 @@ impl<'i> Lexer<'i> {
                     // can panic when all this is true:
                     // - `kind_double` is `None`
                     // - `kind_double_with_eq` is `Some(_)`
-                    // - `self.current_char` is not `Some('=')`
+                    // - `self.curr_char` is not `Some('=')`
                     // but we never call this function that way
                     _ => unreachable!(),
                 }
@@ -196,24 +198,24 @@ impl<'i> Lexer<'i> {
 
     fn make_string(&mut self) -> LexResult<Token> {
         let start = self.location;
-        let start_quote = self.current_char;
+        let start_quote = self.curr_char;
         let mut string = String::new();
 
         self.advance(); // start quote
-        while ![start_quote, Some('\\'), None].contains(&self.current_char) {
-            string.push(self.current_char.unwrap());
+        while ![start_quote, Some('\\'), None].contains(&self.curr_char) {
+            string.push(self.curr_char.unwrap());
             self.advance();
         }
-        while self.current_char == Some('\\') {
+        while self.curr_char == Some('\\') {
             let escape_pos = self.location;
             self.advance(); // backslash
-            if self.current_char == None {
+            if self.curr_char == None {
                 lex_error!(self, escape_pos, "Invalid escape sequence")
             }
-            let current_char = self.current_char.unwrap();
+            let curr_char = self.curr_char.unwrap();
 
-            if ESCAPE_CHAR.contains(&current_char) {
-                string.push(match current_char {
+            if ESCAPE_CHAR.contains(&curr_char) {
+                string.push(match curr_char {
                     '\\' => '\\',
                     '\'' => '\'',
                     '"' => '"',
@@ -227,20 +229,20 @@ impl<'i> Lexer<'i> {
                     _ => unreachable!(),
                 });
                 self.advance();
-            } else if OCTAL_DIGITS.contains(&current_char) {
-                string.push(self.escape_sequence(&current_char, escape_pos, false, 2)?);
-            } else if current_char == 'x' {
-                string.push(self.escape_sequence(&current_char, escape_pos, true, 2)?);
-            } else if current_char == 'u' {
-                string.push(self.escape_sequence(&current_char, escape_pos, true, 4)?);
-            } else if current_char == 'U' {
-                string.push(self.escape_sequence(&current_char, escape_pos, true, 8)?);
+            } else if OCTAL_DIGITS.contains(&curr_char) {
+                string.push(self.escape_sequence(&curr_char, escape_pos, false, 2)?);
+            } else if curr_char == 'x' {
+                string.push(self.escape_sequence(&curr_char, escape_pos, true, 2)?);
+            } else if curr_char == 'u' {
+                string.push(self.escape_sequence(&curr_char, escape_pos, true, 4)?);
+            } else if curr_char == 'U' {
+                string.push(self.escape_sequence(&curr_char, escape_pos, true, 8)?);
             } else {
                 lex_error!(self, escape_pos, "Invalid escape sequence");
             }
 
-            while ![start_quote, Some('\\'), None].contains(&self.current_char) {
-                string.push(self.current_char.unwrap());
+            while ![start_quote, Some('\\'), None].contains(&self.curr_char) {
+                string.push(self.curr_char.unwrap());
                 self.advance();
             }
         }
@@ -255,7 +257,7 @@ impl<'i> Lexer<'i> {
 
     fn escape_sequence(
         &mut self,
-        current_char: &char,
+        curr_char: &char,
         start_pos: Location,
         is_hex: bool,
         digits: u8,
@@ -263,20 +265,20 @@ impl<'i> Lexer<'i> {
         let mut esc = if is_hex {
             String::new()
         } else {
-            current_char.to_string()
+            curr_char.to_string()
         };
         self.advance();
         for _ in 0..digits {
-            if self.current_char == None
+            if self.curr_char == None
                 || if is_hex {
-                    !HEX_DIGITS.contains(&self.current_char.unwrap())
+                    !HEX_DIGITS.contains(&self.curr_char.unwrap())
                 } else {
-                    !OCTAL_DIGITS.contains(&self.current_char.unwrap())
+                    !OCTAL_DIGITS.contains(&self.curr_char.unwrap())
                 }
             {
                 lex_error!(self, start_pos, "Invalid escape sequence");
             }
-            esc.push(self.current_char.unwrap());
+            esc.push(self.curr_char.unwrap());
             self.advance();
         }
         match char::from_u32(u32::from_str_radix(&esc, if is_hex { 16 } else { 8 }).unwrap()) {
@@ -288,34 +290,31 @@ impl<'i> Lexer<'i> {
     fn make_number(&mut self) -> Token {
         let start = self.location;
         let mut number = String::new();
-        number.push(self.current_char.unwrap());
+        number.push(self.curr_char.unwrap());
         self.advance();
 
-        while self.current_char != None
-            && (DIGITS.contains(&self.current_char.unwrap()) || self.current_char.unwrap() == '_')
+        while self.curr_char != None
+            && (DIGITS.contains(&self.curr_char.unwrap()) || self.curr_char.unwrap() == '_')
         {
-            if self.current_char.unwrap() != '_' {
-                number.push(self.current_char.unwrap());
+            if self.curr_char.unwrap() != '_' {
+                number.push(self.curr_char.unwrap());
             }
             self.advance();
         }
 
-        let next_char = self.next_char();
-        if self.current_char == Some('.')
-            && next_char != None
-            && DIGITS.contains(&next_char.unwrap())
+        let next_char = self.next_char;
+        if self.curr_char == Some('.') && next_char != None && DIGITS.contains(&next_char.unwrap())
         {
             number.push('.');
             self.advance();
             number.push(next_char.unwrap());
             self.advance();
 
-            while self.current_char != None
-                && (DIGITS.contains(&self.current_char.unwrap())
-                    || self.current_char.unwrap() == '_')
+            while self.curr_char != None
+                && (DIGITS.contains(&self.curr_char.unwrap()) || self.curr_char.unwrap() == '_')
             {
-                if self.current_char.unwrap() != '_' {
-                    number.push(self.current_char.unwrap());
+                if self.curr_char.unwrap() != '_' {
+                    number.push(self.curr_char.unwrap());
                 }
                 self.advance();
             }
@@ -328,17 +327,16 @@ impl<'i> Lexer<'i> {
         let start = self.location;
         self.advance();
 
-        if self.current_char != None && DIGITS.contains(&self.current_char.unwrap()) {
+        if self.curr_char != None && DIGITS.contains(&self.curr_char.unwrap()) {
             let mut number = String::from("0.");
-            number.push(self.current_char.unwrap());
+            number.push(self.curr_char.unwrap());
             self.advance();
 
-            while self.current_char != None
-                && (DIGITS.contains(&self.current_char.unwrap())
-                    || self.current_char.unwrap() == '_')
+            while self.curr_char != None
+                && (DIGITS.contains(&self.curr_char.unwrap()) || self.curr_char.unwrap() == '_')
             {
-                if self.current_char.unwrap() != '_' {
-                    number.push(self.current_char.unwrap());
+                if self.curr_char.unwrap() != '_' {
+                    number.push(self.curr_char.unwrap());
                 }
                 self.advance();
             }
@@ -350,9 +348,9 @@ impl<'i> Lexer<'i> {
             ));
         }
 
-        if self.current_char == Some('.') {
+        if self.curr_char == Some('.') {
             self.advance();
-            if self.current_char == Some('=') {
+            if self.curr_char == Some('=') {
                 self.advance();
                 return Ok(Token::new(
                     TokenKind::DotsInclusive,
@@ -377,7 +375,7 @@ impl<'i> Lexer<'i> {
     fn make_slash(&mut self) -> Option<Token> {
         let start = self.location;
         self.advance();
-        match self.current_char {
+        match self.curr_char {
             Some('=') => {
                 self.advance();
                 Some(Token::new(
@@ -387,15 +385,15 @@ impl<'i> Lexer<'i> {
                 ))
             }
             Some('/') => {
-                while ![Some('\n'), None].contains(&self.current_char) {
+                while ![Some('\n'), None].contains(&self.curr_char) {
                     self.advance();
                 }
                 None
             }
             Some('|') => {
                 self.advance();
-                while let Some(current_char) = self.current_char {
-                    if current_char == '|' && self.next_char() == Some('/') {
+                while let Some(curr_char) = self.curr_char {
+                    if curr_char == '|' && self.next_char == Some('/') {
                         break;
                     }
                     self.advance();
@@ -414,14 +412,14 @@ impl<'i> Lexer<'i> {
 
     fn make_name(&mut self) -> Token {
         let start = self.location;
-        let mut name = String::from(self.current_char.unwrap());
+        let mut name = String::from(self.curr_char.unwrap());
         self.advance();
 
-        while self.current_char != None
-            && (LETTERS.contains(&self.current_char.unwrap())
-                || DIGITS.contains(&self.current_char.unwrap()))
+        while self.curr_char != None
+            && (LETTERS.contains(&self.curr_char.unwrap())
+                || DIGITS.contains(&self.curr_char.unwrap()))
         {
-            name.push(self.current_char.unwrap());
+            name.push(self.curr_char.unwrap());
             self.advance();
         }
 

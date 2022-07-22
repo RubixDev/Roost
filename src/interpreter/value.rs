@@ -141,3 +141,7 @@ impl Debug for Value<'_> {
         }
     }
 }
+
+pub trait ToValue {
+    fn to_value<'tree>(&self) -> Value<'tree>;
+}

@@ -19,7 +19,7 @@ use self::{
     runtime_result::RuntimeResult,
     value::{
         types::{self, Type},
-        BuiltIn, Value, WrappedValue,
+        BuiltIn, ToValue, Value, WrappedValue,
     },
 };
 
@@ -739,11 +739,7 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
         let res = self.visit_block(&node.try_block, true);
         if let Err(e) = res {
             self.push_scope();
-            self.add_var(
-                &node.ident,
-                // TODO: special error type
-                Value::String(format!("{e:?}")).wrapped(),
-            );
+            self.add_var(&node.ident, e.to_value().wrapped());
             let out = try_visit!(self.visit_block(&node.catch_block, false)?);
             self.pop_scope();
             Ok(RuntimeResult::new(Some(out)))

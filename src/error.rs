@@ -1,4 +1,6 @@
-use std::fmt::Debug;
+use std::{collections::HashMap, fmt::Debug};
+
+use crate::interpreter::value::{ToValue, Value};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -20,6 +22,8 @@ macro_rules! error {
         return Err(error_val!($($arg)*))
     };
 }
+
+/////////////////////////////////////////////
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct Location {
@@ -60,6 +64,18 @@ impl Debug for Location {
     }
 }
 
+impl ToValue for Location {
+    fn to_value<'tree>(&self) -> Value<'tree> {
+        Value::Object(HashMap::from([
+            ("line", Value::Number(self.line.into()).wrapped()),
+            ("column", Value::Number(self.column.into()).wrapped()),
+            ("index", Value::Number(self.index.into()).wrapped()),
+        ]))
+    }
+}
+
+/////////////////////////////////////////////
+
 #[derive(Clone, Copy, PartialEq, Default)]
 pub struct Span {
     pub start: Location,
@@ -77,6 +93,17 @@ impl Debug for Span {
         write!(f, "{:?}..{:?}", self.start, self.end)
     }
 }
+
+impl ToValue for Span {
+    fn to_value<'tree>(&self) -> Value<'tree> {
+        Value::Object(HashMap::from([
+            ("start", self.start.to_value().wrapped()),
+            ("end", self.end.to_value().wrapped()),
+        ]))
+    }
+}
+
+/////////////////////////////////////////////
 
 #[derive(Clone)]
 pub struct Error {
@@ -100,6 +127,18 @@ impl Debug for Error {
         write!(f, "{:?} at {:?}  {}", self.kind, self.span, self.message,)
     }
 }
+
+impl ToValue for Error {
+    fn to_value<'tree>(&self) -> Value<'tree> {
+        Value::Object(HashMap::from([
+            ("kind", Value::String(format!("{:?}", self.kind)).wrapped()),
+            ("message", Value::String(self.message.clone()).wrapped()),
+            ("span", self.span.to_value().wrapped()),
+        ]))
+    }
+}
+
+/////////////////////////////////////////////
 
 #[derive(Debug, Clone)]
 #[allow(clippy::enum_variant_names)]

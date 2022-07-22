@@ -84,8 +84,24 @@ impl Display for Value<'_> {
             Value::Function { .. } | Value::Method { .. } | Value::BuiltIn(..) => {
                 write!(f, "<function>")
             }
-            Value::Class { .. } => write!(f, "<class>"),
-            Value::Object(..) => write!(f, "<object>"),
+            Value::Class { statics, .. } => write!(
+                f,
+                "<class> {{\n{}}}",
+                statics
+                    .iter()
+                    .map(|(k, v)| format!("    {k} = {v},\n", v = v.borrow()))
+                    .collect::<Vec<_>>()
+                    .join(""),
+            ),
+            Value::Object(fields) => write!(
+                f,
+                "<object> {{\n{}}}",
+                fields
+                    .iter()
+                    .map(|(k, v)| format!("    {k} = {v},\n", v = v.borrow()))
+                    .collect::<Vec<_>>()
+                    .join(""),
+            ),
             Value::Null => write!(f, "null"),
         }
     }
@@ -101,10 +117,26 @@ impl Debug for Value<'_> {
                 write!(f, "\x1b[33m{start}\x1b[0m..=\x1b[33m{end}\x1b[0m")
             }
             Value::Function { .. } | Value::Method { .. } | Value::BuiltIn(..) => {
-                write!(f, "\x1b[90m<function>\x1b[0m")
+                write!(f, "\x1b[1m<function>\x1b[0m")
             }
-            Value::Class { .. } => write!(f, "\x1b[90m<class>\x1b[0m"),
-            Value::Object(..) => write!(f, "\x1b[90m<object>\x1b[0m"),
+            Value::Class { statics, .. } => write!(
+                f,
+                "\x1b[1m<class>\x1b[0m {{\n{}}}",
+                statics
+                    .iter()
+                    .map(|(k, v)| format!("    \x1b[31m{k}\x1b[0m = {v:?},\n", v = v.borrow()))
+                    .collect::<Vec<_>>()
+                    .join(""),
+            ),
+            Value::Object(fields) => write!(
+                f,
+                "\x1b[1m<object>\x1b[0m {{\n{}}}",
+                fields
+                    .iter()
+                    .map(|(k, v)| format!("    \x1b[31m{k}\x1b[0m = {v:?},\n", v = v.borrow()))
+                    .collect::<Vec<_>>()
+                    .join(""),
+            ),
             Value::Null => write!(f, "\x1b[90mnull\x1b[0m"),
         }
     }

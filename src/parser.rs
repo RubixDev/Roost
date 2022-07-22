@@ -141,11 +141,6 @@ impl<'i> Parser<'i> {
         }
     }
 
-    pub fn new_parse(lexer: Lexer<'i>) -> result::Result<Program, Vec<Error>> {
-        let mut parser = Self::new(lexer);
-        parser.parse()
-    }
-
     pub fn parse(&mut self) -> result::Result<Program, Vec<Error>> {
         self.advance();
         let statements = match Self::program(self) {

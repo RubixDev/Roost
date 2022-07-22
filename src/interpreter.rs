@@ -100,14 +100,6 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
         }
     }
 
-    pub fn new_run(
-        program: &'tree Program,
-        stdout: O,
-        exit_callback: E,
-    ) -> Result<RuntimeResult<'tree>> {
-        Self::new(program, stdout, exit_callback).run(true)
-    }
-
     #[inline]
     pub fn run(&mut self, new_scope: bool) -> Result<RuntimeResult<'tree>> {
         self.visit_program(self.program, new_scope)

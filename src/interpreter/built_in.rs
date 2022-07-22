@@ -34,7 +34,7 @@ pub fn print<'tree>(
     span: Span,
     newline: bool,
 ) -> Result<Value<'tree>> {
-    let args: Vec<String> = args.iter().map(|arg| arg.borrow().to_string()).collect();
+    let args: Vec<_> = args.iter().map(|arg| arg.borrow().to_string()).collect();
     if let Err(e) = write!(
         stdout,
         "{}{}",
@@ -53,7 +53,7 @@ pub fn print<'tree>(
     _span: Span,
     newline: bool,
 ) -> Result<Value<'tree>> {
-    let args: Vec<String> = args.iter().map(|arg| arg.borrow().to_string()).collect();
+    let args: Vec<_> = args.iter().map(|arg| arg.borrow().to_string()).collect();
     stdout.write(format!(
         "{}{}",
         args.join(" "),
@@ -106,4 +106,34 @@ pub fn throw(args: Vec<WrappedValue>, span: Span) -> Result<Value> {
         ),
     };
     error!(RuntimeError, span, "{str}",)
+}
+
+#[cfg(not(feature = "no_std_io"))]
+pub fn debug<'tree>(
+    args: Vec<WrappedValue<'tree>>,
+    stderr: &mut impl Write,
+    span: Span,
+) -> Result<Value<'tree>> {
+    let args: Vec<_> = args
+        .iter()
+        .map(|arg| format!("{:?}", arg.borrow()))
+        .collect();
+    if let Err(e) = writeln!(stderr, "{}", args.join(", ")) {
+        error!(SystemError, span, "Failed to write to stdout: {}", e,);
+    }
+    Ok(Value::Null)
+}
+
+#[cfg(feature = "no_std_io")]
+pub fn debug<'tree>(
+    args: Vec<WrappedValue<'tree>>,
+    stderr: &mut impl Write,
+    _span: Span,
+) -> Result<Value<'tree>> {
+    let args: Vec<_> = args
+        .iter()
+        .map(|arg| format!("{:?}", arg.borrow()))
+        .collect();
+    stderr.write(format!("{}\n", args.join(", ")));
+    Ok(Value::Null)
 }

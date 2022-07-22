@@ -65,21 +65,67 @@ macro_rules! simple_expr {
     };
 }
 
-pub struct Interpreter<'tree, O: Write, E: FnOnce(i32)> {
+pub struct Interpreter<'tree, StdOut, StdErr, Exit>
+where
+    StdOut: Write,
+    StdErr: Write,
+    Exit: FnOnce(i32),
+{
     program: &'tree Program,
     pub scopes: Vec<HashMap<&'tree str, WrappedValue<'tree>>>,
     pub scope_idx: usize,
-    stdout: O,
-    exit_callback: Option<E>,
+    stdout: StdOut,
+    stderr: StdErr,
+    exit_callback: Option<Exit>,
 }
 
-impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
-    pub fn new(program: &'tree Program, stdout: O, exit_callback: E) -> Self {
+impl<'tree, StdOut, StdErr, Exit> Interpreter<'tree, StdOut, StdErr, Exit>
+where
+    StdOut: Write,
+    StdErr: Write,
+    Exit: FnOnce(i32),
+{
+    pub fn new(
+        program: &'tree Program,
+        stdout: StdOut,
+        stderr: StdErr,
+        exit_callback: Exit,
+    ) -> Self {
         Self {
             program,
             scopes: vec![HashMap::from([
-                ("print", Value::BuiltIn(BuiltIn::Print(false)).wrapped()),
-                ("printl", Value::BuiltIn(BuiltIn::Print(true)).wrapped()),
+                (
+                    "print",
+                    Value::BuiltIn(BuiltIn::Print {
+                        newline: false,
+                        stderr: false,
+                    })
+                    .wrapped(),
+                ),
+                (
+                    "printl",
+                    Value::BuiltIn(BuiltIn::Print {
+                        newline: true,
+                        stderr: false,
+                    })
+                    .wrapped(),
+                ),
+                (
+                    "eprint",
+                    Value::BuiltIn(BuiltIn::Print {
+                        newline: false,
+                        stderr: true,
+                    })
+                    .wrapped(),
+                ),
+                (
+                    "eprintl",
+                    Value::BuiltIn(BuiltIn::Print {
+                        newline: true,
+                        stderr: true,
+                    })
+                    .wrapped(),
+                ),
                 (
                     "typeOf",
                     Value::BuiltIn(BuiltIn::Function(built_in::type_of)).wrapped(),
@@ -93,10 +139,12 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
                     Value::BuiltIn(BuiltIn::Function(built_in::throw)).wrapped(),
                 ),
                 ("exit", Value::BuiltIn(BuiltIn::Exit).wrapped()),
+                ("debug", Value::BuiltIn(BuiltIn::Debug).wrapped()),
                 ("answer", Value::Number(42.into()).wrapped()),
             ])],
             scope_idx: 0,
             stdout,
+            stderr,
             exit_callback: Some(exit_callback),
         }
     }
@@ -538,10 +586,16 @@ impl<'tree, O: Write, E: FnOnce(i32)> Interpreter<'tree, O, E> {
                 let out = match func {
                     BuiltIn::Function(func) => func(args, span),
                     BuiltIn::Method(this, func) => func(this, args, span),
-                    BuiltIn::Print(newline) => {
-                        built_in::print(args, &mut self.stdout, span, *newline)
-                    }
+                    BuiltIn::Print {
+                        newline,
+                        stderr: false,
+                    } => built_in::print(args, &mut self.stdout, span, *newline),
+                    BuiltIn::Print {
+                        newline,
+                        stderr: true,
+                    } => built_in::print(args, &mut self.stderr, span, *newline),
                     BuiltIn::Exit => built_in::exit(args, self.exit_callback.take().unwrap(), span),
+                    BuiltIn::Debug => built_in::debug(args, &mut self.stderr, span),
                 }?;
                 Ok(out.wrapped())
             }

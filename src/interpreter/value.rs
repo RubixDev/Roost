@@ -64,8 +64,12 @@ pub enum BuiltIn<'tree> {
             span: Span,
         ) -> Result<Value<'tree>>,
     ),
-    Print(bool),
+    Print {
+        newline: bool,
+        stderr: bool,
+    },
     Exit,
+    Debug,
 }
 
 impl PartialEq for BuiltIn<'_> {

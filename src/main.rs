@@ -37,12 +37,12 @@ fn main() {
 
             static fun staticFun() {
                 printl(this.staticVar1, Test.staticVar2)
-                try this.attribute1 catch (err) printl(err)
+                try this.attribute1 catch (err) debug(err)
             }
 
             fun method() {
                 printl(this.attribute1, this.attribute2)
-                try this.staticVar1 catch (err) printl(err)
+                try this.staticVar1 catch (err) debug(err)
             }
 
             fun setter(new) {
@@ -70,6 +70,9 @@ fn main() {
     });
     println!(
         "{:?}",
-        Interpreter::new(&tree, io::stdout(), |code| process::exit(code)).run(true),
+        Interpreter::new(&tree, io::stdout(), io::stderr(), |code| process::exit(
+            code
+        ))
+        .run(true),
     );
 }

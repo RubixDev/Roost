@@ -1,3 +1,4 @@
+#[macro_use]
 mod built_in;
 mod runtime_result;
 pub mod value;

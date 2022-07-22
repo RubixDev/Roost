@@ -6,24 +6,6 @@ use crate::{
 };
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 
-macro_rules! expect_len {
-    ($args:ident, $num:literal, $name:literal, $span:ident) => {
-        if $args.len() != $num {
-            error!(
-                TypeError,
-                $span,
-                concat!(
-                    "Function '", $name, "' takes ", $num, " argument", expect_len!(@plural $num),
-                    ", however {} were supplied"
-                ),
-                $args.len(),
-            );
-        }
-    };
-    (@plural 1) => { "" };
-    (@plural $num:literal) => { "s" };
-}
-
 macro_rules! parse_err {
     ($this:ident, $span:ident, $to:expr) => {
         error!(

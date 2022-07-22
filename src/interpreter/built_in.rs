@@ -8,6 +8,25 @@ use std::io::Write;
 
 use super::value::{types, Value, WrappedValue};
 
+#[macro_export]
+macro_rules! expect_len {
+    ($args:ident, $num:literal, $name:literal, $span:ident) => {
+        if $args.len() != $num {
+            error!(
+                TypeError,
+                $span,
+                concat!(
+                    "Function '", $name, "' takes ", $num, " argument", expect_len!(@plural $num),
+                    ", however {} were supplied"
+                ),
+                $args.len(),
+            );
+        }
+    };
+    (@plural 1) => { "" };
+    (@plural $num:literal) => { "s" };
+}
+
 #[cfg(not(feature = "no_std_io"))]
 pub fn print<'tree>(
     args: Vec<WrappedValue<'tree>>,
@@ -44,14 +63,7 @@ pub fn print<'tree>(
 }
 
 pub fn exit(args: Vec<WrappedValue>, callback: impl FnOnce(i32), span: Span) -> Result<Value> {
-    if args.len() != 1 {
-        error!(
-            TypeError,
-            span,
-            "Function 'exit' takes 1 argument, however {} were supplied",
-            args.len(),
-        );
-    }
+    expect_len!(args, 0, "exit", span);
     if let Value::Number(num) = &*args[0].borrow() {
         if !num.fract().is_zero() {
             error!(ValueError, span, "Exit code has to be an integer");
@@ -71,26 +83,12 @@ pub fn exit(args: Vec<WrappedValue>, callback: impl FnOnce(i32), span: Span) -> 
 }
 
 pub fn type_of(args: Vec<WrappedValue>, span: Span) -> Result<Value> {
-    if args.len() != 1 {
-        error!(
-            TypeError,
-            span,
-            "Function 'typeOf' takes 1 argument, however {} were supplied",
-            args.len(),
-        );
-    }
+    expect_len!(args, 1, "typeOf", span);
     Ok(Value::String(types::type_of(&args[0].borrow()).to_string()))
 }
 
 pub fn assert(args: Vec<WrappedValue>, span: Span) -> Result<Value> {
-    if args.len() != 1 {
-        error!(
-            TypeError,
-            span,
-            "Function 'assert' takes 1 argument, however {} were supplied",
-            args.len(),
-        );
-    }
+    expect_len!(args, 1, "assert", span);
     if args[0].borrow().is_false() {
         error!(RuntimeError, span, "Assertion failed",);
     }
@@ -98,15 +96,7 @@ pub fn assert(args: Vec<WrappedValue>, span: Span) -> Result<Value> {
 }
 
 pub fn throw(args: Vec<WrappedValue>, span: Span) -> Result<Value> {
-    // TODO: minimize repition of these checks with macros
-    if args.len() != 1 {
-        error!(
-            TypeError,
-            span,
-            "Function 'throw' takes 1 argument, however {} were supplied",
-            args.len(),
-        );
-    }
+    expect_len!(args, 1, "throw", span);
     let borrow = args[0].borrow();
     let str = match &*borrow {
         Value::String(str) => str,

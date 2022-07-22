@@ -65,6 +65,12 @@ macro_rules! simple_expr {
     };
 }
 
+macro_rules! built_in {
+    ($name:literal, $($built_in:tt)*) => {
+        ($name, Value::BuiltIn(BuiltIn::$($built_in)*).wrapped())
+    };
+}
+
 pub struct Interpreter<'tree, StdOut, StdErr, Exit>
 where
     StdOut: Write,
@@ -94,52 +100,39 @@ where
         Self {
             program,
             scopes: vec![HashMap::from([
-                (
+                built_in!(
                     "print",
-                    Value::BuiltIn(BuiltIn::Print {
+                    Print {
                         newline: false,
-                        stderr: false,
-                    })
-                    .wrapped(),
+                        stderr: false
+                    },
                 ),
-                (
+                built_in!(
                     "printl",
-                    Value::BuiltIn(BuiltIn::Print {
+                    Print {
                         newline: true,
-                        stderr: false,
-                    })
-                    .wrapped(),
+                        stderr: false
+                    },
                 ),
-                (
+                built_in!(
                     "eprint",
-                    Value::BuiltIn(BuiltIn::Print {
+                    Print {
                         newline: false,
-                        stderr: true,
-                    })
-                    .wrapped(),
+                        stderr: true
+                    },
                 ),
-                (
+                built_in!(
                     "eprintl",
-                    Value::BuiltIn(BuiltIn::Print {
+                    Print {
                         newline: true,
-                        stderr: true,
-                    })
-                    .wrapped(),
+                        stderr: true
+                    },
                 ),
-                (
-                    "typeOf",
-                    Value::BuiltIn(BuiltIn::Function(built_in::type_of)).wrapped(),
-                ),
-                (
-                    "assert",
-                    Value::BuiltIn(BuiltIn::Function(built_in::assert)).wrapped(),
-                ),
-                (
-                    "throw",
-                    Value::BuiltIn(BuiltIn::Function(built_in::throw)).wrapped(),
-                ),
-                ("exit", Value::BuiltIn(BuiltIn::Exit).wrapped()),
-                ("debug", Value::BuiltIn(BuiltIn::Debug).wrapped()),
+                built_in!("typeOf", Function(built_in::type_of)),
+                built_in!("assert", Function(built_in::assert)),
+                built_in!("throw", Function(built_in::throw)),
+                built_in!("exit", Exit),
+                built_in!("debug", Debug),
                 ("answer", Value::Number(42.into()).wrapped()),
             ])],
             scope_idx: 0,

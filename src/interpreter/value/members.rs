@@ -1,6 +1,6 @@
 mod built_in;
 
-use std::rc::Rc;
+use std::{borrow::Cow, rc::Rc};
 
 use crate::error::{Result, Span};
 
@@ -85,8 +85,12 @@ impl<'tree> Value<'tree> {
             _ => error!(
                 ReferenceError,
                 span,
-                "Type '{}' has no member called '{}'",
-                types::type_of(&this.borrow()),
+                "{} has no member called '{}'",
+                match &*this.borrow() {
+                    Value::Class { .. } => Cow::Borrowed("Class"),
+                    Value::Object(..) => Cow::Borrowed("Object"),
+                    _ => Cow::Owned(format!("Type '{}'", types::type_of(&this.borrow()))),
+                },
                 name,
             ),
         })

@@ -74,6 +74,30 @@ impl PartialEq for BuiltIn<'_> {
     }
 }
 
+macro_rules! dbg_map {
+    ($map:ident) => {
+        dbg_map!(@inner $map, "", "", "")
+    };
+    (:? $map:ident) => {
+        dbg_map!(@inner $map, "\x1b[31m", "\x1b[0m", ":?")
+    };
+    (@inner $map:ident, $col:literal, $reset:literal, $dbg:literal) => {
+        $map.iter()
+            .map(|(k, v)| {
+                format!(
+                    concat!("    ", $col, "{k}", $reset, " = {v},\n"),
+                    k = k,
+                    v = format!(concat!("{", $dbg, "}"), v.borrow())
+                        .split('\n')
+                        .collect::<Vec<_>>()
+                        .join("\n    "),
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("")
+    };
+}
+
 impl Display for Value<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -84,24 +108,8 @@ impl Display for Value<'_> {
             Value::Function { .. } | Value::Method { .. } | Value::BuiltIn(..) => {
                 write!(f, "<function>")
             }
-            Value::Class { statics, .. } => write!(
-                f,
-                "<class> {{\n{}}}",
-                statics
-                    .iter()
-                    .map(|(k, v)| format!("    {k} = {v},\n", v = v.borrow()))
-                    .collect::<Vec<_>>()
-                    .join(""),
-            ),
-            Value::Object(fields) => write!(
-                f,
-                "<object> {{\n{}}}",
-                fields
-                    .iter()
-                    .map(|(k, v)| format!("    {k} = {v},\n", v = v.borrow()))
-                    .collect::<Vec<_>>()
-                    .join(""),
-            ),
+            Value::Class { statics, .. } => write!(f, "<class> {{\n{}}}", dbg_map!(statics)),
+            Value::Object(fields) => write!(f, "<object> {{\n{}}}", dbg_map!(fields)),
             Value::Null => write!(f, "null"),
         }
     }
@@ -119,24 +127,12 @@ impl Debug for Value<'_> {
             Value::Function { .. } | Value::Method { .. } | Value::BuiltIn(..) => {
                 write!(f, "\x1b[1m<function>\x1b[0m")
             }
-            Value::Class { statics, .. } => write!(
-                f,
-                "\x1b[1m<class>\x1b[0m {{\n{}}}",
-                statics
-                    .iter()
-                    .map(|(k, v)| format!("    \x1b[31m{k}\x1b[0m = {v:?},\n", v = v.borrow()))
-                    .collect::<Vec<_>>()
-                    .join(""),
-            ),
-            Value::Object(fields) => write!(
-                f,
-                "\x1b[1m<object>\x1b[0m {{\n{}}}",
-                fields
-                    .iter()
-                    .map(|(k, v)| format!("    \x1b[31m{k}\x1b[0m = {v:?},\n", v = v.borrow()))
-                    .collect::<Vec<_>>()
-                    .join(""),
-            ),
+            Value::Class { statics, .. } => {
+                write!(f, "\x1b[1m<class>\x1b[0m {{\n{}}}", dbg_map!(:? statics))
+            }
+            Value::Object(fields) => {
+                write!(f, "\x1b[1m<object>\x1b[0m {{\n{}}}", dbg_map!(:? fields))
+            }
             Value::Null => write!(f, "\x1b[90mnull\x1b[0m"),
         }
     }

@@ -6,9 +6,9 @@ edition = "2021"
 authors = ["RubixDev"]
 license = "GPL-2.0-only"
 
-#[workspace]
-#members = ["cli"]
-#default-members = ["cli"]
+[workspace]
+members = ["roost-cli"]
+default-members = ["roost-cli"]
 
 [features]
 no_std_io = []

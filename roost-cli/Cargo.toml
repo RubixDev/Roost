@@ -9,13 +9,13 @@ license = "GPL-2.0-only"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rustyline = "9.1.2"
-structopt = "0.3.26"
-syntect = { version = "4.6.0", features = ["default-fancy"], default-features = false }
+rustyline = "10.0.0"
+syntect = { version = "5.0.0", features = ["default-fancy"], default-features = false }
 roost = { path = "../" }
+clap = { version = "3.2.14", features = ["derive"] }
 
 [dev-dependencies]
-ntest = "0.7.3"
+ntest = "0.8.1"
 plist = "1.3.1"
-serde_json = "1.0.78"
-ureq = "2.4.0"
+serde_json = "1.0.82"
+ureq = "2.5.0"

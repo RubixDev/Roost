@@ -19,6 +19,7 @@ use std::{collections::HashMap, mem, rc::Rc};
 use self::{
     runtime_result::RuntimeResult,
     value::{
+        members::BuiltInMethods,
         types::{self, Type},
         BuiltIn, ToValue, Value, WrappedValue,
     },
@@ -83,6 +84,7 @@ where
     stdout: StdOut,
     stderr: StdErr,
     exit_callback: Option<Exit>,
+    built_in_methods: BuiltInMethods<'tree>,
 }
 
 impl<'tree, StdOut, StdErr, Exit> Interpreter<'tree, StdOut, StdErr, Exit>
@@ -139,6 +141,7 @@ where
             stdout,
             stderr,
             exit_callback: Some(exit_callback),
+            built_in_methods: BuiltInMethods::new(),
         }
     }
 
@@ -507,7 +510,7 @@ where
             let out = match part {
                 CallPart::Args(args) => self.call_value(&base, args, &parent, node.span)?,
                 CallPart::Member(MemberPart::Field(ident)) => {
-                    Value::get_field(&base, ident, node.span)?
+                    Value::get_field(&base, ident, &self.built_in_methods, node.span)?
                 }
             };
             mem::swap(&mut base, &mut parent);
@@ -630,7 +633,9 @@ where
         let mut parent = Value::Null.wrapped();
         for part in &node.following {
             let out = match part {
-                MemberPart::Field(ident) => Value::get_field(&base, ident, node.span)?,
+                MemberPart::Field(ident) => {
+                    Value::get_field(&base, ident, &self.built_in_methods, node.span)?
+                }
             };
             mem::swap(&mut parent, &mut base);
             base = out;

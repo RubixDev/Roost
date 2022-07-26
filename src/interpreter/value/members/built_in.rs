@@ -2,8 +2,9 @@ use std::str::FromStr;
 
 use crate::{
     error::{Result, Span},
-    interpreter::value::{Value, WrappedValue},
+    interpreter::value::{BuiltIn, Value, WrappedValue},
 };
+use once_cell::unsync::Lazy;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 
 macro_rules! parse_err {
@@ -27,7 +28,51 @@ macro_rules! unwrap_variant {
     };
 }
 
-pub fn to_string<'tree>(
+pub struct BuiltInMethods<'tree> {
+    pub(super) to_string: Lazy<WrappedValue<'tree>>,
+    pub(super) to_bool: Lazy<WrappedValue<'tree>>,
+    pub(super) clone: Lazy<WrappedValue<'tree>>,
+    pub(super) str_to_int: Lazy<WrappedValue<'tree>>,
+    pub(super) str_to_number: Lazy<WrappedValue<'tree>>,
+    pub(super) str_to_bool: Lazy<WrappedValue<'tree>>,
+    pub(super) str_to_bool_strict: Lazy<WrappedValue<'tree>>,
+    pub(super) str_to_range: Lazy<WrappedValue<'tree>>,
+    pub(super) str_to_uppercase: Lazy<WrappedValue<'tree>>,
+    pub(super) str_to_lowercase: Lazy<WrappedValue<'tree>>,
+    pub(super) num_to_int: Lazy<WrappedValue<'tree>>,
+    pub(super) num_floor: Lazy<WrappedValue<'tree>>,
+    pub(super) num_ceil: Lazy<WrappedValue<'tree>>,
+    pub(super) num_round: Lazy<WrappedValue<'tree>>,
+}
+
+impl<'tree> BuiltInMethods<'tree> {
+    pub(crate) fn new() -> Self {
+        Self {
+            to_string: Lazy::new(|| Value::BuiltIn(BuiltIn::Method(to_string)).wrapped()),
+            to_bool: Lazy::new(|| Value::BuiltIn(BuiltIn::Method(to_bool)).wrapped()),
+            clone: Lazy::new(|| Value::BuiltIn(BuiltIn::Method(clone)).wrapped()),
+            str_to_int: Lazy::new(|| Value::BuiltIn(BuiltIn::Method(str_to_int)).wrapped()),
+            str_to_number: Lazy::new(|| Value::BuiltIn(BuiltIn::Method(str_to_number)).wrapped()),
+            str_to_bool: Lazy::new(|| Value::BuiltIn(BuiltIn::Method(str_to_bool)).wrapped()),
+            str_to_bool_strict: Lazy::new(|| {
+                Value::BuiltIn(BuiltIn::Method(str_to_bool_strict)).wrapped()
+            }),
+            str_to_range: Lazy::new(|| Value::BuiltIn(BuiltIn::Method(str_to_range)).wrapped()),
+            str_to_uppercase: Lazy::new(|| {
+                Value::BuiltIn(BuiltIn::Method(str_to_uppercase)).wrapped()
+            }),
+            str_to_lowercase: Lazy::new(|| {
+                Value::BuiltIn(BuiltIn::Method(str_to_lowercase)).wrapped()
+            }),
+            num_to_int: Lazy::new(|| Value::BuiltIn(BuiltIn::Method(num_to_int)).wrapped()),
+            num_floor: Lazy::new(|| Value::BuiltIn(BuiltIn::Method(num_floor)).wrapped()),
+            num_ceil: Lazy::new(|| Value::BuiltIn(BuiltIn::Method(num_ceil)).wrapped()),
+            num_round: Lazy::new(|| Value::BuiltIn(BuiltIn::Method(num_round)).wrapped()),
+        }
+    }
+}
+
+fn to_string<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
     span: Span,
@@ -36,7 +81,7 @@ pub fn to_string<'tree>(
     Ok(Value::String(this.borrow().to_string()))
 }
 
-pub fn to_bool<'tree>(
+fn to_bool<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
     span: Span,
@@ -45,7 +90,7 @@ pub fn to_bool<'tree>(
     Ok(Value::Bool(this.borrow().is_true()))
 }
 
-pub fn clone<'tree>(
+fn clone<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
     span: Span,
@@ -54,7 +99,7 @@ pub fn clone<'tree>(
     Ok(this.borrow().clone())
 }
 
-pub fn str_to_int<'tree>(
+fn str_to_int<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
     span: Span,
@@ -83,7 +128,7 @@ pub fn str_to_int<'tree>(
     }
 }
 
-pub fn str_to_number<'tree>(
+fn str_to_number<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
     span: Span,
@@ -97,7 +142,7 @@ pub fn str_to_number<'tree>(
     }
 }
 
-pub fn str_to_bool<'tree>(
+fn str_to_bool<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
     span: Span,
@@ -108,7 +153,7 @@ pub fn str_to_bool<'tree>(
     Ok(Value::Bool(str.to_ascii_lowercase() == "true"))
 }
 
-pub fn str_to_bool_strict<'tree>(
+fn str_to_bool_strict<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
     span: Span,
@@ -123,7 +168,7 @@ pub fn str_to_bool_strict<'tree>(
     })
 }
 
-pub fn str_to_range<'tree>(
+fn str_to_range<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
     span: Span,
@@ -152,7 +197,7 @@ pub fn str_to_range<'tree>(
     })
 }
 
-pub fn str_to_uppercase<'tree>(
+fn str_to_uppercase<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
     span: Span,
@@ -163,7 +208,7 @@ pub fn str_to_uppercase<'tree>(
     Ok(Value::String(str.to_ascii_uppercase()))
 }
 
-pub fn str_to_lowercase<'tree>(
+fn str_to_lowercase<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
     span: Span,
@@ -174,7 +219,7 @@ pub fn str_to_lowercase<'tree>(
     Ok(Value::String(str.to_ascii_lowercase()))
 }
 
-pub fn num_to_int<'tree>(
+fn num_to_int<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
     span: Span,
@@ -185,7 +230,7 @@ pub fn num_to_int<'tree>(
     Ok(Value::Number(num.trunc()))
 }
 
-pub fn num_floor<'tree>(
+fn num_floor<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
     span: Span,
@@ -196,7 +241,7 @@ pub fn num_floor<'tree>(
     Ok(Value::Number(num.floor()))
 }
 
-pub fn num_ceil<'tree>(
+fn num_ceil<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
     span: Span,
@@ -207,7 +252,7 @@ pub fn num_ceil<'tree>(
     Ok(Value::Number(num.ceil()))
 }
 
-pub fn num_round<'tree>(
+fn num_round<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
     span: Span,

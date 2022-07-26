@@ -17,3 +17,4 @@ no_std_io = []
 
 [dependencies]
 rust_decimal = { version = "1.25.0", features = ["maths"] }
+once_cell = "1.13.0"

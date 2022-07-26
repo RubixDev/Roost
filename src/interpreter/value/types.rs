@@ -38,7 +38,7 @@ pub fn type_of(value: &Value) -> Type {
         Value::Bool(_) => Type::Bool,
         Value::String(_) => Type::String,
         Value::Range { .. } => Type::Range,
-        Value::Function { .. } | Value::BuiltIn(_) | Value::Method { .. } => Type::Function,
+        Value::Function { .. } | Value::BuiltIn(_) => Type::Function,
         Value::Class { .. } => Type::Class,
         Value::Object(_) => Type::Object,
         Value::Null => Type::Null,

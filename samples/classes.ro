@@ -10,7 +10,13 @@ class Greeter {
     fun greet() {
         printl('Hello, ' + this.name + '!')
     }
+
+    fun setName(x) {
+        this.name = x
+    }
 }
 
 var greeter = Greeter.new('World')
+greeter.greet()
+greeter.setName("Roost")
 greeter.greet()

@@ -14,7 +14,7 @@ use crate::{
 };
 #[cfg(not(feature = "no_std_io"))]
 use std::io::Write;
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, mem, rc::Rc};
 
 use self::{
     runtime_result::RuntimeResult,
@@ -265,8 +265,7 @@ where
                 (true, MemberKind::Method(node)) => {
                     statics.insert(
                         &node.ident,
-                        Value::Method {
-                            this: Rc::clone(&class),
+                        Value::Function {
                             args: &node.args,
                             block: &node.block,
                         }
@@ -502,14 +501,16 @@ where
     }
 
     fn visit_call_expr(&mut self, node: &'tree CallExpr) -> Result<RuntimeResult<'tree>> {
-        let mut base = try_visit!(self.visit_member_expr(&node.base)?);
+        let (mut parent, result) = self.visit_member_expr(&node.base)?;
+        let mut base = result.take_value();
         for part in &node.following {
             let out = match part {
-                CallPart::Args(args) => self.call_value(&base, args, node.span)?,
+                CallPart::Args(args) => self.call_value(&base, args, &parent, node.span)?,
                 CallPart::Member(MemberPart::Field(ident)) => {
                     Value::get_field(&base, ident, node.span)?
                 }
             };
+            mem::swap(&mut base, &mut parent);
             base = out;
         }
         Ok(RuntimeResult::new(Some(base)))
@@ -519,10 +520,10 @@ where
         &mut self,
         value: &WrappedValue<'tree>,
         call_args: &'tree Args,
+        parent: &WrappedValue<'tree>,
         span: Span,
     ) -> Result<WrappedValue<'tree>> {
         match &*value.borrow() {
-            // TODO: dedup code
             Value::Function { args, block } => {
                 if args.len() != call_args.len() {
                     error!(
@@ -534,30 +535,9 @@ where
                     );
                 }
                 self.push_scope();
-                for (idx, arg) in args.iter().enumerate() {
-                    let val = self.visit_expression(&call_args[idx])?.take_value();
-                    self.add_var(arg, val);
+                if *parent.borrow() != Value::Null {
+                    self.add_var("this", Rc::clone(parent));
                 }
-                let res = self.visit_block(block, false)?;
-                self.pop_scope();
-                Ok(if let Some(val) = res.return_value {
-                    val
-                } else {
-                    res.take_value()
-                })
-            }
-            Value::Method { this, args, block } => {
-                if args.len() != call_args.len() {
-                    error!(
-                        TypeError,
-                        span,
-                        "Function takes {} arguments, however {} were supllied",
-                        args.len(),
-                        call_args.len(),
-                    );
-                }
-                self.push_scope();
-                self.add_var("this", Rc::clone(this));
                 for (idx, arg) in args.iter().enumerate() {
                     let val = self.visit_expression(&call_args[idx])?.take_value();
                     self.add_var(arg, val);
@@ -578,7 +558,7 @@ where
 
                 let out = match func {
                     BuiltIn::Function(func) => func(args, span),
-                    BuiltIn::Method(this, func) => func(this, args, span),
+                    BuiltIn::Method(func) => func(parent, args, span),
                     BuiltIn::Print {
                         newline,
                         stderr: false,
@@ -617,8 +597,7 @@ where
                         MemberKind::Method(node) => {
                             fields.insert(
                                 &node.ident,
-                                Value::Method {
-                                    this: Rc::clone(&object),
+                                Value::Function {
                                     args: &node.args,
                                     block: &node.block,
                                 }
@@ -639,15 +618,24 @@ where
         }
     }
 
-    fn visit_member_expr(&mut self, node: &'tree MemberExpr) -> Result<RuntimeResult<'tree>> {
-        let mut base = try_visit!(self.visit_atom(&node.base)?);
+    fn visit_member_expr(
+        &mut self,
+        node: &'tree MemberExpr,
+    ) -> Result<(WrappedValue<'tree>, RuntimeResult<'tree>)> {
+        let res = self.visit_atom(&node.base)?;
+        if res.should_return() {
+            return Ok((Value::Null.wrapped(), res));
+        }
+        let mut base = res.take_value();
+        let mut parent = Value::Null.wrapped();
         for part in &node.following {
             let out = match part {
                 MemberPart::Field(ident) => Value::get_field(&base, ident, node.span)?,
             };
+            mem::swap(&mut parent, &mut base);
             base = out;
         }
-        Ok(RuntimeResult::new(Some(base)))
+        Ok((parent, RuntimeResult::new(Some(base))))
     }
 
     fn visit_atom(&mut self, node: &'tree Atom) -> Result<RuntimeResult<'tree>> {
@@ -762,8 +750,7 @@ where
                 (true, MemberKind::Method(node)) => {
                     statics.insert(
                         &node.ident,
-                        Value::Method {
-                            this: Rc::clone(&class),
+                        Value::Function {
                             args: &node.args,
                             block: &node.block,
                         }

@@ -22,47 +22,26 @@ impl<'tree> Value<'tree> {
             },
             Value::String(val) => match name {
                 "length" => Value::Number(val.len().into()).wrapped(),
-                "toInt" => {
-                    Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::str_to_int)).wrapped()
+                "toInt" => Value::BuiltIn(BuiltIn::Method(built_in::str_to_int)).wrapped(),
+                "toNumber" => Value::BuiltIn(BuiltIn::Method(built_in::str_to_number)).wrapped(),
+                "toBool" => Value::BuiltIn(BuiltIn::Method(built_in::str_to_bool)).wrapped(),
+                "toBoolStrict" => {
+                    Value::BuiltIn(BuiltIn::Method(built_in::str_to_bool_strict)).wrapped()
                 }
-                "toNumber" => {
-                    Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::str_to_number))
-                        .wrapped()
-                }
-                "toBool" => Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::str_to_bool))
-                    .wrapped(),
-                "toBoolStrict" => Value::BuiltIn(BuiltIn::Method(
-                    Rc::clone(this),
-                    built_in::str_to_bool_strict,
-                ))
-                .wrapped(),
-                "toRange" => {
-                    Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::str_to_range))
-                        .wrapped()
-                }
+                "toRange" => Value::BuiltIn(BuiltIn::Method(built_in::str_to_range)).wrapped(),
                 "toUppercase" => {
-                    Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::str_to_uppercase))
-                        .wrapped()
+                    Value::BuiltIn(BuiltIn::Method(built_in::str_to_uppercase)).wrapped()
                 }
                 "toLowercase" => {
-                    Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::str_to_lowercase))
-                        .wrapped()
+                    Value::BuiltIn(BuiltIn::Method(built_in::str_to_lowercase)).wrapped()
                 }
                 _ => Self::get_common_field(this, name, span)?,
             },
             Value::Number(_) => match name {
-                "toInt" => {
-                    Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::num_to_int)).wrapped()
-                }
-                "floor" => {
-                    Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::num_floor)).wrapped()
-                }
-                "ceil" => {
-                    Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::num_ceil)).wrapped()
-                }
-                "round" => {
-                    Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::num_round)).wrapped()
-                }
+                "toInt" => Value::BuiltIn(BuiltIn::Method(built_in::num_to_int)).wrapped(),
+                "floor" => Value::BuiltIn(BuiltIn::Method(built_in::num_floor)).wrapped(),
+                "ceil" => Value::BuiltIn(BuiltIn::Method(built_in::num_ceil)).wrapped(),
+                "round" => Value::BuiltIn(BuiltIn::Method(built_in::num_round)).wrapped(),
                 _ => Self::get_common_field(this, name, span)?,
             },
             _ => Self::get_common_field(this, name, span)?,
@@ -75,13 +54,9 @@ impl<'tree> Value<'tree> {
         span: Span,
     ) -> Result<WrappedValue<'tree>> {
         Ok(match name {
-            "toString" => {
-                Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::to_string)).wrapped()
-            }
-            "toBool" => {
-                Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::to_bool)).wrapped()
-            }
-            "clone" => Value::BuiltIn(BuiltIn::Method(Rc::clone(this), built_in::clone)).wrapped(),
+            "toString" => Value::BuiltIn(BuiltIn::Method(built_in::to_string)).wrapped(),
+            "toBool" => Value::BuiltIn(BuiltIn::Method(built_in::to_bool)).wrapped(),
+            "clone" => Value::BuiltIn(BuiltIn::Method(built_in::clone)).wrapped(),
             _ => error!(
                 ReferenceError,
                 span,

@@ -33,12 +33,7 @@ pub enum Value<'tree> {
         args: &'tree [String],
         block: &'tree Block,
     },
-    Method {
-        this: WrappedValue<'tree>,
-        args: &'tree [String],
-        block: &'tree Block,
-    },
-    BuiltIn(BuiltIn<'tree>),
+    BuiltIn(BuiltIn),
     Class {
         statics: HashMap<&'tree str, WrappedValue<'tree>>,
         non_statics: Vec<&'tree MemberKind>,
@@ -54,11 +49,10 @@ impl<'tree> Value<'tree> {
 }
 
 #[derive(Clone)]
-pub enum BuiltIn<'tree> {
-    Function(fn(args: Vec<WrappedValue<'tree>>, span: Span) -> Result<Value<'tree>>),
+pub enum BuiltIn {
+    Function(for<'tree> fn(args: Vec<WrappedValue<'tree>>, span: Span) -> Result<Value<'tree>>),
     Method(
-        WrappedValue<'tree>,
-        fn(
+        for<'tree> fn(
             this: &WrappedValue<'tree>,
             args: Vec<WrappedValue<'tree>>,
             span: Span,
@@ -72,7 +66,7 @@ pub enum BuiltIn<'tree> {
     Debug,
 }
 
-impl PartialEq for BuiltIn<'_> {
+impl PartialEq for BuiltIn {
     fn eq(&self, _other: &Self) -> bool {
         false
     }
@@ -109,7 +103,7 @@ impl Display for Value<'_> {
             Value::Bool(value) => Display::fmt(&value, f),
             Value::String(value) => Display::fmt(&value, f),
             Value::Range { start, end } => write!(f, "{start}..={end}"),
-            Value::Function { .. } | Value::Method { .. } | Value::BuiltIn(..) => {
+            Value::Function { .. } | Value::BuiltIn(..) => {
                 write!(f, "<function>")
             }
             Value::Class { statics, .. } => write!(f, "<class> {{\n{}}}", dbg_map!(statics)),
@@ -128,7 +122,7 @@ impl Debug for Value<'_> {
             Value::Range { start, end } => {
                 write!(f, "\x1b[33m{start}\x1b[0m..=\x1b[33m{end}\x1b[0m")
             }
-            Value::Function { .. } | Value::Method { .. } | Value::BuiltIn(..) => {
+            Value::Function { .. } | Value::BuiltIn(..) => {
                 write!(f, "\x1b[1m<function>\x1b[0m")
             }
             Value::Class { statics, .. } => {

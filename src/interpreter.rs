@@ -48,7 +48,7 @@ macro_rules! simple_expr {
             let other = try_visit!($self.$next(other)?);
             let out = $base
                 .borrow()
-                .$method(&other.borrow(), $node.span)?
+                .$method(&other.borrow(), &$node.span)?
                 .wrapped();
             $base = out;
         }
@@ -57,7 +57,7 @@ macro_rules! simple_expr {
         for (tok, other) in &$node.following {
             let other = try_visit!($self.$next(other)?);
             let out = match tok {
-                $(TokenKind::$tok => $base.borrow().$method(&other.borrow(), $node.span),)+
+                $(TokenKind::$tok => $base.borrow().$method(&other.borrow(), &$node.span),)+
                 _ => unreachable!(),
             }?
             .wrapped();
@@ -164,7 +164,7 @@ where
         self.scopes.last_mut().unwrap().insert(name, value);
     }
 
-    fn get_var(&self, name: &str, span: Span) -> Result<(&WrappedValue<'tree>, usize)> {
+    fn get_var(&self, name: &str, span: &Span) -> Result<(&WrappedValue<'tree>, usize)> {
         for (idx, scope) in self.scopes.iter().enumerate().rev() {
             if let Some(var) = scope.get(name) {
                 return Ok((var, idx));
@@ -172,7 +172,7 @@ where
         }
         error!(
             ReferenceError,
-            span, "Variable with name '{}' not found", name,
+            *span, "Variable with name '{}' not found", name,
         );
     }
 
@@ -402,10 +402,10 @@ where
         let out = if let Some((tok, right)) = &node.right {
             let right = try_visit!(self.visit_shift_expr(right)?);
             match tok {
-                TokenKind::LessThan => left.borrow().lt(&right.borrow(), node.span),
-                TokenKind::LessThanOrEqual => left.borrow().le(&right.borrow(), node.span),
-                TokenKind::GreaterThan => left.borrow().gt(&right.borrow(), node.span),
-                TokenKind::GreaterThanOrEqual => left.borrow().ge(&right.borrow(), node.span),
+                TokenKind::LessThan => left.borrow().lt(&right.borrow(), &node.span),
+                TokenKind::LessThanOrEqual => left.borrow().le(&right.borrow(), &node.span),
+                TokenKind::GreaterThan => left.borrow().gt(&right.borrow(), &node.span),
+                TokenKind::GreaterThanOrEqual => left.borrow().ge(&right.borrow(), &node.span),
                 _ => unreachable!(),
             }?
             .wrapped()
@@ -444,8 +444,8 @@ where
             } => {
                 let base = try_visit!(self.visit_unary_expr(expr)?);
                 let out = match operator {
-                    TokenKind::Plus => Value::Number(Decimal::ZERO).add(&base.borrow(), *span)?,
-                    TokenKind::Minus => Value::Number(Decimal::ZERO).sub(&base.borrow(), *span)?,
+                    TokenKind::Plus => Value::Number(Decimal::ZERO).add(&base.borrow(), span)?,
+                    TokenKind::Minus => Value::Number(Decimal::ZERO).sub(&base.borrow(), span)?,
                     TokenKind::Not => Value::Bool(base.borrow().is_false()),
                     _ => unreachable!(),
                 }
@@ -460,7 +460,7 @@ where
         let mut base = try_visit!(self.visit_assign_expr(&node.base)?);
         if let Some(exponent) = &node.exponent {
             let exponent = try_visit!(self.visit_unary_expr(exponent)?);
-            let out = base.borrow().pow(&exponent.borrow(), node.span)?.wrapped();
+            let out = base.borrow().pow(&exponent.borrow(), &node.span)?.wrapped();
             base = out;
         }
         Ok(RuntimeResult::new(Some(base)))
@@ -483,19 +483,19 @@ where
             }
             let new_value = match tok {
                 TokenKind::Assign => right.borrow().clone(),
-                TokenKind::StarAssign => left.borrow().mul(&right.borrow(), node.span)?,
-                TokenKind::SlashAssign => left.borrow().div(&right.borrow(), node.span)?,
+                TokenKind::StarAssign => left.borrow().mul(&right.borrow(), &node.span)?,
+                TokenKind::SlashAssign => left.borrow().div(&right.borrow(), &node.span)?,
                 TokenKind::BackslashAssign => {
-                    left.borrow().div_floor(&right.borrow(), node.span)?
+                    left.borrow().div_floor(&right.borrow(), &node.span)?
                 }
-                TokenKind::RemAssign => left.borrow().rem(&right.borrow(), node.span)?,
-                TokenKind::PlusAssign => left.borrow().add(&right.borrow(), node.span)?,
-                TokenKind::MinusAssign => left.borrow().sub(&right.borrow(), node.span)?,
-                TokenKind::ShiftLeftAssign => left.borrow().shl(&right.borrow(), node.span)?,
-                TokenKind::ShiftRightAssign => left.borrow().shr(&right.borrow(), node.span)?,
-                TokenKind::BitAndAssign => left.borrow().and(&right.borrow(), node.span)?,
-                TokenKind::BitXorAssign => left.borrow().xor(&right.borrow(), node.span)?,
-                TokenKind::BitOrAssign => left.borrow().or(&right.borrow(), node.span)?,
+                TokenKind::RemAssign => left.borrow().rem(&right.borrow(), &node.span)?,
+                TokenKind::PlusAssign => left.borrow().add(&right.borrow(), &node.span)?,
+                TokenKind::MinusAssign => left.borrow().sub(&right.borrow(), &node.span)?,
+                TokenKind::ShiftLeftAssign => left.borrow().shl(&right.borrow(), &node.span)?,
+                TokenKind::ShiftRightAssign => left.borrow().shr(&right.borrow(), &node.span)?,
+                TokenKind::BitAndAssign => left.borrow().and(&right.borrow(), &node.span)?,
+                TokenKind::BitXorAssign => left.borrow().xor(&right.borrow(), &node.span)?,
+                TokenKind::BitOrAssign => left.borrow().or(&right.borrow(), &node.span)?,
                 _ => unreachable!(),
             };
             *left.borrow_mut() = new_value;
@@ -508,9 +508,9 @@ where
         let mut base = result.take_value();
         for part in &node.following {
             let out = match part {
-                CallPart::Args(args) => self.call_value(&base, args, &parent, node.span)?,
+                CallPart::Args(args) => self.call_value(&base, args, &parent, &node.span)?,
                 CallPart::Member(MemberPart::Field(ident)) => {
-                    Value::get_field(&base, ident, &self.built_in_methods, node.span)?
+                    Value::get_field(&base, ident, &self.built_in_methods, &node.span)?
                 }
             };
             mem::swap(&mut base, &mut parent);
@@ -524,14 +524,14 @@ where
         value: &WrappedValue<'tree>,
         call_args: &'tree Args,
         parent: &WrappedValue<'tree>,
-        span: Span,
+        span: &Span,
     ) -> Result<WrappedValue<'tree>> {
         match &*value.borrow() {
             Value::Function { args, block } => {
                 if args.len() != call_args.len() {
                     error!(
                         TypeError,
-                        span,
+                        *span,
                         "Function takes {} arguments, however {} were supllied",
                         args.len(),
                         call_args.len(),
@@ -579,7 +579,7 @@ where
                 if !call_args.is_empty() {
                     error!(
                         TypeError,
-                        span,
+                        *span,
                         "Class constructors take no arguments, however {} were supplied",
                         call_args.len(),
                     );
@@ -614,7 +614,7 @@ where
             }
             _ => error!(
                 TypeError,
-                span,
+                *span,
                 "Type '{}' is not callable",
                 types::type_of(&value.borrow()),
             ),
@@ -634,7 +634,7 @@ where
         for part in &node.following {
             let out = match part {
                 MemberPart::Field(ident) => {
-                    Value::get_field(&base, ident, &self.built_in_methods, node.span)?
+                    Value::get_field(&base, ident, &self.built_in_methods, &node.span)?
                 }
             };
             mem::swap(&mut parent, &mut base);
@@ -649,7 +649,7 @@ where
             Atom::Bool(val) => Value::Bool(*val).wrapped(),
             Atom::String(val) => Value::String(val.clone()).wrapped(),
             Atom::Null => Value::Null.wrapped(),
-            Atom::Identifier { span, name } => Rc::clone(self.get_var(name, *span)?.0),
+            Atom::Identifier { span, name } => Rc::clone(self.get_var(name, span)?.0),
             Atom::Expr(node) => try_visit!(self.visit_expression(node)?),
             Atom::IfExpr(node) => try_visit!(self.visit_if_expr(node)?),
             Atom::ForExpr(node) => try_visit!(self.visit_for_expr(node)?),
@@ -678,7 +678,7 @@ where
     fn visit_for_expr(&mut self, node: &'tree ForExpr) -> Result<RuntimeResult<'tree>> {
         let iter = try_visit!(self.visit_expression(&node.iter)?);
         let iter = iter.borrow();
-        let iter = iter.to_iter(node.span)?;
+        let iter = iter.to_iter(&node.span)?;
         let mut out = Value::Null.wrapped();
         for item in iter {
             self.push_scope();

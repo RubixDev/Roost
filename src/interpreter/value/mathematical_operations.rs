@@ -3,12 +3,12 @@ use crate::error::{Result, Span};
 use rust_decimal::{prelude::ToPrimitive, MathematicalOps};
 
 impl Value<'_> {
-    pub fn add(&self, other: &Self, span: Span) -> Result<Self> {
+    pub fn add(&self, other: &Self, span: &Span) -> Result<Self> {
         Ok(match (self, other) {
             (Value::Number(left), Value::Number(right)) => Value::Number(
                 match left.checked_add(*right) {
                     Some(res) => res,
-                    None => error!(OverflowError, span, "Addition resulted in overflow"),
+                    None => error!(OverflowError, *span, "Addition resulted in overflow"),
                 }
                 .normalize(),
             ),
@@ -18,7 +18,7 @@ impl Value<'_> {
             }
             _ => error!(
                 TypeError,
-                span,
+                *span,
                 "Cannot add {} to {}",
                 types::type_of(self),
                 types::type_of(other),
@@ -26,18 +26,18 @@ impl Value<'_> {
         })
     }
 
-    pub fn sub(&self, other: &Self, span: Span) -> Result<Self> {
+    pub fn sub(&self, other: &Self, span: &Span) -> Result<Self> {
         Ok(match (self, other) {
             (Value::Number(left), Value::Number(right)) => Value::Number(
                 match left.checked_sub(*right) {
                     Some(res) => res,
-                    None => error!(OverflowError, span, "Subtraction resulted in overflow"),
+                    None => error!(OverflowError, *span, "Subtraction resulted in overflow"),
                 }
                 .normalize(),
             ),
             _ => error!(
                 TypeError,
-                span,
+                *span,
                 "Cannot subtract {} from {}",
                 types::type_of(other),
                 types::type_of(self),
@@ -45,12 +45,12 @@ impl Value<'_> {
         })
     }
 
-    pub fn mul(&self, other: &Self, span: Span) -> Result<Self> {
+    pub fn mul(&self, other: &Self, span: &Span) -> Result<Self> {
         Ok(match (self, other) {
             (Value::Number(left), Value::Number(right)) => Value::Number(
                 match left.checked_mul(*right) {
                     Some(res) => res,
-                    None => error!(OverflowError, span, "Multiplication resulted in overflow"),
+                    None => error!(OverflowError, *span, "Multiplication resulted in overflow"),
                 }
                 .normalize(),
             ),
@@ -59,7 +59,7 @@ impl Value<'_> {
                 if !right.fract().is_zero() {
                     error!(
                         ValueError,
-                        span, "Cannot multiply string with fractional number",
+                        *span, "Cannot multiply string with fractional number",
                     );
                 }
                 let mut string = String::new();
@@ -72,7 +72,7 @@ impl Value<'_> {
             }
             _ => error!(
                 TypeError,
-                span,
+                *span,
                 "Cannot multiply {} with {}",
                 types::type_of(self),
                 types::type_of(other),
@@ -80,17 +80,17 @@ impl Value<'_> {
         })
     }
 
-    pub fn div(&self, other: &Self, span: Span) -> Result<Self> {
+    pub fn div(&self, other: &Self, span: &Span) -> Result<Self> {
         Ok(match (self, other) {
             (Value::Number(left), Value::Number(right)) => {
                 if right.is_zero() {
-                    error!(DivisionByZeroError, span, "Cannot divide by zero")
+                    error!(DivisionByZeroError, *span, "Cannot divide by zero")
                 }
                 Value::Number(
                     match left.checked_div(*right) {
                         Some(res) => res,
                         None => {
-                            error!(OverflowError, span, "Division resulted in overflow")
+                            error!(OverflowError, *span, "Division resulted in overflow")
                         }
                     }
                     .normalize(),
@@ -98,7 +98,7 @@ impl Value<'_> {
             }
             _ => error!(
                 TypeError,
-                span,
+                *span,
                 "Cannot divide {} by {}",
                 types::type_of(self),
                 types::type_of(other),
@@ -106,18 +106,18 @@ impl Value<'_> {
         })
     }
 
-    pub fn pow(&self, other: &Self, span: Span) -> Result<Self> {
+    pub fn pow(&self, other: &Self, span: &Span) -> Result<Self> {
         Ok(match (self, other) {
             (Value::Number(left), Value::Number(right)) => Value::Number(
                 match left.checked_powd(*right) {
                     Some(res) => res,
-                    None => error!(OverflowError, span, "Power resulted in overflow"),
+                    None => error!(OverflowError, *span, "Power resulted in overflow"),
                 }
                 .normalize(),
             ),
             _ => error!(
                 TypeError,
-                span,
+                *span,
                 "Cannot raise {} by {}",
                 types::type_of(self),
                 types::type_of(other),
@@ -125,11 +125,11 @@ impl Value<'_> {
         })
     }
 
-    pub fn rem(&self, other: &Self, span: Span) -> Result<Self> {
+    pub fn rem(&self, other: &Self, span: &Span) -> Result<Self> {
         Ok(match (self, other) {
             (Value::Number(left), Value::Number(right)) => {
                 if right.is_zero() {
-                    error!(DivisionByZeroError, span, "Cannot divide by zero")
+                    error!(DivisionByZeroError, *span, "Cannot divide by zero")
                 }
                 Value::Number(
                     match left.checked_rem(*right) {
@@ -137,7 +137,7 @@ impl Value<'_> {
                         None => {
                             error!(
                                 OverflowError,
-                                span, "Remainder division resulted in overflow",
+                                *span, "Remainder division resulted in overflow",
                             )
                         }
                     }
@@ -146,7 +146,7 @@ impl Value<'_> {
             }
             _ => error!(
                 TypeError,
-                span,
+                *span,
                 "Cannot divide {} by {}",
                 types::type_of(self),
                 types::type_of(other),
@@ -154,17 +154,17 @@ impl Value<'_> {
         })
     }
 
-    pub fn div_floor(&self, other: &Self, span: Span) -> Result<Self> {
+    pub fn div_floor(&self, other: &Self, span: &Span) -> Result<Self> {
         Ok(match (self, other) {
             (Value::Number(left), Value::Number(right)) => {
                 if right.is_zero() {
-                    error!(DivisionByZeroError, span, "Cannot divide by zero")
+                    error!(DivisionByZeroError, *span, "Cannot divide by zero")
                 }
                 Value::Number(
                     match left.checked_div(*right) {
                         Some(res) => res,
                         None => {
-                            error!(OverflowError, span, "Division resulted in overflow")
+                            error!(OverflowError, *span, "Division resulted in overflow")
                         }
                     }
                     .normalize()
@@ -173,7 +173,7 @@ impl Value<'_> {
             }
             _ => error!(
                 TypeError,
-                span,
+                *span,
                 "Cannot divide {} by {}",
                 types::type_of(self),
                 types::type_of(other),

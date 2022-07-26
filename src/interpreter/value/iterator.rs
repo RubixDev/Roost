@@ -5,13 +5,13 @@ use crate::error::{Result, Span};
 use super::{types, Value};
 
 impl<'tree> Value<'tree> {
-    pub fn to_iter(&self, span: Span) -> Result<Box<dyn Iterator<Item = Value<'tree>> + '_>> {
+    pub fn to_iter(&self, span: &Span) -> Result<Box<dyn Iterator<Item = Value<'tree>> + '_>> {
         match self {
             Value::String(val) => Ok(Box::new(StringIterator::new(val))),
             Value::Range { start, end } => Ok(Box::new(RangeIterator::new(*start..=*end))),
             _ => error!(
                 TypeError,
-                span,
+                *span,
                 "Cannot iterate over type '{}'",
                 types::type_of(self)
             ),

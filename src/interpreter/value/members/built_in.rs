@@ -8,7 +8,7 @@ use once_cell::unsync::Lazy;
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 
 macro_rules! parse_err {
-    ($this:ident, $span:ident, $to:expr) => {
+    ($this:ident, $span:expr, $to:expr) => {
         error!(
             ValueError,
             $span,
@@ -75,7 +75,7 @@ impl<'tree> BuiltInMethods<'tree> {
 fn to_string<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
-    span: Span,
+    span: &Span,
 ) -> Result<Value<'tree>> {
     expect_len!(args, 0, "toString", span);
     Ok(Value::String(this.borrow().to_string()))
@@ -84,7 +84,7 @@ fn to_string<'tree>(
 fn to_bool<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
-    span: Span,
+    span: &Span,
 ) -> Result<Value<'tree>> {
     expect_len!(args, 0, "toBool", span);
     Ok(Value::Bool(this.borrow().is_true()))
@@ -93,7 +93,7 @@ fn to_bool<'tree>(
 fn clone<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
-    span: Span,
+    span: &Span,
 ) -> Result<Value<'tree>> {
     expect_len!(args, 0, "clone", span);
     Ok(this.borrow().clone())
@@ -102,7 +102,7 @@ fn clone<'tree>(
 fn str_to_int<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
-    span: Span,
+    span: &Span,
 ) -> Result<Value<'tree>> {
     let borrow = this.borrow();
     let str = unwrap_variant!(borrow, String);
@@ -113,39 +113,42 @@ fn str_to_int<'tree>(
         Some(val) => match &*val.borrow() {
             Value::Number(radix) => match radix.to_u32() {
                 Some(num) => num,
-                None => error!(ValueError, span, "Invalid radix: {}", radix),
+                None => error!(ValueError, *span, "Invalid radix: {}", radix),
             },
-            _ => error!(TypeError, span, "The radix has to be of type 'number'",),
+            _ => error!(TypeError, *span, "The radix has to be of type 'number'",),
         },
         None => 10,
     };
     if !(2..=36).contains(&radix) {
-        error!(ValueError, span, "Radix has to be in 2..=36, got {}", radix,);
+        error!(
+            ValueError,
+            *span, "Radix has to be in 2..=36, got {}", radix,
+        );
     }
     match Decimal::from_str_radix(str, radix) {
         Ok(num) if num.fract().is_zero() => Ok(Value::Number(num)),
-        _ => parse_err!(this, span, "integer"),
+        _ => parse_err!(this, *span, "integer"),
     }
 }
 
 fn str_to_number<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
-    span: Span,
+    span: &Span,
 ) -> Result<Value<'tree>> {
     let borrow = this.borrow();
     let str = unwrap_variant!(borrow, String);
     expect_len!(args, 0, "toNumber", span);
     match Decimal::from_str(str) {
         Ok(num) => Ok(Value::Number(num)),
-        Err(_) => parse_err!(this, span, "number"),
+        Err(_) => parse_err!(this, *span, "number"),
     }
 }
 
 fn str_to_bool<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
-    span: Span,
+    span: &Span,
 ) -> Result<Value<'tree>> {
     let borrow = this.borrow();
     let str = unwrap_variant!(borrow, String);
@@ -156,7 +159,7 @@ fn str_to_bool<'tree>(
 fn str_to_bool_strict<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
-    span: Span,
+    span: &Span,
 ) -> Result<Value<'tree>> {
     let borrow = this.borrow();
     let str = unwrap_variant!(borrow, String);
@@ -164,14 +167,14 @@ fn str_to_bool_strict<'tree>(
     Ok(match str.as_str() {
         "true" => Value::Bool(true),
         "false" => Value::Bool(false),
-        _ => parse_err!(this, span, "bool"),
+        _ => parse_err!(this, *span, "bool"),
     })
 }
 
 fn str_to_range<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
-    span: Span,
+    span: &Span,
 ) -> Result<Value<'tree>> {
     let borrow = this.borrow();
     let str = unwrap_variant!(borrow, String);
@@ -180,7 +183,7 @@ fn str_to_range<'tree>(
     let left = split.next().unwrap();
     let mut right = match split.next() {
         Some(right) => right,
-        None => parse_err!(this, span, "range"),
+        None => parse_err!(this, *span, "range"),
     };
     let inclusive = right.starts_with('=');
     if inclusive {
@@ -189,7 +192,7 @@ fn str_to_range<'tree>(
 
     let (left, right) = match (i128::from_str(left), i128::from_str(right)) {
         (Ok(left), Ok(right)) => (left, right),
-        _ => parse_err!(this, span, "range"),
+        _ => parse_err!(this, *span, "range"),
     };
     Ok(Value::Range {
         start: left,
@@ -200,7 +203,7 @@ fn str_to_range<'tree>(
 fn str_to_uppercase<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
-    span: Span,
+    span: &Span,
 ) -> Result<Value<'tree>> {
     let borrow = this.borrow();
     let str = unwrap_variant!(borrow, String);
@@ -211,7 +214,7 @@ fn str_to_uppercase<'tree>(
 fn str_to_lowercase<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
-    span: Span,
+    span: &Span,
 ) -> Result<Value<'tree>> {
     let borrow = this.borrow();
     let str = unwrap_variant!(borrow, String);
@@ -222,7 +225,7 @@ fn str_to_lowercase<'tree>(
 fn num_to_int<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
-    span: Span,
+    span: &Span,
 ) -> Result<Value<'tree>> {
     let borrow = this.borrow();
     let num = unwrap_variant!(borrow, Number);
@@ -233,7 +236,7 @@ fn num_to_int<'tree>(
 fn num_floor<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
-    span: Span,
+    span: &Span,
 ) -> Result<Value<'tree>> {
     let borrow = this.borrow();
     let num = unwrap_variant!(borrow, Number);
@@ -244,7 +247,7 @@ fn num_floor<'tree>(
 fn num_ceil<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
-    span: Span,
+    span: &Span,
 ) -> Result<Value<'tree>> {
     let borrow = this.borrow();
     let num = unwrap_variant!(borrow, Number);
@@ -255,7 +258,7 @@ fn num_ceil<'tree>(
 fn num_round<'tree>(
     this: &WrappedValue<'tree>,
     args: Vec<WrappedValue<'tree>>,
-    span: Span,
+    span: &Span,
 ) -> Result<Value<'tree>> {
     let borrow = this.borrow();
     let num = unwrap_variant!(borrow, Number);

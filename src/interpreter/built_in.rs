@@ -14,7 +14,7 @@ macro_rules! expect_len {
         if $args.len() != $num {
             error!(
                 TypeError,
-                $span,
+                *$span,
                 concat!(
                     "Function '", $name, "' takes ", $num, " argument", expect_len!(@plural $num),
                     ", however {} were supplied"
@@ -31,7 +31,7 @@ macro_rules! expect_len {
 pub fn print<'tree>(
     args: Vec<WrappedValue<'tree>>,
     stdout: &mut impl Write,
-    span: Span,
+    span: &Span,
     newline: bool,
 ) -> Result<Value<'tree>> {
     let args: Vec<_> = args.iter().map(|arg| arg.borrow().to_string()).collect();
@@ -41,7 +41,7 @@ pub fn print<'tree>(
         args.join(" "),
         if newline { "\n" } else { "" }
     ) {
-        error!(SystemError, span, "Failed to write to stdout: {}", e,);
+        error!(SystemError, *span, "Failed to write to stdout: {}", e,);
     }
     Ok(Value::Null)
 }
@@ -50,7 +50,7 @@ pub fn print<'tree>(
 pub fn print<'tree>(
     args: Vec<WrappedValue<'tree>>,
     stdout: &mut impl Write,
-    _span: Span,
+    _span: &Span,
     newline: bool,
 ) -> Result<Value<'tree>> {
     let args: Vec<_> = args.iter().map(|arg| arg.borrow().to_string()).collect();
@@ -62,64 +62,68 @@ pub fn print<'tree>(
     Ok(Value::Null)
 }
 
-pub fn exit(args: Vec<WrappedValue>, callback: impl FnOnce(i32), span: Span) -> Result<Value> {
+pub fn exit<'tree>(
+    args: Vec<WrappedValue<'tree>>,
+    callback: impl FnOnce(i32),
+    span: &Span,
+) -> Result<Value<'tree>> {
     expect_len!(args, 0, "exit", span);
     if let Value::Number(num) = &*args[0].borrow() {
         if !num.fract().is_zero() {
-            error!(ValueError, span, "Exit code has to be an integer");
+            error!(ValueError, *span, "Exit code has to be an integer");
         }
         if let Some(num) = num.to_i32() {
             callback(num)
         } else {
-            error!(ValueError, span, "Exit code is too high or too low");
+            error!(ValueError, *span, "Exit code is too high or too low");
         }
     } else {
         error!(
             TypeError,
-            span, "First argument of function 'exit' has to be of type 'number'",
+            *span, "First argument of function 'exit' has to be of type 'number'",
         );
     }
     Ok(Value::Null)
 }
 
-pub fn type_of(args: Vec<WrappedValue>, span: Span) -> Result<Value> {
+pub fn type_of<'tree>(args: Vec<WrappedValue<'tree>>, span: &Span) -> Result<Value<'tree>> {
     expect_len!(args, 1, "typeOf", span);
     Ok(Value::String(types::type_of(&args[0].borrow()).to_string()))
 }
 
-pub fn assert(args: Vec<WrappedValue>, span: Span) -> Result<Value> {
+pub fn assert<'tree>(args: Vec<WrappedValue<'tree>>, span: &Span) -> Result<Value<'tree>> {
     expect_len!(args, 1, "assert", span);
     if args[0].borrow().is_false() {
-        error!(RuntimeError, span, "Assertion failed",);
+        error!(RuntimeError, *span, "Assertion failed",);
     }
     Ok(Value::Null)
 }
 
-pub fn throw(args: Vec<WrappedValue>, span: Span) -> Result<Value> {
+pub fn throw<'tree>(args: Vec<WrappedValue<'tree>>, span: &Span) -> Result<Value<'tree>> {
     expect_len!(args, 1, "throw", span);
     let borrow = args[0].borrow();
     let str = match &*borrow {
         Value::String(str) => str,
         _ => error!(
             TypeError,
-            span, "First argument of function 'throw' has to be of type 'string'",
+            *span, "First argument of function 'throw' has to be of type 'string'",
         ),
     };
-    error!(RuntimeError, span, "{str}",)
+    error!(RuntimeError, *span, "{str}",)
 }
 
 #[cfg(not(feature = "no_std_io"))]
 pub fn debug<'tree>(
     args: Vec<WrappedValue<'tree>>,
     stderr: &mut impl Write,
-    span: Span,
+    span: &Span,
 ) -> Result<Value<'tree>> {
     let args: Vec<_> = args
         .iter()
         .map(|arg| format!("{:?}", arg.borrow()))
         .collect();
     if let Err(e) = writeln!(stderr, "{}", args.join(", ")) {
-        error!(SystemError, span, "Failed to write to stdout: {}", e,);
+        error!(SystemError, *span, "Failed to write to stdout: {}", e,);
     }
     Ok(Value::Null)
 }
@@ -128,7 +132,7 @@ pub fn debug<'tree>(
 pub fn debug<'tree>(
     args: Vec<WrappedValue<'tree>>,
     stderr: &mut impl Write,
-    _span: Span,
+    _span: &Span,
 ) -> Result<Value<'tree>> {
     let args: Vec<_> = args
         .iter()

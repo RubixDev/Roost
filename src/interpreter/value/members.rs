@@ -12,7 +12,7 @@ impl<'tree> Value<'tree> {
         this: &WrappedValue<'tree>,
         name: &str,
         built_in_methods: &BuiltInMethods<'tree>,
-        span: Span,
+        span: &Span,
     ) -> Result<WrappedValue<'tree>> {
         Ok(match &*this.borrow() {
             Value::Object(fields)
@@ -48,7 +48,7 @@ impl<'tree> Value<'tree> {
         this: &WrappedValue<'tree>,
         name: &str,
         built_in_methods: &BuiltInMethods<'tree>,
-        span: Span,
+        span: &Span,
     ) -> Result<WrappedValue<'tree>> {
         Ok(match name {
             "toString" => Rc::clone(&*built_in_methods.to_string),
@@ -56,7 +56,7 @@ impl<'tree> Value<'tree> {
             "clone" => Rc::clone(&*built_in_methods.clone),
             _ => error!(
                 ReferenceError,
-                span,
+                *span,
                 "{} has no member called '{}'",
                 match &*this.borrow() {
                     Value::Class { .. } => Cow::Borrowed("Class"),

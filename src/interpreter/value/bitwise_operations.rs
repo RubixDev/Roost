@@ -6,7 +6,7 @@ use super::Value;
 
 macro_rules! bitwise_op {
     ($name:ident, $op:tt) => {
-        pub fn $name(&self, other: &Self, span: Span) -> Result<Self> {
+        pub fn $name(&self, other: &Self, span: &Span) -> Result<Self> {
             Ok(match (self, other) {
                 (Value::Number(left), Value::Number(right))
                     if left.fract().is_zero() && right.fract().is_zero() =>
@@ -24,7 +24,7 @@ macro_rules! bitwise_op {
                 (Value::Bool(left), Value::Bool(right)) => bitwise_op!(@both_bools left, right, $op),
                 _ => error!(
                     ValueError,
-                    span,
+                    *span,
                     "Bitwise operations require integers or booleans on both sides",
                 ),
             })

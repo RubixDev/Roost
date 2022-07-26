@@ -50,12 +50,12 @@ impl<'tree> Value<'tree> {
 
 #[derive(Clone)]
 pub enum BuiltIn {
-    Function(for<'tree> fn(args: Vec<WrappedValue<'tree>>, span: Span) -> Result<Value<'tree>>),
+    Function(for<'tree> fn(args: Vec<WrappedValue<'tree>>, span: &Span) -> Result<Value<'tree>>),
     Method(
         for<'tree> fn(
             this: &WrappedValue<'tree>,
             args: Vec<WrappedValue<'tree>>,
-            span: Span,
+            span: &Span,
         ) -> Result<Value<'tree>>,
     ),
     Print {

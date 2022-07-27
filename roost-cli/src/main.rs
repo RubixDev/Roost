@@ -96,7 +96,7 @@ fn main() {
     let cli = Roost::parse();
     match cli.file {
         Some(_) => run_file(cli),
-        None => todo!(),
+        None => todo!("REPL, provide file instead"),
     }
 }
 

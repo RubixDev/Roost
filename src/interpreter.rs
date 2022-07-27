@@ -196,7 +196,7 @@ where
             self.push_scope();
         }
         let mut result = RuntimeResult::new(None);
-        for stmt in &node.stmts {
+        for stmt in node {
             result = self.visit_statement(stmt)?;
             if result.should_return() {
                 break;
@@ -314,32 +314,73 @@ where
     }
 
     fn visit_range_expr(&mut self, node: &'tree RangeExpr) -> Result<RuntimeResult<'tree>> {
-        let mut left = try_visit!(self.visit_or_expr(&node.left)?);
-        if let Some((tok, right)) = &node.right {
-            let right = try_visit!(self.visit_or_expr(right)?);
-            let exclusive = match tok {
-                TokenKind::Dots => true,
-                TokenKind::DotsInclusive => false,
-                _ => unreachable!(),
-            };
-            let range = match (&*left.borrow(), &*right.borrow()) {
-                (Value::Number(start), Value::Number(end)) => {
-                    if !start.fract().is_zero() || !end.fract().is_zero() {
-                        error!(ValueError, node.span, "Range bounds have to be integers",);
+        match node {
+            RangeExpr::None(node) => self.visit_or_expr(node),
+            RangeExpr::Closed(left, tok, right, span) => {
+                let left = try_visit!(self.visit_or_expr(left)?);
+                let right = try_visit!(self.visit_or_expr(right)?);
+                let inclusive = tok == &TokenKind::DotsInclusive;
+                let range = match (&*left.borrow(), &*right.borrow()) {
+                    (Value::Number(start), Value::Number(end)) => {
+                        if !start.fract().is_zero() || !end.fract().is_zero() {
+                            error!(ValueError, *span, "Range bounds have to be integers");
+                        }
+                        let start = start.to_i128().unwrap();
+                        let end = end.to_i128().unwrap();
+                        let end = end - !inclusive as i128;
+                        Value::Range {
+                            start: Some(start),
+                            end: Some(end),
+                        }
                     }
-                    let start = start.to_i128().unwrap();
-                    let end = end.to_i128().unwrap();
-                    let end = end - exclusive as i128;
-                    Value::Range { start, end }.wrapped()
+                    _ => error!(TypeError, *span, "Range bounds have to be of type 'number'"),
+                };
+                Ok(RuntimeResult::new(Some(range.wrapped())))
+            }
+            RangeExpr::OpenEnd(left, span) => {
+                let left = try_visit!(self.visit_or_expr(left)?);
+                let range = match &*left.borrow() {
+                    Value::Number(start) => {
+                        if !start.fract().is_zero() {
+                            error!(ValueError, *span, "Range bounds have to be integers");
+                        }
+                        let start = start.to_i128().unwrap();
+                        Value::Range {
+                            start: Some(start),
+                            end: None,
+                        }
+                    }
+                    _ => error!(TypeError, *span, "Range bounds have to be of type 'number'"),
+                };
+                Ok(RuntimeResult::new(Some(range.wrapped())))
+            }
+            RangeExpr::OpenStart(tok, right, span) => {
+                let right = try_visit!(self.visit_or_expr(right)?);
+                let inclusive = tok == &TokenKind::DotsInclusive;
+                let range = match &*right.borrow() {
+                    Value::Number(end) => {
+                        if !end.fract().is_zero() {
+                            error!(ValueError, *span, "Range bounds have to be integers");
+                        }
+                        let end = end.to_i128().unwrap();
+                        let end = end - !inclusive as i128;
+                        Value::Range {
+                            start: None,
+                            end: Some(end),
+                        }
+                    }
+                    _ => error!(TypeError, *span, "Range bounds have to be of type 'number'"),
+                };
+                Ok(RuntimeResult::new(Some(range.wrapped())))
+            }
+            RangeExpr::Open => Ok(RuntimeResult::new(Some(
+                Value::Range {
+                    start: None,
+                    end: None,
                 }
-                _ => error!(
-                    TypeError,
-                    node.span, "Range bounds have to be of type 'number'",
-                ),
-            };
-            left = range;
+                .wrapped(),
+            ))),
         }
-        Ok(RuntimeResult::new(Some(left)))
     }
 
     fn visit_or_expr(&mut self, node: &'tree OrExpr) -> Result<RuntimeResult<'tree>> {

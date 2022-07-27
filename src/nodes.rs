@@ -14,7 +14,7 @@ macro_rules! node {
 }
 
 pub type Program = Statements;
-node! { Statements; stmts: Vec<Statement> }
+pub type Statements = Vec<Statement>;
 pub type Block = Statements;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -43,7 +43,14 @@ pub enum MemberKind {
 node! { MemberBlock; members: Vec<Member> }
 
 pub type Expression = RangeExpr;
-node! { RangeExpr; left: Box<OrExpr>, right: Option<(TokenKind, Box<OrExpr>)> }
+#[derive(Debug, PartialEq, Clone)]
+pub enum RangeExpr {
+    None(Box<OrExpr>),
+    Closed(Box<OrExpr>, TokenKind, Box<OrExpr>, Span),
+    OpenEnd(Box<OrExpr>, Span),
+    OpenStart(TokenKind, Box<OrExpr>, Span),
+    Open,
+}
 node! { OrExpr; base: AndExpr, following: Vec<AndExpr> }
 node! { AndExpr; base: BitOrExpr, following: Vec<BitOrExpr> }
 node! { BitOrExpr; base: BitXorExpr, following: Vec<BitXorExpr> }

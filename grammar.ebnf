@@ -36,7 +36,11 @@ MemberBlock = '{' , { Member , EOL } , '}' ;
 (******* EXPRESSIONS *******)
 (***************************)
 Expression  = RangeExpr ;
-RangeExpr   = OrExpr , [ ( '..' | '..=' ) , OrExpr ] ;
+RangeExpr   = OrExpr
+            | OrExpr , ( '..' | '..=' ) , OrExpr
+            | OrExpr , '..'
+            | ( '..' | '..=' ) , OrExpr
+            | '..' ;
 OrExpr      = AndExpr , { '||' , AndExpr } ;
 AndExpr     = BitOrExpr , { '&&' , BitOrExpr } ;
 BitOrExpr   = BitXorExpr , { '|' , BitXorExpr } ;

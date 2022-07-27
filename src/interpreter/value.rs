@@ -27,8 +27,8 @@ pub enum Value<'tree> {
     Bool(bool),
     String(String),
     Range {
-        start: i128,
-        end: i128,
+        start: Option<i128>,
+        end: Option<i128>,
     },
     List(Vec<WrappedValue<'tree>>),
     Function {
@@ -106,7 +106,12 @@ impl Display for Value<'_> {
             Value::Number(value) => Display::fmt(&value, f),
             Value::Bool(value) => Display::fmt(&value, f),
             Value::String(value) => Display::fmt(&value, f),
-            Value::Range { start, end } => write!(f, "{start}..={end}"),
+            Value::Range { start, end } => match (start, end) {
+                (Some(start), Some(end)) => write!(f, "{start}..={end}"),
+                (Some(start), None) => write!(f, "{start}.."),
+                (None, Some(end)) => write!(f, "..={end}"),
+                (None, None) => write!(f, ".."),
+            },
             Value::List(list) => write!(
                 f,
                 "[{}]",
@@ -131,9 +136,14 @@ impl Debug for Value<'_> {
             Value::Number(value) => write!(f, "\x1b[33m{value}\x1b[0m"),
             Value::Bool(value) => write!(f, "\x1b[34m{value}\x1b[0m"),
             Value::String(value) => write!(f, "\x1b[32m'{value}'\x1b[0m"),
-            Value::Range { start, end } => {
-                write!(f, "\x1b[33m{start}\x1b[0m..=\x1b[33m{end}\x1b[0m")
-            }
+            Value::Range { start, end } => match (start, end) {
+                (Some(start), Some(end)) => {
+                    write!(f, "\x1b[33m{start}\x1b[0m..=\x1b[33m{end}\x1b[0m")
+                }
+                (Some(start), None) => write!(f, "\x1b[33m{start}\x1b[0m.."),
+                (None, Some(end)) => write!(f, "..=\x1b[33m{end}\x1b[0m"),
+                (None, None) => write!(f, ".."),
+            },
             Value::List(list) => write!(
                 f,
                 "[{}]",

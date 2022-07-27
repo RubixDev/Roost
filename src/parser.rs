@@ -180,8 +180,6 @@ impl<'i> Parser<'i> {
     }
 
     fn statements(&mut self) -> Result<Statements> {
-        let start = self.curr_tok.span.start;
-
         let mut stmts = vec![];
         if !of_kinds!(self, RBrace, Eof) {
             stmts.push(self.statement()?);
@@ -196,27 +194,14 @@ impl<'i> Parser<'i> {
             }
         }
 
-        done!(Statements, start, self; stmts)
+        Ok(stmts)
     }
 
     fn block(&mut self) -> Result<Block> {
         if of_kinds!(self, LBrace) {
             Ok(self.block_expr()?)
         } else {
-            let stmt = self.statement()?;
-            let span = match &stmt {
-                Statement::Var(node) => node.span,
-                Statement::Function(node) => node.span,
-                Statement::Class(node) => node.span,
-                Statement::Break(node) => node.span,
-                Statement::Continue(node) => node.span,
-                Statement::Return(node) => node.span,
-                Statement::Expr(node) => node.span,
-            };
-            Ok(Block {
-                span,
-                stmts: vec![stmt],
-            })
+            Ok(vec![self.statement()?])
         }
     }
 
@@ -340,16 +325,60 @@ impl<'i> Parser<'i> {
     fn range_expr(&mut self, expects_stmt: bool) -> Result<RangeExpr> {
         let start = self.curr_tok.span.start;
 
-        let left = Box::new(self.or_expr(expects_stmt)?);
-        let right = if of_kinds!(self, Dots, DotsInclusive) {
+        if of_kinds!(self, Dots, DotsInclusive) {
             let tok = self.curr_tok.kind;
             self.advance();
-            Some((tok, Box::new(self.or_expr(false)?)))
+            if of_kinds!(self, RParen, RBrack, RBrace, Comma, Eof)
+                || of_kinds!(self, Eol, Semicolon)
+            {
+                if tok == TokenKind::DotsInclusive {
+                    self.errors.push(error_val!(
+                        SyntaxError,
+                        self.curr_tok.span,
+                        "Open ended range must be constructed with '..' not '..='",
+                    ));
+                }
+                Ok(RangeExpr::Open)
+            } else {
+                let right = Box::new(self.or_expr(expects_stmt)?);
+                Ok(RangeExpr::OpenStart(
+                    tok,
+                    right,
+                    Span::new(start, self.prev_tok.span.end),
+                ))
+            }
         } else {
-            None
-        };
-
-        done!(RangeExpr, start, self; left, right)
+            let left = Box::new(self.or_expr(expects_stmt)?);
+            if !of_kinds!(self, Dots, DotsInclusive) {
+                Ok(RangeExpr::None(left))
+            } else {
+                let tok = self.curr_tok.kind;
+                self.advance();
+                if of_kinds!(self, RParen, RBrack, RBrace, Comma, Eof)
+                    || of_kinds!(self, Eol, Semicolon)
+                {
+                    if tok == TokenKind::DotsInclusive {
+                        self.errors.push(error_val!(
+                            SyntaxError,
+                            self.curr_tok.span,
+                            "Open ended range must be constructed with '..' not '..='",
+                        ));
+                    }
+                    Ok(RangeExpr::OpenEnd(
+                        left,
+                        Span::new(start, self.prev_tok.span.end),
+                    ))
+                } else {
+                    let right = Box::new(self.or_expr(expects_stmt)?);
+                    Ok(RangeExpr::Closed(
+                        left,
+                        tok,
+                        right,
+                        Span::new(start, self.prev_tok.span.end),
+                    ))
+                }
+            }
+        }
     }
 
     simple_expr!(or_expr -> OrExpr: Or => and_expr *);
@@ -492,7 +521,7 @@ impl<'i> Parser<'i> {
             }
             TokenKind::False => {
                 self.advance();
-                Atom::Bool(true)
+                Atom::Bool(false)
             }
             TokenKind::String => {
                 let str = self.curr_tok.take_value();
@@ -644,16 +673,11 @@ impl<'i> Parser<'i> {
     }
 
     fn block_expr(&mut self) -> Result<BlockExpr> {
-        let start = self.curr_tok.span.start;
-
         expect!(self, LBrace, "'{'");
         let stmts = self.statements()?;
         expect!(self, RBrace, "'}'");
 
-        Ok(BlockExpr {
-            span: Span::new(start, self.prev_tok.span.end),
-            ..stmts
-        })
+        Ok(stmts)
     }
 
     fn member_part(&mut self) -> Result<MemberPart> {

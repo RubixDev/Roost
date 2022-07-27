@@ -4,7 +4,11 @@ printl(list[-3])
 list[1] = 42
 printl(list)
 
+printl()
+
 for (i in list) print(i)
+printl()
+
 printl()
 
 debug(list)
@@ -18,12 +22,13 @@ list.insert(1, 'hi')
 debug(list)
 assert(list.pop() == 3)
 debug(list)
-assert(debug(list[1..=3]) == ['hi', 42, 1])
+
+printl()
 
 debug('asd' + [2])
 debug([2] + 'asd')
 
-debug([1, 2, 3, true])
+printl()
 
 var a = 42
 var list = [1, 2]
@@ -31,5 +36,17 @@ list.push(a)
 debug(list)
 a += 1
 debug(list)
+
+printl()
+
+var list = [0, 1, 2, 3, 4, 5, 6, 7]
+assert(debug(list[1..=3]) == [1, 2, 3])
+assert(debug(list[1..3]) == [1, 2])
+assert(debug(list[1..]) == [1, 2, 3, 4, 5, 6, 7])
+assert(debug(list[..=3]) == [0, 1, 2, 3])
+assert(debug(list[..3]) == [0, 1, 2])
+assert(debug(list[..]) == [0, 1, 2, 3, 4, 5, 6, 7])
+
+printl()
 
 assert(debug(1, 3) == [1, 3])

@@ -94,7 +94,7 @@ pub fn type_of<'tree>(args: Vec<WrappedValue<'tree>>, span: &Span) -> Result<Wra
 pub fn assert<'tree>(args: Vec<WrappedValue<'tree>>, span: &Span) -> Result<WrappedValue<'tree>> {
     expect_len!(args, 1, "assert", span);
     if args[0].borrow().is_false() {
-        error!(RuntimeError, *span, "Assertion failed",);
+        error!(RuntimeError, *span, "Assertion failed");
     }
     Ok(Value::Null.wrapped())
 }

@@ -188,7 +188,10 @@ fn str_to_range<'tree>(
     let str = unwrap_variant!(borrow, String);
     expect_len!(args, 0, "toRange", span);
     let mut split = str.split("..");
-    let left = split.next().unwrap();
+    let left = match split.next() {
+        Some(left) => left,
+        None => parse_err!(this, *span, "range"),
+    };
     let mut right = match split.next() {
         Some(right) => right,
         None => parse_err!(this, *span, "range"),
@@ -199,12 +202,15 @@ fn str_to_range<'tree>(
     }
 
     let (left, right) = match (i128::from_str(left), i128::from_str(right)) {
-        (Ok(left), Ok(right)) => (left, right),
+        (Ok(left), Ok(right)) => (Some(left), Some(right - !inclusive as i128)),
+        (Ok(left), Err(_)) if right.is_empty() => (Some(left), None),
+        (Err(_), Ok(right)) if left.is_empty() => (None, Some(right - !inclusive as i128)),
+        (Err(_), Err(_)) if left.is_empty() && right.is_empty() => (None, None),
         _ => parse_err!(this, *span, "range"),
     };
     Ok(Value::Range {
         start: left,
-        end: right - !inclusive as i128,
+        end: right,
     }
     .wrapped())
 }

@@ -60,11 +60,22 @@ impl<'tree> Value<'tree> {
             (Value::List(list), Value::Number(_)) => {
                 Rc::clone(&list[index.borrow().to_list_index(list.len(), span)?])
             }
-            (Value::List(list), Value::Range { start, end }) => {
-                let start = start.to_list_index(list.len(), span)?;
-                let end = end.to_list_index(list.len(), span)?;
-                Value::List(list[start..=end].into()).wrapped()
-            }
+            (Value::List(list), Value::Range { start, end }) => match (start, end) {
+                (Some(start), Some(end)) => {
+                    let start = start.to_list_index(list.len(), span)?;
+                    let end = end.to_list_index(list.len(), span)?;
+                    Value::List(list[start..=end].into()).wrapped()
+                }
+                (Some(start), None) => {
+                    let start = start.to_list_index(list.len(), span)?;
+                    Value::List(list[start..].into()).wrapped()
+                }
+                (None, Some(end)) => {
+                    let end = end.to_list_index(list.len(), span)?;
+                    Value::List(list[..=end].into()).wrapped()
+                }
+                (None, None) => Value::List(list[..].into()).wrapped(),
+            },
             _ => error!(
                 TypeError,
                 *span,

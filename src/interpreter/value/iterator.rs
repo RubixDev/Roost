@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, ops::RangeInclusive, rc::Rc, slice::Iter, str::Chars};
+use std::{marker::PhantomData, rc::Rc, slice::Iter, str::Chars};
 
 use crate::error::{Result, Span};
 
@@ -11,7 +11,14 @@ impl<'tree> Value<'tree> {
     ) -> Result<Box<dyn Iterator<Item = WrappedValue<'tree>> + '_>> {
         match self {
             Value::String(val) => Ok(Box::new(StringIterator::new(val))),
-            Value::Range { start, end } => Ok(Box::new(RangeIterator::new(*start..=*end))),
+            Value::Range { start, end } => match (start, end) {
+                (Some(start), Some(end)) => Ok(Box::new(RangeIterator::new(*start..=*end))),
+                (Some(start), None) => Ok(Box::new(RangeIterator::new(*start..))),
+                _ => error!(
+                    ValueError,
+                    *span, "Cannot iterate over ranges with open start",
+                ),
+            },
             Value::List(list) => Ok(Box::new(ListIterator::new(list))),
             _ => error!(
                 TypeError,
@@ -47,13 +54,19 @@ impl<'src, 'tree> Iterator for StringIterator<'src, 'tree> {
     }
 }
 
-struct RangeIterator<'tree> {
-    inner: RangeInclusive<i128>,
+struct RangeIterator<'tree, Range>
+where
+    Range: Iterator<Item = i128>,
+{
+    inner: Range,
     _tree: PhantomData<&'tree ()>,
 }
 
-impl<'tree> RangeIterator<'tree> {
-    fn new(range: RangeInclusive<i128>) -> Self {
+impl<'tree, Range> RangeIterator<'tree, Range>
+where
+    Range: Iterator<Item = i128>,
+{
+    fn new(range: Range) -> Self {
         Self {
             inner: range,
             _tree: PhantomData,
@@ -61,7 +74,10 @@ impl<'tree> RangeIterator<'tree> {
     }
 }
 
-impl<'tree> Iterator for RangeIterator<'tree> {
+impl<'tree, Range> Iterator for RangeIterator<'tree, Range>
+where
+    Range: Iterator<Item = i128>,
+{
     type Item = WrappedValue<'tree>;
 
     fn next(&mut self) -> Option<Self::Item> {

@@ -1,17 +1,19 @@
 [package]
 name = "roost-cli"
 description = "Command line interface for the Roost interpreter"
-version = "1.2.0"
+version = "2.0.0"
 edition = "2021"
 authors = ["RubixDev"]
 license = "GPL-2.0-only"
+repository = "https://github.com/RubixDev/Roost"
+keywords = ["interpreter", "language"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 rustyline = "10.0.0"
 syntect = { version = "5.0.0", features = ["default-fancy"], default-features = false }
-roost = { path = "../" }
+roost = { path = "../", package = "roost-lang", version = "2.0.0" }
 clap = { version = "3.2.14", features = ["derive"] }
 
 [dev-dependencies]

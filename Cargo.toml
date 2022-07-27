@@ -1,10 +1,12 @@
 [package]
-name = "roost"
+name = "roost-lang"
 description = "Interpreter library for the roost language"
-version = "1.2.0"
+version = "2.0.0"
 edition = "2021"
 authors = ["RubixDev"]
 license = "GPL-2.0-only"
+repository = "https://github.com/RubixDev/Roost"
+keywords = ["interpreter", "language"]
 
 [workspace]
 members = ["roost-cli"]

@@ -5,6 +5,8 @@ version = "1.2.0"
 edition = "2021"
 authors = ["RubixDev"]
 license = "GPL-2.0-only"
+repository = "https://github.com/RubixDev/Roost"
+keywords = ["interpreter", "language"]
 
 [workspace]
 members = ["cli"]

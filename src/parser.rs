@@ -656,6 +656,7 @@ impl <'a> Parser<'a> {
                     rust_decimal::Error::ExceedsMaximumPossibleValue     => error!(ValueError, start_location, loc!(self), "Value too high"),
                     rust_decimal::Error::LessThanMinimumPossibleValue    => error!(ValueError, start_location, loc!(self), "Value too low"),
                     rust_decimal::Error::ScaleExceedsMaximumPrecision(_) => error!(ValueError, start_location, loc!(self), "Value too precise"),
+                    _                                                    => error!(ValueError, start_location, loc!(self), "Failed to parse number"),
                 },
             };
             self.advance();

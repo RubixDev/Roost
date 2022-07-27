@@ -1,14 +1,18 @@
-use std::{marker::PhantomData, ops::RangeInclusive, str::Chars};
+use std::{marker::PhantomData, ops::RangeInclusive, rc::Rc, slice::Iter, str::Chars};
 
 use crate::error::{Result, Span};
 
-use super::{types, Value};
+use super::{types, Value, WrappedValue};
 
 impl<'tree> Value<'tree> {
-    pub fn to_iter(&self, span: &Span) -> Result<Box<dyn Iterator<Item = Value<'tree>> + '_>> {
+    pub fn to_iter(
+        &self,
+        span: &Span,
+    ) -> Result<Box<dyn Iterator<Item = WrappedValue<'tree>> + '_>> {
         match self {
             Value::String(val) => Ok(Box::new(StringIterator::new(val))),
             Value::Range { start, end } => Ok(Box::new(RangeIterator::new(*start..=*end))),
+            Value::List(list) => Ok(Box::new(ListIterator::new(list))),
             _ => error!(
                 TypeError,
                 *span,
@@ -34,12 +38,12 @@ impl<'src, 'tree> StringIterator<'src, 'tree> {
 }
 
 impl<'src, 'tree> Iterator for StringIterator<'src, 'tree> {
-    type Item = Value<'tree>;
+    type Item = WrappedValue<'tree>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner
             .next()
-            .map(|char| Value::String(char.to_string()))
+            .map(|char| Value::String(char.to_string()).wrapped())
     }
 }
 
@@ -58,9 +62,33 @@ impl<'tree> RangeIterator<'tree> {
 }
 
 impl<'tree> Iterator for RangeIterator<'tree> {
-    type Item = Value<'tree>;
+    type Item = WrappedValue<'tree>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().map(|num| Value::Number(num.into()))
+        self.inner
+            .next()
+            .map(|num| Value::Number(num.into()).wrapped())
+    }
+}
+
+struct ListIterator<'src, 'tree> {
+    inner: Iter<'src, WrappedValue<'tree>>,
+    _tree: PhantomData<&'tree ()>,
+}
+
+impl<'src, 'tree> ListIterator<'src, 'tree> {
+    fn new(list: &'src [WrappedValue<'tree>]) -> Self {
+        Self {
+            inner: list.iter(),
+            _tree: PhantomData,
+        }
+    }
+}
+
+impl<'tree> Iterator for ListIterator<'_, 'tree> {
+    type Item = WrappedValue<'tree>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(Rc::clone)
     }
 }

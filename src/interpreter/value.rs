@@ -1,4 +1,5 @@
 pub mod bitwise_operations;
+pub mod indexing;
 pub mod iterator;
 pub mod mathematical_operations;
 pub mod members;
@@ -29,6 +30,7 @@ pub enum Value<'tree> {
         start: i128,
         end: i128,
     },
+    List(Vec<WrappedValue<'tree>>),
     Function {
         args: &'tree [String],
         block: &'tree Block,
@@ -56,7 +58,7 @@ pub enum BuiltIn {
             this: &WrappedValue<'tree>,
             args: Vec<WrappedValue<'tree>>,
             span: &Span,
-        ) -> Result<Value<'tree>>,
+        ) -> Result<WrappedValue<'tree>>,
     ),
     Print {
         newline: bool,
@@ -103,6 +105,14 @@ impl Display for Value<'_> {
             Value::Bool(value) => Display::fmt(&value, f),
             Value::String(value) => Display::fmt(&value, f),
             Value::Range { start, end } => write!(f, "{start}..={end}"),
+            Value::List(list) => write!(
+                f,
+                "[{}]",
+                list.iter()
+                    .map(|val| val.borrow().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
             Value::Function { .. } | Value::BuiltIn(..) => {
                 write!(f, "<function>")
             }
@@ -122,6 +132,14 @@ impl Debug for Value<'_> {
             Value::Range { start, end } => {
                 write!(f, "\x1b[33m{start}\x1b[0m..=\x1b[33m{end}\x1b[0m")
             }
+            Value::List(list) => write!(
+                f,
+                "[{}]",
+                list.iter()
+                    .map(|val| format!("{:?}", val.borrow()))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
             Value::Function { .. } | Value::BuiltIn(..) => {
                 write!(f, "\x1b[1m<function>\x1b[0m")
             }

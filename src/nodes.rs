@@ -75,6 +75,7 @@ pub enum Atom {
     Null,
     Identifier { span: Span, name: String },
     Expr(Expression),
+    List(ListLiteral),
     IfExpr(IfExpr),
     ForExpr(ForExpr),
     WhileExpr(WhileExpr),
@@ -84,6 +85,7 @@ pub enum Atom {
     TryExpr(TryExpr),
     BlockExpr(BlockExpr),
 }
+pub type ListLiteral = Vec<Expression>;
 node! { IfExpr; cond: Expression, block: Block, else_block: Option<Block> }
 node! { ForExpr; ident: String, iter: Expression, block: Block }
 node! { WhileExpr; cond: Expression, block: Block }
@@ -96,6 +98,7 @@ pub type BlockExpr = Block;
 #[derive(Debug, PartialEq, Clone)]
 pub enum MemberPart {
     Field(String),
+    Index(Expression),
 }
 #[derive(Debug, PartialEq, Clone)]
 pub enum CallPart {

@@ -474,13 +474,6 @@ where
                 error!(TypeError, node.span, "Cannot reassign type '{}'", left_type,);
             }
             let right = try_visit!(self.visit_expression(right)?);
-            let right_type = types::type_of(&right.borrow());
-            if left_type != right_type && left_type != Type::Null && right_type != Type::Null {
-                error!(
-                    TypeError,
-                    node.span, "Cannot change type by reassigning, create a new variable instead",
-                );
-            }
             let new_value = match tok {
                 TokenKind::Assign => right.borrow().clone(),
                 TokenKind::StarAssign => left.borrow().mul(&right.borrow(), &node.span)?,
@@ -498,6 +491,13 @@ where
                 TokenKind::BitOrAssign => left.borrow().or(&right.borrow(), &node.span)?,
                 _ => unreachable!(),
             };
+            let new_type = types::type_of(&new_value);
+            if left_type != new_type && left_type != Type::Null && new_type != Type::Null {
+                error!(
+                    TypeError,
+                    node.span, "Cannot change type by reassigning, create a new variable instead",
+                );
+            }
             *left.borrow_mut() = new_value;
         }
         Ok(RuntimeResult::new(Some(left)))
@@ -511,6 +511,9 @@ where
                 CallPart::Args(args) => self.call_value(&base, args, &parent, &node.span)?,
                 CallPart::Member(MemberPart::Field(ident)) => {
                     Value::get_field(&base, ident, &self.built_in_methods, &node.span)?
+                }
+                CallPart::Member(MemberPart::Index(expr)) => {
+                    Value::index(&base, &try_visit!(self.visit_expression(expr)?), &node.span)?
                 }
             };
             mem::swap(&mut base, &mut parent);
@@ -560,20 +563,22 @@ where
                 }
 
                 let out = match func {
-                    BuiltIn::Function(func) => func(args, span),
-                    BuiltIn::Method(func) => func(parent, args, span),
+                    BuiltIn::Function(func) => func(args, span)?.wrapped(),
+                    BuiltIn::Method(func) => func(parent, args, span)?,
                     BuiltIn::Print {
                         newline,
                         stderr: false,
-                    } => built_in::print(args, &mut self.stdout, span, *newline),
+                    } => built_in::print(args, &mut self.stdout, span, *newline)?.wrapped(),
                     BuiltIn::Print {
                         newline,
                         stderr: true,
-                    } => built_in::print(args, &mut self.stderr, span, *newline),
-                    BuiltIn::Exit => built_in::exit(args, self.exit_callback.take().unwrap(), span),
-                    BuiltIn::Debug => built_in::debug(args, &mut self.stderr, span),
-                }?;
-                Ok(out.wrapped())
+                    } => built_in::print(args, &mut self.stderr, span, *newline)?.wrapped(),
+                    BuiltIn::Exit => {
+                        built_in::exit(args, self.exit_callback.take().unwrap(), span)?.wrapped()
+                    }
+                    BuiltIn::Debug => built_in::debug(args, &mut self.stderr, span)?.wrapped(),
+                };
+                Ok(out)
             }
             Value::Class { non_statics, .. } => {
                 if !call_args.is_empty() {
@@ -636,6 +641,13 @@ where
                 MemberPart::Field(ident) => {
                     Value::get_field(&base, ident, &self.built_in_methods, &node.span)?
                 }
+                MemberPart::Index(expr) => {
+                    let res = self.visit_expression(expr)?;
+                    if res.should_return() {
+                        return Ok((Value::Null.wrapped(), res));
+                    }
+                    Value::index(&base, &res.take_value(), &node.span)?
+                }
             };
             mem::swap(&mut parent, &mut base);
             base = out;
@@ -651,6 +663,20 @@ where
             Atom::Null => Value::Null.wrapped(),
             Atom::Identifier { span, name } => Rc::clone(self.get_var(name, span)?.0),
             Atom::Expr(node) => try_visit!(self.visit_expression(node)?),
+            Atom::List(nodes) => {
+                let results = nodes
+                    .iter()
+                    .map(|node| self.visit_expression(node))
+                    .collect::<Result<Vec<_>>>()?;
+                let mut values = vec![];
+                for res in results {
+                    if res.should_return() {
+                        return Ok(res);
+                    }
+                    values.push(res.take_value());
+                }
+                Value::List(values).wrapped()
+            }
             Atom::IfExpr(node) => try_visit!(self.visit_if_expr(node)?),
             Atom::ForExpr(node) => try_visit!(self.visit_for_expr(node)?),
             Atom::WhileExpr(node) => try_visit!(self.visit_while_expr(node)?),
@@ -682,7 +708,7 @@ where
         let mut out = Value::Null.wrapped();
         for item in iter {
             self.push_scope();
-            self.add_var(&node.ident, item.wrapped());
+            self.add_var(&node.ident, item);
             let res = self.visit_block(&node.block, false)?;
             if res.should_continue {
                 continue;

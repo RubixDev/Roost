@@ -430,7 +430,7 @@ impl<'i> Parser<'i> {
         let mut following = vec![];
         if of_kinds!(self, LParen) {
             following.push(CallPart::Args(self.args()?));
-            while of_kinds!(self, LParen, Dot) {
+            while of_kinds!(self, LParen, Dot, LBrack) {
                 following.push(self.call_part()?);
             }
         }
@@ -443,7 +443,7 @@ impl<'i> Parser<'i> {
 
         let base = self.atom(expects_stmt)?;
         let mut following = vec![];
-        while of_kinds!(self, Dot) {
+        while of_kinds!(self, Dot, LBrack) {
             following.push(self.member_part()?);
         }
 
@@ -517,6 +517,7 @@ impl<'i> Parser<'i> {
                 expect!(self, RParen, "')'");
                 Atom::Expr(expr)
             }
+            TokenKind::LBrack => Atom::List(self.list_literal()?),
             TokenKind::If => Atom::IfExpr(self.if_expr()?),
             TokenKind::For => Atom::ForExpr(self.for_expr()?),
             TokenKind::While => Atom::WhileExpr(self.while_expr()?),
@@ -536,6 +537,24 @@ impl<'i> Parser<'i> {
                 self.curr_tok.value(),
             ),
         })
+    }
+
+    fn list_literal(&mut self) -> Result<ListLiteral> {
+        expect!(self, LBrack, "'['");
+        let mut exprs = vec![];
+        if !of_kinds!(self, RBrack) {
+            exprs.push(self.expression(false)?);
+            while of_kinds!(self, Comma) {
+                self.advance();
+                if of_kinds!(self, RBrack) {
+                    break;
+                }
+                exprs.push(self.expression(false)?);
+            }
+        }
+        expect!(self, RBrack, "']'");
+
+        Ok(exprs)
     }
 
     fn if_expr(&mut self) -> Result<IfExpr> {
@@ -643,10 +662,16 @@ impl<'i> Parser<'i> {
                 self.advance();
                 MemberPart::Field(expect_ident!(self))
             }
+            TokenKind::LBrack => {
+                self.advance();
+                let expr = self.expression(false)?;
+                expect!(self, RBrack, "']'");
+                MemberPart::Index(expr)
+            }
             _ => error!(
                 SyntaxError,
                 self.curr_tok.span,
-                "Expected '.', found '{}'",
+                "Expected '.' or '[', found '{}'",
                 self.curr_tok.value(),
             ),
         })

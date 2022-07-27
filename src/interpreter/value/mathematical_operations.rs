@@ -12,16 +12,19 @@ impl Value<'_> {
                 }
                 .normalize(),
             ),
-            (Value::Number(left), Value::String(right)) => Value::String(left.to_string() + right),
-            (Value::String(left), right) | (right, Value::String(left)) => {
-                Value::String(left.to_string() + &right.to_string())
+            (Value::String(left), right) => Value::String(left.to_string() + &right.to_string()),
+            (left, Value::String(right)) => Value::String(left.to_string() + right),
+            (Value::List(left), Value::List(right)) => {
+                let mut new_list = left.clone();
+                new_list.append(&mut right.clone());
+                Value::List(new_list)
             }
             _ => error!(
                 TypeError,
                 *span,
                 "Cannot add {} to {}",
-                types::type_of(self),
                 types::type_of(other),
+                types::type_of(self),
             ),
         })
     }

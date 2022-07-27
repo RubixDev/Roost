@@ -40,6 +40,13 @@ impl<'tree> Value<'tree> {
                 "round" => Rc::clone(&*built_in_methods.num_round),
                 _ => Self::get_common_field(this, name, built_in_methods, span)?,
             },
+            Value::List(_) => match name {
+                "push" => Rc::clone(&*built_in_methods.list_push),
+                "pop" => Rc::clone(&*built_in_methods.list_pop),
+                "insert" => Rc::clone(&*built_in_methods.list_insert),
+                "remove" => Rc::clone(&*built_in_methods.list_remove),
+                _ => Self::get_common_field(this, name, built_in_methods, span)?,
+            },
             _ => Self::get_common_field(this, name, built_in_methods, span)?,
         })
     }

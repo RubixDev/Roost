@@ -95,6 +95,8 @@ impl<'i> Lexer<'i> {
                 ')' => char_construct!(self, RParen, _, _, _),
                 '{' => char_construct!(self, LBrace, _, _, _),
                 '}' => char_construct!(self, RBrace, _, _, _),
+                '[' => char_construct!(self, LBrack, _, _, _),
+                ']' => char_construct!(self, RBrack, _, _, _),
                 ',' => char_construct!(self, Comma, _, _, _),
                 ';' => char_construct!(self, Semicolon, _, _, _),
                 '|' => char_construct!(self, BitOr, BitOrAssign, Or, _),

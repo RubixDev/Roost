@@ -1,0 +1,33 @@
+var list = [1, 2, 3]
+printl(list[2])
+printl(list[-3])
+list[1] = 42
+printl(list)
+
+for (i in list) print(i)
+printl()
+
+debug(list)
+list.push(1)
+debug(list)
+list += [2, 3]
+debug(list)
+list.remove(2)
+debug(list)
+list.insert(1, 'hi')
+debug(list)
+assert(list.pop() == 3)
+debug(list)
+assert(list[1..=3] == ['hi', 42, 1])
+
+debug('asd' + [2])
+debug([2] + 'asd')
+
+debug([1, 2, 3, true])
+
+var a = 42
+var list = [1, 2]
+list.push(a)
+debug(list)
+a += 1
+debug(list)

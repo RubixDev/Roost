@@ -9,6 +9,8 @@ pub enum TokenKind {
     RParen, // ')'
     LBrace, // '{'
     RBrace, // '}'
+    LBrack, // '['
+    RBrack, // ']'
 
     String,        // string including quotes, token value does not include quotes
     Number,        // int or float

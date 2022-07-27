@@ -35,53 +35,56 @@ MemberBlock = '{' , { Member , EOL } , '}' ;
 (***************************)
 (******* EXPRESSIONS *******)
 (***************************)
-Expression = RangeExpr ;
-RangeExpr  = OrExpr , [ ( '..' | '..=' ) , OrExpr ] ;
-OrExpr     = AndExpr , { '||' , AndExpr } ;
-AndExpr    = BitOrExpr , { '&&' , BitOrExpr } ;
-BitOrExpr  = BitXorExpr , { '|' , BitXorExpr } ;
-BitXorExpr = BitAndExpr , { '^' , BitAndExpr } ;
-BitAndExpr = EqExpr , { '&' , EqExpr } ;
-EqExpr     = RelExpr , [ ( '==' | '!=' ) , RelExpr ] ;
-RelExpr    = ShiftExpr , [ ( '<' | '>' | '<=' | '>=' ) , ShiftExpr ] ;
-ShiftExpr  = AddExpr , { ( '<<' | '>>' ) , AddExpr } ;
-AddExpr    = MulExpr , { ( '+' | '-' ) , MulExpr } ;
-MulExpr    = UnaryExpr , { ( '*' | '/' | '%' | '\' ) , UnaryExpr } ;
-UnaryExpr  = ( '+' | '-' | '!' ) , UnaryExpr
-           | ExpExpr ;
-ExpExpr    = AssignExpr , [ '**' , UnaryExpr ] ;
-AssignExpr = CallExpr , [ ASSIGN_OPERATOR , Expression ] ;
+Expression  = RangeExpr ;
+RangeExpr   = OrExpr , [ ( '..' | '..=' ) , OrExpr ] ;
+OrExpr      = AndExpr , { '||' , AndExpr } ;
+AndExpr     = BitOrExpr , { '&&' , BitOrExpr } ;
+BitOrExpr   = BitXorExpr , { '|' , BitXorExpr } ;
+BitXorExpr  = BitAndExpr , { '^' , BitAndExpr } ;
+BitAndExpr  = EqExpr , { '&' , EqExpr } ;
+EqExpr      = RelExpr , [ ( '==' | '!=' ) , RelExpr ] ;
+RelExpr     = ShiftExpr , [ ( '<' | '>' | '<=' | '>=' ) , ShiftExpr ] ;
+ShiftExpr   = AddExpr , { ( '<<' | '>>' ) , AddExpr } ;
+AddExpr     = MulExpr , { ( '+' | '-' ) , MulExpr } ;
+MulExpr     = UnaryExpr , { ( '*' | '/' | '%' | '\' ) , UnaryExpr } ;
+UnaryExpr   = ( '+' | '-' | '!' ) , UnaryExpr
+            | ExpExpr ;
+ExpExpr     = AssignExpr , [ '**' , UnaryExpr ] ;
+AssignExpr  = CallExpr , [ ASSIGN_OPERATOR , Expression ] ;
 ASSING_OPERATOR = '=' | '*=' | '/=' | '\=' | '%=' | '+=' | '-='
                 | '<<=' | '>>=' | '&=' | '^=' | '|=' | '**=' ;
-CallExpr   = MemberExpr , [ Args , { CallPart } ] ;
-MemberExpr = Atom , { MemberPart } ;
-Atom       = number
-           | bool
-           | string
-           | 'null'
-           | identifier
-           | '(' , Expression , ')'
-           | IfExpr
-           | ForExpr
-           | WhileExpr
-           | LoopExpr
-           | FunExpr
-           | ClassExpr
-           | TryExpr
-           | BlockExpr ;
-IfExpr     = 'if' , '(' , Expression , ')' , Block , [ 'else' , Block ] ;
-ForExpr    = 'for' , '(' , identifier , 'in' , Expression , ')' , Block ;
-WhileExpr  = 'while' , '(' , Expression , ')' , Block ;
-LoopExpr   = 'loop' , Block ;
-FunExpr    = 'fun' , Params , Block ;
-ClassExpr  = 'class' , MemberBlock ;
-TryExpr    = 'try' , Block , 'catch' , '(' , identifier , ')' , Block ;
-BlockExpr  = '{' , Statements , '}' ;
+CallExpr    = MemberExpr , [ Args , { CallPart } ] ;
+MemberExpr  = Atom , { MemberPart } ;
+Atom        = number
+            | bool
+            | string
+            | 'null'
+            | identifier
+            | '(' , Expression , ')'
+            | ListLiteral
+            | IfExpr
+            | ForExpr
+            | WhileExpr
+            | LoopExpr
+            | FunExpr
+            | ClassExpr
+            | TryExpr
+            | BlockExpr ;
+ListLiteral = '[' , [ Expression , { ',' , Expression } , [ ',' ] ] , ']' ;
+IfExpr      = 'if' , '(' , Expression , ')' , Block , [ 'else' , Block ] ;
+ForExpr     = 'for' , '(' , identifier , 'in' , Expression , ')' , Block ;
+WhileExpr   = 'while' , '(' , Expression , ')' , Block ;
+LoopExpr    = 'loop' , Block ;
+FunExpr     = 'fun' , Params , Block ;
+ClassExpr   = 'class' , MemberBlock ;
+TryExpr     = 'try' , Block , 'catch' , '(' , identifier , ')' , Block ;
+BlockExpr   = '{' , Statements , '}' ;
 
 (*********************)
 (******* OTHER *******)
 (*********************)
-MemberPart = '.' , identifier ;
+MemberPart = '.' , identifier
+           | '[' , Expression , ']' ;
 CallPart   = MemberPart | Args ;
 Args       = '(' , [ Expression , { ',' , Expression } , [ ',' ] ] , ')' ;
 Params     = '(' , [ identifier , { ',' , identifier } , [ ',' ] ] , ')' ;

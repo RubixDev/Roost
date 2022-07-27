@@ -5,7 +5,7 @@
 *)
 
 Program      = Statements ;
-(* The end of <Statements> is indicated by a following `Eof` or `LBrace` token *)
+(* The end of <Statements> is indicated by a following `Eof` or `RBrace` token *)
 Statements   = [ Statement , { EOL , Statement } , [ EOL ] ] ;
 Block        = BlockExpr | Statement ;
 

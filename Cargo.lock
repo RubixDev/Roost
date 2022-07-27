@@ -626,24 +626,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "roost"
-version = "1.2.0"
-dependencies = [
- "rust_decimal",
-]
-
-[[package]]
 name = "roost-cli"
 version = "1.2.0"
 dependencies = [
  "ntest",
  "plist",
- "roost",
+ "roost-lang",
  "rustyline",
  "serde_json",
  "structopt",
  "syntect",
  "ureq",
+]
+
+[[package]]
+name = "roost-lang"
+version = "1.2.0"
+dependencies = [
+ "rust_decimal",
 ]
 
 [[package]]

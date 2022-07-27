@@ -14,7 +14,7 @@ keywords = ["interpreter", "language"]
 rustyline = "9.1.2"
 structopt = "0.3.26"
 syntect = { version = "4.6.0", features = ["default-fancy"], default-features = false }
-roost = { path = "../", version = "1.2.0" }
+roost = { path = "../", package = "roost-lang", version = "1.2.0" }
 
 [dev-dependencies]
 ntest = "0.7.3"

@@ -1,5 +1,5 @@
 [package]
-name = "roost"
+name = "roost-lang"
 description = "Interpreter library for the roost language"
 version = "1.2.0"
 edition = "2021"

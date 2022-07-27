@@ -4,7 +4,7 @@ use crate::error::{Result, Span};
 #[cfg(feature = "no_std_io")]
 use crate::io::Write;
 #[cfg(not(feature = "no_std_io"))]
-use std::io::Write;
+use std::{io::Write, rc::Rc};
 
 use super::value::{types, Value, WrappedValue};
 
@@ -33,7 +33,7 @@ pub fn print<'tree>(
     stdout: &mut impl Write,
     span: &Span,
     newline: bool,
-) -> Result<Value<'tree>> {
+) -> Result<WrappedValue<'tree>> {
     let args: Vec<_> = args.iter().map(|arg| arg.borrow().to_string()).collect();
     if let Err(e) = write!(
         stdout,
@@ -43,7 +43,7 @@ pub fn print<'tree>(
     ) {
         error!(SystemError, *span, "Failed to write to stdout: {}", e,);
     }
-    Ok(Value::Null)
+    Ok(Value::Null.wrapped())
 }
 
 #[cfg(feature = "no_std_io")]
@@ -52,21 +52,21 @@ pub fn print<'tree>(
     stdout: &mut impl Write,
     _span: &Span,
     newline: bool,
-) -> Result<Value<'tree>> {
+) -> Result<WrappedValue<'tree>> {
     let args: Vec<_> = args.iter().map(|arg| arg.borrow().to_string()).collect();
     stdout.write(format!(
         "{}{}",
         args.join(" "),
         if newline { "\n" } else { "" }
     ));
-    Ok(Value::Null)
+    Ok(Value::Null.wrapped())
 }
 
 pub fn exit<'tree>(
     args: Vec<WrappedValue<'tree>>,
     callback: impl FnOnce(i32),
     span: &Span,
-) -> Result<Value<'tree>> {
+) -> Result<WrappedValue<'tree>> {
     expect_len!(args, 0, "exit", span);
     if let Value::Number(num) = &*args[0].borrow() {
         if !num.fract().is_zero() {
@@ -83,23 +83,23 @@ pub fn exit<'tree>(
             *span, "First argument of function 'exit' has to be of type 'number'",
         );
     }
-    Ok(Value::Null)
+    Ok(Value::Null.wrapped())
 }
 
-pub fn type_of<'tree>(args: Vec<WrappedValue<'tree>>, span: &Span) -> Result<Value<'tree>> {
+pub fn type_of<'tree>(args: Vec<WrappedValue<'tree>>, span: &Span) -> Result<WrappedValue<'tree>> {
     expect_len!(args, 1, "typeOf", span);
-    Ok(Value::String(types::type_of(&args[0].borrow()).to_string()))
+    Ok(Value::String(types::type_of(&args[0].borrow()).to_string()).wrapped())
 }
 
-pub fn assert<'tree>(args: Vec<WrappedValue<'tree>>, span: &Span) -> Result<Value<'tree>> {
+pub fn assert<'tree>(args: Vec<WrappedValue<'tree>>, span: &Span) -> Result<WrappedValue<'tree>> {
     expect_len!(args, 1, "assert", span);
     if args[0].borrow().is_false() {
         error!(RuntimeError, *span, "Assertion failed",);
     }
-    Ok(Value::Null)
+    Ok(Value::Null.wrapped())
 }
 
-pub fn throw<'tree>(args: Vec<WrappedValue<'tree>>, span: &Span) -> Result<Value<'tree>> {
+pub fn throw<'tree>(args: Vec<WrappedValue<'tree>>, span: &Span) -> Result<WrappedValue<'tree>> {
     expect_len!(args, 1, "throw", span);
     let borrow = args[0].borrow();
     let str = match &*borrow {
@@ -117,15 +117,19 @@ pub fn debug<'tree>(
     args: Vec<WrappedValue<'tree>>,
     stderr: &mut impl Write,
     span: &Span,
-) -> Result<Value<'tree>> {
-    let args: Vec<_> = args
+) -> Result<WrappedValue<'tree>> {
+    let arg_strings: Vec<_> = args
         .iter()
         .map(|arg| format!("{:?}", arg.borrow()))
         .collect();
-    if let Err(e) = writeln!(stderr, "{}", args.join(", ")) {
+    if let Err(e) = writeln!(stderr, "{}", arg_strings.join(", ")) {
         error!(SystemError, *span, "Failed to write to stdout: {}", e,);
     }
-    Ok(Value::Null)
+    if args.len() == 1 {
+        Ok(Rc::clone(&args[0]))
+    } else {
+        Ok(Value::List(args).wrapped())
+    }
 }
 
 #[cfg(feature = "no_std_io")]
@@ -133,11 +137,15 @@ pub fn debug<'tree>(
     args: Vec<WrappedValue<'tree>>,
     stderr: &mut impl Write,
     _span: &Span,
-) -> Result<Value<'tree>> {
-    let args: Vec<_> = args
+) -> Result<WrappedValue<'tree>> {
+    let arg_strings: Vec<_> = args
         .iter()
         .map(|arg| format!("{:?}", arg.borrow()))
         .collect();
-    stderr.write(format!("{}\n", args.join(", ")));
-    Ok(Value::Null)
+    stderr.write(format!("{}\n", arg_strings.join(", ")));
+    if args.len() == 1 {
+        Ok(Rc::clone(&args[0]))
+    } else {
+        Ok(Value::List(args).wrapped())
+    }
 }

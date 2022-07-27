@@ -563,20 +563,20 @@ where
                 }
 
                 let out = match func {
-                    BuiltIn::Function(func) => func(args, span)?.wrapped(),
+                    BuiltIn::Function(func) => func(args, span)?,
                     BuiltIn::Method(func) => func(parent, args, span)?,
                     BuiltIn::Print {
                         newline,
                         stderr: false,
-                    } => built_in::print(args, &mut self.stdout, span, *newline)?.wrapped(),
+                    } => built_in::print(args, &mut self.stdout, span, *newline)?,
                     BuiltIn::Print {
                         newline,
                         stderr: true,
-                    } => built_in::print(args, &mut self.stderr, span, *newline)?.wrapped(),
+                    } => built_in::print(args, &mut self.stderr, span, *newline)?,
                     BuiltIn::Exit => {
-                        built_in::exit(args, self.exit_callback.take().unwrap(), span)?.wrapped()
+                        built_in::exit(args, self.exit_callback.take().unwrap(), span)?
                     }
-                    BuiltIn::Debug => built_in::debug(args, &mut self.stderr, span)?.wrapped(),
+                    BuiltIn::Debug => built_in::debug(args, &mut self.stderr, span)?,
                 };
                 Ok(out)
             }

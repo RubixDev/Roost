@@ -68,7 +68,7 @@ pub fn exit<'tree>(
     callback: impl FnOnce(i32),
     span: &Span,
 ) -> Result<WrappedValue<'tree>> {
-    expect_len!(args, 0, "exit", span);
+    expect_len!(args, 1, "exit", span);
     if let Value::Number(num) = &*args[0].borrow() {
         if !num.fract().is_zero() {
             error!(ValueError, *span, "Exit code has to be an integer");

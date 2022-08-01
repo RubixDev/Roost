@@ -4,7 +4,8 @@ use crate::error::{Result, Span};
 #[cfg(feature = "no_std_io")]
 use crate::io::Write;
 #[cfg(not(feature = "no_std_io"))]
-use std::{io::Write, rc::Rc};
+use std::io::Write;
+use std::rc::Rc;
 
 use super::value::{types, Value, WrappedValue};
 

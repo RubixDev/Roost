@@ -642,7 +642,7 @@ dependencies = [
 
 [[package]]
 name = "roost-lang"
-version = "2.0.3"
+version = "2.0.4"
 dependencies = [
  "once_cell",
  "rust_decimal",

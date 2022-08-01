@@ -100,6 +100,7 @@ impl<'i> Lexer<'i> {
                 ',' => char_construct!(self, Comma, _, _, _),
                 ';' => char_construct!(self, Semicolon, _, _, _),
                 '|' => char_construct!(self, BitOr, BitOrAssign, Or, _),
+                '^' => char_construct!(self, BitXor, BitXorAssign, _, _),
                 '&' => char_construct!(self, BitAnd, BitAndAssign, And, _),
                 '=' => char_construct!(self, Assign, Equal, _, _),
                 '!' => char_construct!(self, Not, NotEqual, _, _),

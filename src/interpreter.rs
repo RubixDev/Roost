@@ -546,6 +546,9 @@ where
 
     fn visit_call_expr(&mut self, node: &'tree CallExpr) -> Result<RuntimeResult<'tree>> {
         let (mut parent, result) = self.visit_member_expr(&node.base)?;
+        if result.should_return() {
+            return Ok(result);
+        }
         let mut base = result.take_value();
         for part in &node.following {
             let out = match part {

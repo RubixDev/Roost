@@ -19,15 +19,6 @@ macro_rules! parse_err {
     };
 }
 
-macro_rules! unwrap_variant {
-    ($borrow:expr, $variant:ident $($mut:tt)?) => {
-        match &$($mut)? *$borrow {
-            Value::$variant(val) => val,
-            _ => unreachable!(),
-        }
-    };
-}
-
 pub struct BuiltInMethods<'tree> {
     pub(super) to_string: Lazy<WrappedValue<'tree>>,
     pub(super) to_bool: Lazy<WrappedValue<'tree>>,
@@ -113,7 +104,7 @@ fn str_to_int<'tree>(
     span: &Span,
 ) -> Result<WrappedValue<'tree>> {
     let borrow = this.borrow();
-    let str = unwrap_variant!(borrow, String);
+    let str = borrow.unwrap_string();
     if args.len() > 1 {
         expect_len!(args, 1, "toInt", span);
     }
@@ -145,7 +136,7 @@ fn str_to_number<'tree>(
     span: &Span,
 ) -> Result<WrappedValue<'tree>> {
     let borrow = this.borrow();
-    let str = unwrap_variant!(borrow, String);
+    let str = borrow.unwrap_string();
     expect_len!(args, 0, "toNumber", span);
     match Decimal::from_str(str) {
         Ok(num) => Ok(Value::Number(num).wrapped()),
@@ -159,7 +150,7 @@ fn str_to_bool<'tree>(
     span: &Span,
 ) -> Result<WrappedValue<'tree>> {
     let borrow = this.borrow();
-    let str = unwrap_variant!(borrow, String);
+    let str = borrow.unwrap_string();
     expect_len!(args, 0, "toBool", span);
     Ok(Value::Bool(str.to_ascii_lowercase() == "true").wrapped())
 }
@@ -170,7 +161,7 @@ fn str_to_bool_strict<'tree>(
     span: &Span,
 ) -> Result<WrappedValue<'tree>> {
     let borrow = this.borrow();
-    let str = unwrap_variant!(borrow, String);
+    let str = borrow.unwrap_string();
     expect_len!(args, 0, "toBoolStrict", span);
     Ok(match str.as_str() {
         "true" => Value::Bool(true).wrapped(),
@@ -185,7 +176,7 @@ fn str_to_range<'tree>(
     span: &Span,
 ) -> Result<WrappedValue<'tree>> {
     let borrow = this.borrow();
-    let str = unwrap_variant!(borrow, String);
+    let str = borrow.unwrap_string();
     expect_len!(args, 0, "toRange", span);
     let mut split = str.split("..");
     let left = match split.next() {
@@ -221,7 +212,7 @@ fn str_to_uppercase<'tree>(
     span: &Span,
 ) -> Result<WrappedValue<'tree>> {
     let borrow = this.borrow();
-    let str = unwrap_variant!(borrow, String);
+    let str = borrow.unwrap_string();
     expect_len!(args, 0, "toUppercase", span);
     Ok(Value::String(str.to_ascii_uppercase()).wrapped())
 }
@@ -232,7 +223,7 @@ fn str_to_lowercase<'tree>(
     span: &Span,
 ) -> Result<WrappedValue<'tree>> {
     let borrow = this.borrow();
-    let str = unwrap_variant!(borrow, String);
+    let str = borrow.unwrap_string();
     expect_len!(args, 0, "toLowercase", span);
     Ok(Value::String(str.to_ascii_lowercase()).wrapped())
 }
@@ -243,7 +234,7 @@ fn num_to_int<'tree>(
     span: &Span,
 ) -> Result<WrappedValue<'tree>> {
     let borrow = this.borrow();
-    let num = unwrap_variant!(borrow, Number);
+    let num = borrow.unwrap_number();
     expect_len!(args, 0, "toInt", span);
     Ok(Value::Number(num.trunc()).wrapped())
 }
@@ -254,7 +245,7 @@ fn num_floor<'tree>(
     span: &Span,
 ) -> Result<WrappedValue<'tree>> {
     let borrow = this.borrow();
-    let num = unwrap_variant!(borrow, Number);
+    let num = borrow.unwrap_number();
     expect_len!(args, 0, "floor", span);
     Ok(Value::Number(num.floor()).wrapped())
 }
@@ -265,7 +256,7 @@ fn num_ceil<'tree>(
     span: &Span,
 ) -> Result<WrappedValue<'tree>> {
     let borrow = this.borrow();
-    let num = unwrap_variant!(borrow, Number);
+    let num = borrow.unwrap_number();
     expect_len!(args, 0, "ceil", span);
     Ok(Value::Number(num.ceil()).wrapped())
 }
@@ -276,7 +267,7 @@ fn num_round<'tree>(
     span: &Span,
 ) -> Result<WrappedValue<'tree>> {
     let borrow = this.borrow();
-    let num = unwrap_variant!(borrow, Number);
+    let num = borrow.unwrap_number();
     expect_len!(args, 0, "round", span);
     Ok(Value::Number(num.round()).wrapped())
 }
@@ -287,7 +278,7 @@ fn list_push<'tree>(
     span: &Span,
 ) -> Result<WrappedValue<'tree>> {
     let mut borrow = this.borrow_mut();
-    let list = unwrap_variant!(borrow, List mut);
+    let list = borrow.unwrap_list_mut();
     expect_len!(args, 1, "push", span);
     list.push(Rc::clone(&args[0]));
     Ok(Value::Null.wrapped())
@@ -299,7 +290,7 @@ fn list_pop<'tree>(
     span: &Span,
 ) -> Result<WrappedValue<'tree>> {
     let mut borrow = this.borrow_mut();
-    let list = unwrap_variant!(borrow, List mut);
+    let list = borrow.unwrap_list_mut();
     expect_len!(args, 0, "pop", span);
     Ok(list.pop().unwrap_or_else(|| Value::Null.wrapped()))
 }
@@ -310,7 +301,7 @@ fn list_insert<'tree>(
     span: &Span,
 ) -> Result<WrappedValue<'tree>> {
     let mut borrow = this.borrow_mut();
-    let list = unwrap_variant!(borrow, List mut);
+    let list = borrow.unwrap_list_mut();
     expect_len!(args, 2, "insert", span);
     let index = args[0].borrow().to_list_index(list.len(), span)?;
     list.insert(index, Rc::clone(&args[1]));
@@ -323,7 +314,7 @@ fn list_remove<'tree>(
     span: &Span,
 ) -> Result<WrappedValue<'tree>> {
     let mut borrow = this.borrow_mut();
-    let list = unwrap_variant!(borrow, List mut);
+    let list = borrow.unwrap_list_mut();
     expect_len!(args, 1, "remove", span);
     list.remove(args[0].borrow().to_list_index(list.len(), span)?);
     Ok(Value::Null.wrapped())

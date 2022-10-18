@@ -44,9 +44,40 @@ pub enum Value<'tree> {
     Null,
 }
 
+macro_rules! unwrap_fns {
+    ($($name:ident: $([$mut:tt])? $variant:ident => $type:tt,)*) => {$(
+        pub fn $name(&$($mut)? self) -> unwrap_fns!(@type $type $($mut)?) {
+            unwrap_fns!(@match self, $variant, $type)
+        }
+    )*};
+    (@type ($type:ty) $($mut:tt)?) => { &$($mut)? $type };
+    (@type { $($field:ident : $type:ty),* $(,)? }) => { ($(&$type),*) };
+    (@type { $($field:ident : $type:ty),* $(,)? } mut) => { ($(&mut $type),*) };
+    (@match $self:ident, $variant:ident, ($type:ty)) => {
+        match $self {
+            Self::$variant(val) => val,
+            v => unwrap_fns!(@panic v),
+        }
+    };
+    (@match $self:ident, $variant:ident, { $($field:ident : $type:ty),* $(,)? }) => {
+        match $self {
+            Self::$variant { $($field),* } => ($($field),*),
+            v => unwrap_fns!(@panic v),
+        }
+    };
+    (@panic $v:ident) => { panic!("unexpected value variant `{:?}`", $v) }
+}
+
 impl<'tree> Value<'tree> {
     pub fn wrapped(self) -> WrappedValue<'tree> {
         Rc::new(RefCell::new(self))
+    }
+
+    unwrap_fns! {
+        unwrap_number: Number => (Decimal),
+        unwrap_string: String => (String),
+        unwrap_range: Range => { start: Option<i128>, end: Option<i128> },
+        unwrap_list_mut: [mut] List => (Vec<WrappedValue<'tree>>),
     }
 }
 

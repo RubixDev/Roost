@@ -8,6 +8,7 @@ impl Value<'_> {
             Value::String(value) => !value.is_empty(),
             Value::Range { start, end } => start != end,
             Value::Null => false,
+            Value::List(vec) if vec.is_empty() => false,
             _ => true,
         }
     }
